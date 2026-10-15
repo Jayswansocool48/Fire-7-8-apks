@@ -17,13 +17,13 @@ fun Context.dp(v: Float): Float = v * resources.displayMetrics.density
 fun Context.dpi(v: Float): Int = Math.round(v * resources.displayMetrics.density)
 
 object Theme {
-    val BG = 0xFF111318.toInt()
-    val SURFACE = 0xFF1B1E26.toInt()
-    val SURFACE2 = 0xFF252935.toInt()
-    val LINE = 0xFF2F3442.toInt()
+    val BG = 0xFF000000.toInt()
+    val SURFACE = 0xFF141416.toInt()
+    val SURFACE2 = 0xFF1F1F23.toInt()
+    val LINE = 0xFF2A2A2E.toInt()
     val TEXT = 0xFFECEEF4.toInt()
     val DIM = 0xFF9097A8.toInt()
-    val ACCENT = 0xFF7C8CFF.toInt()
+    val ACCENT = 0xFF3D8BFF.toInt()
     val OK = 0xFF3DD68C.toInt()
     val WARN = 0xFFF2B84B.toInt()
     val BAD = 0xFFFF6B7A.toInt()
@@ -330,62 +330,5 @@ class FlowGrid(context: Context, var minCell: Float, var cellHeight: Float, var 
             val y = ((i / cols) * (cellHeight + gap)).toInt()
             c.layout(x, y, x + c.measuredWidth, y + c.measuredHeight)
         }
-    }
-}
-
-/** Home screen card for one tool. */
-class ToolTile(context: Context, val title: String, val subtitle: String, val icon: Icon, val color: Int) : View(context) {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val rect = RectF()
-
-    init {
-        isClickable = true
-        isFocusable = true
-        contentDescription = title
-    }
-
-    override fun drawableStateChanged() {
-        super.drawableStateChanged()
-        invalidate()
-    }
-
-    override fun onDraw(canvas: Canvas) {
-        val r = context.dp(18f)
-        rect.set(0f, 0f, width.toFloat(), height.toFloat())
-        paint.style = Paint.Style.FILL
-        paint.color = Theme.SURFACE
-        canvas.drawRoundRect(rect, r, r, paint)
-        if (isPressed) {
-            paint.color = (color and 0x00FFFFFF) or 0x22000000
-            canvas.drawRoundRect(rect, r, r, paint)
-        }
-        val pad = context.dp(18f)
-        val circle = context.dp(52f)
-        val cx = pad + circle / 2
-        val cy = pad + circle / 2
-        paint.color = (color and 0x00FFFFFF) or 0x33000000
-        canvas.drawCircle(cx, cy, circle / 2, paint)
-        Icons.draw(canvas, icon, cx, cy, context.dp(28f), color, paint)
-        paint.style = Paint.Style.FILL
-        paint.color = Theme.TEXT
-        paint.textSize = context.dp(19f)
-        paint.isFakeBoldText = true
-        canvas.drawText(title, pad, pad + circle + context.dp(30f), paint)
-        paint.isFakeBoldText = false
-        paint.textSize = context.dp(13.5f)
-        paint.color = Theme.DIM
-        var y = pad + circle + context.dp(52f)
-        // Simple word wrap for the description.
-        val maxW = width - pad * 2
-        var line = ""
-        for (word in subtitle.split(" ")) {
-            val t = if (line.isEmpty()) word else "$line $word"
-            if (paint.measureText(t) > maxW && line.isNotEmpty()) {
-                canvas.drawText(line, pad, y, paint)
-                y += context.dp(19f)
-                line = word
-            } else line = t
-        }
-        if (line.isNotEmpty()) canvas.drawText(line, pad, y, paint)
     }
 }

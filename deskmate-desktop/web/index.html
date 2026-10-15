@@ -6,255 +6,614 @@
 <title>Deskmate</title>
 <style>
   :root {
-    --bg: #F4F5F8; --card: #FFFFFF; --text: #1B1D24; --dim: #6B7080; --line: #E3E5EB;
-    --accent: #5B6CFF; --accent-soft: #E8EAFF; --danger: #D9465B; --ok: #1F9D6B; --warn-bg: #FFF4DB; --warn: #8A5A00;
-    --radius: 14px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #14151A; --card: #1E2028; --text: #ECEDF2; --dim: #9196A6; --line: #2E313C;
-      --accent: #8391FF; --accent-soft: #2A2E4D; --warn-bg: #3A2F14; --warn: #F2C46B; }
+    --bg: #0E0E10; --panel: #18181B; --panel2: #202024; --line: #2C2C31; --text: #EDEDF0; --dim: #8E8E99;
+    --accent: #3D8BFF; --accent-soft: rgba(61,139,255,.16); --danger: #FF5D6C; --ok: #33D17A; --warn: #F5C451;
+    --key: 92px; --gap: 14px;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Ubuntu, "Fira Sans", sans-serif; background: var(--bg); color: var(--text); }
-  header { padding: 22px 24px 8px; max-width: 1100px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
-  header h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
-  .logo { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #5B6CFF, #9A5BFF); display: grid; place-items: center; color: #fff; font-weight: 700; }
-  main { max-width: 1100px; margin: 0 auto; padding: 8px 24px 60px; display: grid; gap: 16px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
-  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-  .top { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; }
-  @media (max-width: 760px) { .top { grid-template-columns: 1fr; } }
-  .code { font: 700 44px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0.12em; }
-  .muted { color: var(--dim); }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  button, .btn { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 7px 14px; border-radius: 10px; cursor: pointer; }
-  button:hover { border-color: var(--accent); }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Ubuntu, "Fira Sans", sans-serif; background: var(--bg); color: var(--text); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  button:hover { border-color: #4A4A52; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.ghost { background: transparent; border-color: transparent; }
   button.danger { color: var(--danger); }
-  button.small { padding: 4px 10px; font-size: 13px; }
-  .warn { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin-top: 12px; }
-  .warn code { font-weight: 600; }
-  ul.devices { list-style: none; padding: 0; margin: 0; }
-  ul.devices li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
-  ul.devices li:last-child { border-bottom: 0; }
-  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-  .tab { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); cursor: pointer; background: var(--card); }
-  .tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
-  .bcard { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
-  .bcard .swatch { height: 46px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; padding: 0 10px; text-align: center; }
-  .bcard .body { padding: 10px; display: grid; gap: 8px; }
-  label.f { display: grid; gap: 3px; font-size: 12px; color: var(--dim); }
-  input, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 100%; }
-  input[type=color] { padding: 2px; height: 34px; }
-  .two { display: grid; grid-template-columns: 1fr 56px; gap: 8px; }
-  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
-  .add { border: 2px dashed var(--line); border-radius: 12px; display: grid; place-items: center; min-height: 150px; color: var(--dim); cursor: pointer; background: transparent; }
-  .add:hover { border-color: var(--accent); color: var(--accent); }
-  .savebar { position: sticky; bottom: 14px; display: flex; justify-content: flex-end; gap: 10px; align-items: center; }
-  .savebar .note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; }
-  .help { font-size: 13px; color: var(--dim); margin-top: 6px; }
-  .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
-  .ok { color: var(--ok); }
-  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.92em; }
-  details summary { cursor: pointer; color: var(--dim); }
+  input, select, textarea { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; width: 100%; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  label.f { display: grid; gap: 5px; font-size: 12px; color: var(--dim); }
+
+  header { height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .logo { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, #3D8BFF, #8A5CFF); display: grid; place-items: center; }
+  .logo svg { width: 18px; height: 18px; color: #fff; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  header .host { color: var(--dim); }
+  header .spacer { flex: 1; }
+  header select { width: auto; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; background: var(--dim); }
+
+  .app { display: grid; grid-template-columns: 1fr 300px; height: calc(100% - 56px); }
+  .stage { overflow: auto; padding: 18px 24px 30px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .library { border-left: 1px solid var(--line); background: var(--panel); overflow: auto; padding: 14px; }
+
+  .pagebar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .tab { padding: 6px 14px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); cursor: pointer; user-select: none; }
+  .tab.active { background: var(--accent-soft); border-color: var(--accent); color: #9CC3FF; }
+  .tab input { width: 110px; padding: 0 4px; border: 0; background: transparent; }
+  .crumbs { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+  .crumbs b { color: var(--text); }
+
+  .device { background: #050506; border-radius: 26px; padding: 26px; border: 1px solid #1E1E22;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04); }
+  .grid { display: grid; gap: var(--gap); }
+  .slot { width: var(--key); height: var(--key); border-radius: 18%; background: #0C0C0E; border: 1px solid #17171A; position: relative; cursor: pointer; }
+  .slot.over { outline: 2px dashed var(--accent); outline-offset: 2px; }
+  .slot.selected { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .key { position: absolute; inset: 0; border-radius: 18%; overflow: hidden; display: flex; align-items: center; justify-content: center;
+    background: var(--c, #1C1C20); box-shadow: inset 0 1px 0 rgba(255,255,255,.10), inset 0 -10px 18px rgba(0,0,0,.25); }
+  .key::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,0) 45%); pointer-events: none; }
+  .key svg.ic { width: 44%; height: 44%; color: #fff; margin-bottom: 14%; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
+  .key img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .key .t { position: absolute; left: 6%; right: 6%; bottom: 7%; text-align: center; font-size: calc(var(--key) * .135); font-weight: 650;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+  .key .big { font-size: calc(var(--key) * .27); font-weight: 750; margin-bottom: 18%; letter-spacing: -.02em; }
+  .key .folderTag { position: absolute; top: 6%; right: 7%; width: 18%; height: 18%; color: rgba(255,255,255,.7); }
+  .slot.back .key { background: #141417; }
+
+  .savestate { font-size: 12px; color: var(--dim); height: 16px; }
+  .inspector { width: min(860px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; grid-template-columns: 120px 1fr; gap: 18px; }
+  .inspector.empty { display: block; color: var(--dim); text-align: center; padding: 26px; }
+  .inspector .preview { width: 120px; height: 120px; position: relative; --key: 120px; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; align-content: start; }
+  .fields .full { grid-column: 1 / -1; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .swatches { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .sw { width: 24px; height: 24px; border-radius: 7px; border: 2px solid transparent; cursor: pointer; }
+  .sw.on { border-color: #fff; }
+  input[type=color] { width: 30px; height: 26px; padding: 0; border: 0; background: none; }
+  .kind { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: #9CC3FF; font-size: 12px; }
+  .help { color: var(--dim); font-size: 12px; }
+
+  .library h3 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin: 16px 4px 6px; }
+  .library h3:first-of-type { margin-top: 10px; }
+  .act { display: flex; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 8px; cursor: grab; user-select: none; }
+  .act:hover { background: var(--panel2); }
+  .act .mini { width: 30px; height: 30px; border-radius: 7px; display: grid; place-items: center; flex: none; }
+  .act .mini svg { width: 18px; height: 18px; color: #fff; }
+  .act small { display: block; color: var(--dim); font-size: 11px; line-height: 1.2; }
+
+  .pop { position: fixed; z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; width: 372px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.6); }
+  .icons { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; max-height: 260px; overflow: auto; margin: 10px 0; }
+  .icons button { aspect-ratio: 1; padding: 6px; display: grid; place-items: center; background: var(--bg); }
+  .icons button.on { border-color: var(--accent); }
+  .icons svg { width: 100%; height: 100%; color: #fff; }
+
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 16px; padding: 22px; width: min(520px, 92vw); }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  .code { font: 700 46px/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .14em; margin: 8px 0 4px; }
+  .devices { list-style: none; padding: 0; margin: 8px 0; }
+  .devices li { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .warn { background: rgba(245,196,81,.12); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin: 12px 0; }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .92em; }
+  @media (max-width: 900px) { .app { grid-template-columns: 1fr; } .library { border-left: 0; border-top: 1px solid var(--line); } }
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">D</div>
+  <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5" fill="currentColor"/></svg></div>
   <h1>Deskmate</h1>
-  <span class="muted" id="hostLabel"></span>
+  <span class="host" id="host"></span>
+  <span class="spacer"></span>
+  <label class="row" style="gap:6px; color:var(--dim)">Layout
+    <select id="layout">
+      <option value="3x2">3 × 2 · Mini</option>
+      <option value="4x3">4 × 3</option>
+      <option value="5x3">5 × 3 · Standard</option>
+      <option value="6x4">6 × 4</option>
+      <option value="8x4">8 × 4 · XL</option>
+    </select>
+  </label>
+  <button id="pairBtn"><span class="dot" id="pairDot"></span>Tablets</button>
 </header>
-<main>
-  <div class="top">
-    <section class="card">
-      <h2>Pair a tablet</h2>
-      <div class="row" style="justify-content: space-between">
-        <div>
-          <div class="code" id="code">······</div>
-          <div class="muted" style="margin-top:6px">Open Deskmate on the tablet, choose this PC, and enter this code.</div>
-        </div>
-        <button class="small" id="newCode">New code</button>
-      </div>
-      <div class="help" id="addr"></div>
-      <div class="warn" id="keysWarn" hidden></div>
-    </section>
-    <section class="card">
-      <h2>Paired tablets</h2>
-      <ul class="devices" id="devices"></ul>
-      <div class="row" style="margin-top:12px; justify-content: space-between">
-        <label class="row" style="gap:8px"><input type="checkbox" id="autostart" style="width:auto"> Start Deskmate when I log in</label>
-        <span class="muted" id="capsLine"></span>
-      </div>
-    </section>
+
+<div class="app">
+  <main class="stage">
+    <div class="pagebar" id="pagebar"></div>
+    <div class="crumbs" id="crumbs" hidden></div>
+    <div class="device"><div class="grid" id="grid"></div></div>
+    <div class="savestate" id="savestate"></div>
+    <section class="inspector empty" id="inspector"></section>
+  </main>
+  <aside class="library" id="library">
+    <input id="search" placeholder="Search actions">
+    <div id="actions"></div>
+    <p class="help" style="margin:16px 4px">Drag an action onto a key. Drag keys to move them. Changes save automatically and show up on the tablet right away.</p>
+  </aside>
+</div>
+
+<div class="pop" id="iconPop" hidden>
+  <input id="iconSearch" placeholder="Search icons">
+  <div class="icons" id="iconGrid"></div>
+  <div class="row">
+    <label class="row" style="cursor:pointer"><button type="button" id="uploadBtn">Use my own image…</button></label>
+    <input type="file" id="upload" accept="image/*" hidden>
+    <button class="ghost" id="noIcon">No icon</button>
+    <span class="spacer" style="flex:1"></span>
+    <button id="closePop">Done</button>
   </div>
+</div>
 
-  <section class="card">
-    <h2>Macro pad buttons</h2>
-    <div class="tabs" id="tabs"></div>
-    <div class="row" style="margin-bottom:12px">
-      <input id="pageName" style="max-width:240px" placeholder="Page name">
-      <button class="small" id="addPage">Add page</button>
-      <button class="small danger" id="delPage">Delete page</button>
-    </div>
-    <div class="grid" id="grid"></div>
-    <details style="margin-top:14px">
-      <summary>Action types and key names</summary>
-      <div class="help">
-        <p><b>Keys</b> presses a shortcut, e.g. <code>ctrl+shift+t</code>, <code>super+ctrl+down</code>, <code>f5</code>, <code>print</code>, <code>playpause</code>.
-          Keys: letters, digits, <code>f1</code>–<code>f16</code>, <code>ctrl shift alt super</code>, <code>enter esc tab space backspace delete insert home end pageup pagedown up down left right print</code>, and punctuation like <code>minus comma period slash</code>.</p>
-        <p><b>Run</b> runs a command, e.g. <code>code ~/projects/game</code> or <code>flatpak run org.godotengine.Godot</code>.</p>
-        <p><b>Open</b> opens a website, folder or file, e.g. <code>https://github.com</code> or <code>~/Downloads</code>.</p>
-        <p><b>Type</b> types some text into the focused window.</p>
-      </div>
-    </details>
-  </section>
-
-  <section class="card">
-    <h2>Game Dev Panel</h2>
-    <div class="row">
-      <span>Send control changes to your game on UDP port</span>
-      <input id="devPort" type="number" min="1" max="65535" style="width:110px">
-    </div>
-    <div class="help">Each change arrives as one JSON message, e.g. <code>{"name":"speed","value":3.5}</code>, sent to <code>127.0.0.1</code>. The README has a ready-made Godot listener.</div>
-  </section>
-
-  <div class="savebar">
-    <span class="note" id="saveNote" hidden></span>
-    <button class="danger" id="reset">Restore default buttons</button>
-    <button class="primary" id="save">Save changes</button>
+<dialog id="pairDlg">
+  <div class="row" style="justify-content:space-between"><b style="font-size:16px">Tablets</b><button class="ghost" id="closePair">✕</button></div>
+  <p class="help" style="margin:10px 0 0">To pair a tablet, open Deskmate on it, pick this PC and type:</p>
+  <div class="row" style="justify-content:space-between"><div class="code" id="code">······</div><button id="newCode">New code</button></div>
+  <p class="help" id="addr"></p>
+  <div class="warn" id="keysWarn" hidden></div>
+  <b>Paired tablets</b>
+  <ul class="devices" id="devices"></ul>
+  <label class="row" style="gap:8px; margin:10px 0"><input type="checkbox" id="autostart" style="width:auto"> Start Deskmate when I log in</label>
+  <label class="row" style="gap:8px">Game Dev Panel sends to UDP port <input type="number" id="devPort" min="1" max="65535" style="width:100px"></label>
+  <p class="help" id="caps"></p>
+  <div class="row" style="justify-content:space-between; margin-top:14px">
+    <button class="danger" id="resetDeck">Restore default keys</button>
+    <button class="primary" id="donePair">Done</button>
   </div>
-</main>
+</dialog>
 
 <script>
 const $ = id => document.getElementById(id);
-let pages = [], devForwardPort = 47810, pageIdx = 0, dirty = false;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
-function note(text, ok = true) {
-  const n = $("saveNote"); n.hidden = false; n.textContent = text; n.className = "note " + (ok ? "ok" : "");
-  clearTimeout(note.t); note.t = setTimeout(() => n.hidden = true, 4000);
-}
-function markDirty() { dirty = true; $("save").textContent = "Save changes •"; }
-async function api(path, opts = {}) {
-  const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
-  return r.json();
+let ICONS = {}, deck = { cols: 5, rows: 3, pages: [] }, devForwardPort = 47810;
+let pageIdx = 0, path = [], selected = null; // path: folder keys opened from the page; selected: slot position
+
+// ---------------------------------------------------------------- action catalog
+const ACTIONS = [
+  { group: "System", items: [
+    { type: "keys", value: "", title: "Hotkey", icon: "keyboard", color: "#2B2B33", desc: "Press a keyboard shortcut" },
+    { type: "run", value: "", title: "Run", icon: "terminal", color: "#2B2B33", desc: "Run a command or program" },
+    { type: "open", value: "https://", title: "Website", icon: "globe", color: "#2B6CB0", desc: "Open a link" },
+    { type: "open", value: "~", title: "Open folder", icon: "folder", color: "#2B4C7E", desc: "Open a folder or file" },
+    { type: "text", value: "", title: "Text", icon: "edit", color: "#2B2B33", desc: "Type some text" },
+  ]},
+  { group: "Navigation", items: [
+    { type: "folder", value: "", title: "Folder", icon: "folder", color: "#1F3A5F", desc: "A key that opens more keys" },
+    { type: "page", value: "next", title: "Next page", icon: "arrow-right", color: "#1A1A1E", desc: "Go to the next page" },
+    { type: "page", value: "prev", title: "Previous page", icon: "arrow-left", color: "#1A1A1E", desc: "Go to the previous page" },
+  ]},
+  { group: "Media", items: [
+    { type: "media", value: "playpause", title: "Play/Pause", icon: "play", color: "#1A1A1E", desc: "Shows whether music is playing" },
+    { type: "media", value: "next", title: "Next", icon: "next", color: "#1A1A1E" },
+    { type: "media", value: "prev", title: "Previous", icon: "prev", color: "#1A1A1E" },
+    { type: "media", value: "volumeup", title: "Volume +", icon: "volume-up", color: "#1A1A1E" },
+    { type: "media", value: "volumedown", title: "Volume -", icon: "volume-down", color: "#1A1A1E" },
+    { type: "media", value: "mute", title: "Sound", icon: "volume", color: "#1A1A1E", desc: "Mute; shows the volume level" },
+    { type: "media", value: "micmute", title: "Mic", icon: "mic", color: "#1A1A1E", desc: "Mute the mic; turns red when muted" },
+  ]},
+  { group: "Live info", items: [
+    { type: "stat", value: "cpu", title: "CPU", icon: "cpu", color: "#1A1A1E", desc: "Live CPU use" },
+    { type: "stat", value: "ram", title: "RAM", icon: "memory", color: "#1A1A1E", desc: "Memory in use" },
+    { type: "stat", value: "gpu", title: "GPU", icon: "gpu", color: "#1A1A1E", desc: "GPU use (NVIDIA / AMD)" },
+    { type: "stat", value: "gputemp", title: "GPU temp", icon: "thermometer", color: "#1A1A1E" },
+    { type: "stat", value: "cputemp", title: "CPU temp", icon: "thermometer", color: "#1A1A1E" },
+    { type: "stat", value: "net", title: "Network", icon: "network", color: "#1A1A1E", desc: "Download speed" },
+    { type: "stat", value: "disk", title: "Disk", icon: "disk", color: "#1A1A1E", desc: "Free space" },
+    { type: "clock", value: "", title: "Clock", icon: "clock", color: "#1A1A1E", desc: "Time and date" },
+    { type: "timer", value: "25", title: "Focus", icon: "timer", color: "#1A1A1E", desc: "Countdown; tap to start, hold to reset" },
+  ]},
+  { group: "Deskmate tools", items: [
+    { type: "tool", value: "monitor", title: "Monitor", icon: "chart", color: "#134E4A", desc: "Full system monitor" },
+    { type: "tool", value: "media", title: "Media", icon: "music", color: "#702459", desc: "Media & volume screen" },
+    { type: "tool", value: "notes", title: "Notes", icon: "notes", color: "#744210", desc: "Notes, timer, clipboard" },
+    { type: "tool", value: "dev", title: "Dev panel", icon: "sliders", color: "#1F3A5F", desc: "Game Dev Panel" },
+  ]},
+];
+const PC_TYPES = ["keys", "run", "open", "text"];
+const KIND_NAMES = { keys: "Hotkey", run: "Run command", open: "Open", text: "Type text", folder: "Folder", page: "Page", media: "Media", stat: "Live info", clock: "Clock", timer: "Timer", tool: "Deskmate tool" };
+const SWATCHES = ["#1A1A1E", "#2B2B33", "#2B4C7E", "#2B6CB0", "#1F3A5F", "#134E4A", "#22543D", "#2D6A4F", "#744210", "#7B341E", "#9B2C2C", "#702459", "#553C9A", "#3B2F5C"];
+
+// ---------------------------------------------------------------- icons
+function iconSVG(name, cls = "ic") {
+  const parts = ICONS[name];
+  if (!parts) return "";
+  const shapes = parts.map(p => {
+    const fill = p[0] === "F"; const s = fill ? p.slice(1) : p;
+    const paint = fill ? 'fill="currentColor"' : 'fill="none"';
+    if (s.startsWith("c:")) { const [cx, cy, r] = s.slice(2).split(","); return `<circle cx="${cx}" cy="${cy}" r="${r}" ${paint}/>`; }
+    if (s.startsWith("r:")) { const [x, y, w, h, rx] = s.slice(2).split(","); return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx || 0}" ${paint}/>`; }
+    return `<path d="${s}" ${paint}/>`;
+  }).join("");
+  return `<svg class="${cls}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${shapes}</svg>`;
 }
 
+// ---------------------------------------------------------------- deck helpers
+const cells = () => deck.cols * deck.rows;
+function container() {
+  let keys = deck.pages[pageIdx].keys;
+  for (const id of path) { const f = keys.find(k => k.id === id); if (!f) { path = []; return deck.pages[pageIdx].keys; } keys = f.keys || (f.keys = []); }
+  return keys;
+}
+const inFolder = () => path.length > 0;
+const keyAt = pos => container().find(k => k.pos === pos);
+const uid = () => Math.random().toString(16).slice(2, 14);
+
+function sample(k) {
+  const a = k.action;
+  if (a.type === "stat") return { cpu: "23%", ram: "41%", gpu: "12%", gputemp: "54°", cputemp: "48°", net: "1.2M", disk: "212G" }[a.value] || "";
+  if (a.type === "clock") { const d = new Date(); return d.toTimeString().slice(0, 5); }
+  if (a.type === "timer") return String(parseInt(a.value || "25", 10)).padStart(2, "0") + ":00";
+  return "";
+}
+
+function keyHTML(k) {
+  const big = sample(k);
+  const face = k.image ? `<img src="${esc(k.image)}" alt="">` : big ? `<div class="big">${esc(big)}</div>` : iconSVG(k.icon);
+  const tag = k.action.type === "folder" ? iconSVG("folder", "folderTag") : "";
+  return `<div class="key" style="--c:${esc(k.color || "#1C1C20")}">${face}${tag}${k.title ? `<div class="t">${esc(k.title)}</div>` : ""}</div>`;
+}
+
+// ---------------------------------------------------------------- rendering
+function render() {
+  renderPages();
+  const grid = $("grid");
+  const size = Math.max(64, Math.min(104, Math.floor(820 / deck.cols) - 16, Math.floor(430 / deck.rows) - 16));
+  document.documentElement.style.setProperty("--key", size + "px");
+  grid.style.gridTemplateColumns = `repeat(${deck.cols}, var(--key))`;
+  grid.innerHTML = "";
+  for (let pos = 0; pos < cells(); pos++) {
+    const slot = document.createElement("div");
+    slot.className = "slot" + (selected === pos ? " selected" : "");
+    slot.dataset.pos = pos;
+    if (inFolder() && pos === 0) {
+      slot.classList.add("back");
+      slot.innerHTML = keyHTML({ title: "Back", icon: "back", action: { type: "back" } });
+      slot.onclick = () => { path.pop(); selected = null; render(); };
+      grid.appendChild(slot);
+      continue;
+    }
+    const k = keyAt(pos);
+    if (k) {
+      slot.innerHTML = keyHTML(k);
+      slot.draggable = true;
+      slot.addEventListener("dragstart", e => { e.dataTransfer.setData("text/deskmate-key", String(pos)); e.dataTransfer.effectAllowed = "move"; });
+      slot.ondblclick = () => { if (k.action.type === "folder") { path.push(k.id); selected = null; render(); } };
+    }
+    slot.onclick = () => { selected = pos; render(); };
+    slot.addEventListener("dragover", e => { e.preventDefault(); slot.classList.add("over"); });
+    slot.addEventListener("dragleave", () => slot.classList.remove("over"));
+    slot.addEventListener("drop", e => { e.preventDefault(); slot.classList.remove("over"); onDrop(e, pos); });
+    grid.appendChild(slot);
+  }
+  renderCrumbs();
+  renderInspector();
+}
+
+function renderPages() {
+  const bar = $("pagebar"); bar.innerHTML = "";
+  deck.pages.forEach((p, i) => {
+    const t = document.createElement("div");
+    t.className = "tab" + (i === pageIdx ? " active" : "");
+    t.textContent = p.name || "Page " + (i + 1);
+    t.title = "Double-click to rename";
+    t.onclick = () => { if (pageIdx !== i) { pageIdx = i; path = []; selected = null; render(); } };
+    t.ondblclick = () => {
+      t.innerHTML = ""; const inp = document.createElement("input"); inp.value = p.name; t.appendChild(inp); inp.focus(); inp.select();
+      const done = () => { p.name = inp.value.trim() || p.name; changed(); render(); };
+      inp.onblur = done; inp.onkeydown = e => { if (e.key === "Enter") inp.blur(); if (e.key === "Escape") { inp.value = p.name; inp.blur(); } };
+    };
+    bar.appendChild(t);
+  });
+  const add = document.createElement("button"); add.className = "ghost"; add.textContent = "+ Page"; add.title = "Add a page";
+  add.onclick = () => { deck.pages.push({ name: "Page " + (deck.pages.length + 1), keys: [] }); pageIdx = deck.pages.length - 1; path = []; selected = null; changed(); render(); };
+  bar.appendChild(add);
+  if (deck.pages.length > 1) {
+    const del = document.createElement("button"); del.className = "ghost danger"; del.textContent = "Delete page";
+    del.onclick = () => { if (confirm(`Delete the page "${deck.pages[pageIdx].name}" and its keys?`)) { deck.pages.splice(pageIdx, 1); pageIdx = Math.max(0, pageIdx - 1); path = []; selected = null; changed(); render(); } };
+    bar.appendChild(del);
+  }
+}
+
+function renderCrumbs() {
+  const c = $("crumbs");
+  if (!inFolder()) { c.hidden = true; return; }
+  c.hidden = false;
+  let keys = deck.pages[pageIdx].keys; const names = [deck.pages[pageIdx].name];
+  for (const id of path) { const f = keys.find(k => k.id === id); names.push(f ? f.title || "Folder" : "?"); keys = f ? f.keys : []; }
+  c.innerHTML = names.map((n, i) => i === names.length - 1 ? `<b>${esc(n)}</b>` : esc(n)).join(" › ");
+  const up = document.createElement("button"); up.textContent = "← Back"; up.onclick = () => { path.pop(); selected = null; render(); };
+  c.prepend(up);
+}
+
+// ---------------------------------------------------------------- inspector
+function renderInspector() {
+  const box = $("inspector");
+  const k = selected == null ? null : keyAt(selected);
+  if (!k) {
+    box.className = "inspector empty";
+    box.innerHTML = selected == null ? "Click a key to edit it, or drag an action from the right onto any key."
+      : (inFolder() && selected === 0) ? "This is the folder's Back key." : "Empty key. Drag an action here from the list on the right.";
+    return;
+  }
+  box.className = "inspector";
+  const a = k.action, pc = PC_TYPES.includes(a.type);
+  box.innerHTML = `
+    <div><div class="preview slot" style="cursor:default">${keyHTML(k)}</div>
+      <div class="row" style="margin-top:10px; justify-content:center"><span class="kind">${esc(KIND_NAMES[a.type] || a.type)}</span></div></div>
+    <div class="fields">
+      <label class="f">Title<input id="fTitle" value="${esc(k.title)}" maxlength="24"></label>
+      <div class="f"><span>Icon</span><div class="row"><button id="fIcon">${k.image ? "Custom image" : "Choose icon…"}</button></div></div>
+      <div class="f full"><span>Color</span><div class="swatches" id="fSw">${SWATCHES.map(c => `<span class="sw${(k.color || "").toLowerCase() === c.toLowerCase() ? " on" : ""}" data-c="${c}" style="background:${c}"></span>`).join("")}<input type="color" id="fColor" value="${esc(k.color || "#1C1C20")}"></div></div>
+      <div class="full" id="fAction">${actionFields(k)}</div>
+      <div class="full row" style="justify-content:space-between">
+        <div class="row">${pc ? '<button id="fTest">Test on this PC</button>' : ""}${a.type === "folder" ? '<button id="fOpen">Open folder</button>' : ""}</div>
+        <button class="danger" id="fDelete">Delete key</button>
+      </div>
+      <div class="help full" id="fMsg"></div>
+    </div>`;
+  $("fTitle").oninput = e => { k.title = e.target.value; refreshKey(); };
+  $("fIcon").onclick = e => openIconPop(k, e.target);
+  box.querySelectorAll(".sw").forEach(s => s.onclick = () => { k.color = s.dataset.c; refreshKey(); renderInspector(); });
+  $("fColor").oninput = e => { k.color = e.target.value; refreshKey(); };
+  wireActionFields(k);
+  if ($("fTest")) $("fTest").onclick = () => {
+    $("fMsg").textContent = "Running in 2 seconds; click the window you want it to act on…";
+    setTimeout(async () => { const r = await api("/api/test", { method: "POST", body: JSON.stringify(k.action) }); $("fMsg").textContent = r.ok ? "Done." : r.error; }, 2000);
+  };
+  if ($("fOpen")) $("fOpen").onclick = () => { path.push(k.id); selected = null; render(); };
+  $("fDelete").onclick = () => deleteKey(selected);
+}
+
+function actionFields(k) {
+  const a = k.action;
+  const sel = (opts) => `<select id="fVal">${opts.map(([v, n]) => `<option value="${v}" ${a.value === v ? "selected" : ""}>${n}</option>`).join("")}</select>`;
+  switch (a.type) {
+    case "keys": return `<label class="f">Shortcut <div class="row" style="flex-wrap:nowrap"><input id="fVal" value="${esc(a.value)}" placeholder="e.g. ctrl+shift+t"><button id="fRec">Record</button></div></label>
+      <div class="help" style="margin-top:6px">Click Record and press the shortcut, or type it: <code>ctrl</code> <code>shift</code> <code>alt</code> <code>super</code> + a key, e.g. <code>super+ctrl+down</code>, <code>f5</code>, <code>print</code>.</div>`;
+    case "run": return `<label class="f">Command<input id="fVal" value="${esc(a.value)}" placeholder="e.g. code ~/projects/game"></label>`;
+    case "open": return `<label class="f">Link, folder or file<input id="fVal" value="${esc(a.value)}" placeholder="https://… or ~/Downloads"></label>`;
+    case "text": return `<label class="f">Text to type<textarea id="fVal" rows="3">${esc(a.value)}</textarea></label>`;
+    case "page": return `<label class="f">Go to${sel([["next", "Next page"], ["prev", "Previous page"]])}</label>`;
+    case "media": return `<label class="f">Control${sel([["playpause", "Play / pause"], ["next", "Next track"], ["prev", "Previous track"], ["volumeup", "Volume up"], ["volumedown", "Volume down"], ["mute", "Mute sound"], ["micmute", "Mute mic"]])}</label>`;
+    case "stat": return `<label class="f">Show${sel([["cpu", "CPU use"], ["ram", "Memory use"], ["gpu", "GPU use"], ["gputemp", "GPU temperature"], ["cputemp", "CPU temperature"], ["net", "Download speed"], ["disk", "Free disk space"]])}</label><div class="help" style="margin-top:6px">Tapping it opens the full monitor.</div>`;
+    case "timer": return `<label class="f">Minutes<input id="fVal" type="number" min="1" max="180" value="${esc(a.value || "25")}"></label><div class="help" style="margin-top:6px">Tap to start or pause, hold to reset. It beeps when time's up.</div>`;
+    case "tool": return `<label class="f">Opens${sel([["monitor", "System monitor"], ["media", "Media & volume"], ["notes", "Notes, timer & clipboard"], ["dev", "Game Dev Panel"]])}</label>`;
+    case "folder": return `<div class="help">Double-click the folder (or Open folder) to add keys inside it. Its top-left key is always Back.</div>`;
+    case "clock": return `<div class="help">Shows the time and date.</div>`;
+  }
+  return "";
+}
+
+const CODE_NAMES = { Escape: "esc", Enter: "enter", Tab: "tab", Space: "space", Backspace: "backspace", Delete: "delete", Insert: "insert", Home: "home", End: "end",
+  PageUp: "pageup", PageDown: "pagedown", ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", PrintScreen: "print", Minus: "minus",
+  Equal: "equal", BracketLeft: "[", BracketRight: "]", Semicolon: ";", Quote: "'", Backquote: "`", Backslash: "\\", Comma: ",", Period: ".", Slash: "/",
+  MediaPlayPause: "playpause", MediaTrackNext: "next", MediaTrackPrevious: "prev", AudioVolumeUp: "volumeup", AudioVolumeDown: "volumedown", AudioVolumeMute: "mute" };
+
+function wireActionFields(k) {
+  const v = $("fVal");
+  if (v) {
+    const update = e => {
+      k.action.value = e.target.value;
+      if (k.action.type === "media" || k.action.type === "stat" || k.action.type === "tool") {
+        const def = ACTIONS.flatMap(g => g.items).find(i => i.type === k.action.type && i.value === k.action.value);
+        if (def && !k.image) { k.icon = def.icon; k.title = def.title; }
+        renderInspector();
+      }
+      refreshKey();
+    };
+    v.addEventListener(v.tagName === "SELECT" ? "change" : "input", update);
+  }
+  const rec = $("fRec");
+  if (rec) rec.onclick = () => {
+    rec.textContent = "Press keys…"; rec.classList.add("primary"); v.focus();
+    const handler = e => {
+      if (["Control", "Shift", "Alt", "Meta", "OS"].includes(e.key)) return;
+      e.preventDefault(); e.stopPropagation();
+      const parts = [];
+      if (e.ctrlKey) parts.push("ctrl"); if (e.shiftKey) parts.push("shift"); if (e.altKey) parts.push("alt"); if (e.metaKey) parts.push("super");
+      let name = CODE_NAMES[e.code];
+      if (!name && /^Key[A-Z]$/.test(e.code)) name = e.code.slice(3).toLowerCase();
+      if (!name && /^Digit\d$/.test(e.code)) name = e.code.slice(5);
+      if (!name && /^F\d{1,2}$/.test(e.code)) name = e.code.toLowerCase();
+      if (!name) return;
+      parts.push(name);
+      v.value = k.action.value = parts.join("+");
+      rec.textContent = "Record"; rec.classList.remove("primary");
+      v.removeEventListener("keydown", handler, true);
+      refreshKey();
+    };
+    v.addEventListener("keydown", handler, true);
+  };
+}
+
+function refreshKey() {
+  changed();
+  const k = keyAt(selected);
+  const slot = $("grid").querySelector(`[data-pos="${selected}"]`);
+  if (slot && k) slot.innerHTML = keyHTML(k);
+  const prev = document.querySelector(".inspector .preview");
+  if (prev && k) prev.innerHTML = keyHTML(k);
+}
+
+function deleteKey(pos) {
+  const keys = container(); const i = keys.findIndex(k => k.pos === pos);
+  if (i < 0) return;
+  if (keys[i].action.type === "folder" && (keys[i].keys || []).length && !confirm("Delete this folder and the keys inside it?")) return;
+  keys.splice(i, 1); changed(); render();
+}
+
+// ---------------------------------------------------------------- drag & drop
+function onDrop(e, pos) {
+  if (inFolder() && pos === 0) return;
+  const keys = container();
+  const fromKey = e.dataTransfer.getData("text/deskmate-key");
+  const action = e.dataTransfer.getData("text/deskmate-action");
+  if (fromKey !== "") {
+    const from = parseInt(fromKey, 10); if (from === pos) return;
+    const a = keys.find(k => k.pos === from), b = keys.find(k => k.pos === pos);
+    if (a) a.pos = pos; if (b) b.pos = from;
+    selected = pos; changed(); render(); return;
+  }
+  if (action) placeAction(JSON.parse(action), pos);
+}
+
+function placeAction(def, pos) {
+  const keys = container();
+  const existing = keys.find(k => k.pos === pos);
+  if (existing && !confirm(`Replace "${existing.title || "this key"}"?`)) return;
+  if (existing) keys.splice(keys.indexOf(existing), 1);
+  const k = { id: uid(), pos, title: def.title, icon: def.icon, color: def.color, action: { type: def.type, value: def.value } };
+  if (def.type === "folder") k.keys = [];
+  keys.push(k); selected = pos; changed(); render();
+  if (def.type === "keys" || def.type === "run") setTimeout(() => $("fVal") && $("fVal").focus(), 0);
+}
+
+function renderLibrary() {
+  const q = $("search").value.trim().toLowerCase();
+  const box = $("actions"); box.innerHTML = "";
+  for (const g of ACTIONS) {
+    const items = g.items.filter(i => !q || (i.title + " " + (i.desc || "") + " " + g.group).toLowerCase().includes(q));
+    if (!items.length) continue;
+    const h = document.createElement("h3"); h.textContent = g.group; box.appendChild(h);
+    for (const it of items) {
+      const el = document.createElement("div"); el.className = "act"; el.draggable = true;
+      el.innerHTML = `<div class="mini" style="background:${it.color}">${iconSVG(it.icon, "")}</div><div>${esc(it.title)}${it.desc ? `<small>${esc(it.desc)}</small>` : ""}</div>`;
+      el.addEventListener("dragstart", e => { e.dataTransfer.setData("text/deskmate-action", JSON.stringify(it)); e.dataTransfer.effectAllowed = "copy"; });
+      el.onclick = () => {
+        // Click: put it on the selected empty key, or the first empty one.
+        let pos = selected != null && !keyAt(selected) && !(inFolder() && selected === 0) ? selected : null;
+        if (pos == null) for (let p = inFolder() ? 1 : 0; p < cells(); p++) if (!keyAt(p)) { pos = p; break; }
+        if (pos == null) { alert("This page is full. Drag the action onto a key to replace it, or add a page."); return; }
+        placeAction(it, pos);
+      };
+      box.appendChild(el);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- icon picker
+let popKey = null;
+function openIconPop(k, anchor) {
+  popKey = k;
+  const pop = $("iconPop"); pop.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = Math.min(r.left, innerWidth - 390) + "px";
+  pop.style.top = Math.min(r.bottom + 6, innerHeight - 380) + "px";
+  $("iconSearch").value = ""; renderIconGrid(); $("iconSearch").focus();
+}
+function renderIconGrid() {
+  const q = $("iconSearch").value.trim().toLowerCase();
+  $("iconGrid").innerHTML = Object.keys(ICONS).filter(n => !q || n.includes(q)).sort().map(n =>
+    `<button title="${n}" data-n="${n}" class="${popKey && popKey.icon === n && !popKey.image ? "on" : ""}">${iconSVG(n, "")}</button>`).join("");
+  $("iconGrid").querySelectorAll("button").forEach(b => b.onclick = () => { popKey.icon = b.dataset.n; delete popKey.image; refreshKey(); renderIconGrid(); renderInspector(); });
+}
+$("iconSearch").oninput = renderIconGrid;
+$("closePop").onclick = () => { $("iconPop").hidden = true; };
+$("noIcon").onclick = () => { delete popKey.icon; delete popKey.image; refreshKey(); renderInspector(); $("iconPop").hidden = true; };
+$("uploadBtn").onclick = () => $("upload").click();
+$("upload").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement("canvas"); c.width = c.height = 144;
+    const s = Math.max(144 / img.width, 144 / img.height), w = img.width * s, h = img.height * s;
+    c.getContext("2d").drawImage(img, (144 - w) / 2, (144 - h) / 2, w, h);
+    popKey.image = c.toDataURL("image/png");
+    refreshKey(); renderInspector(); $("iconPop").hidden = true; URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(f); e.target.value = "";
+};
+document.addEventListener("mousedown", e => { const p = $("iconPop"); if (!p.hidden && !p.contains(e.target) && e.target.id !== "fIcon") p.hidden = true; });
+
+// ---------------------------------------------------------------- layout size
+function remap(keys, oc, nc, nr, folder) {
+  const out = [];
+  for (const k of keys) {
+    const row = Math.floor(k.pos / oc), col = k.pos % oc;
+    if (row < nr && col < nc) { k.pos = row * nc + col; if (k.keys) k.keys = remap(k.keys, oc, nc, nr, true); out.push(k); }
+  }
+  return out;
+}
+function countAll(keys) { return keys.reduce((n, k) => n + 1 + (k.keys ? countAll(k.keys) : 0), 0); }
+$("layout").onchange = e => {
+  const [nc, nr] = e.target.value.split("x").map(Number);
+  const before = deck.pages.reduce((n, p) => n + countAll(p.keys), 0);
+  const copy = JSON.parse(JSON.stringify(deck.pages));
+  copy.forEach(p => p.keys = remap(p.keys, deck.cols, nc, nr, false));
+  const lost = before - copy.reduce((n, p) => n + countAll(p.keys), 0);
+  if (lost > 0 && !confirm(`${lost} key${lost > 1 ? "s don't" : " doesn't"} fit in ${nc} × ${nr} and will be removed. Continue?`)) { e.target.value = deck.cols + "x" + deck.rows; return; }
+  deck.pages = copy; deck.cols = nc; deck.rows = nr; selected = null; path = []; changed(); render();
+};
+
+// ---------------------------------------------------------------- saving
+async function api(p, opts = {}) { const r = await fetch(p, { headers: { "Content-Type": "application/json" }, ...opts }); return r.json(); }
+let saveTimer = null;
+function changed() {
+  $("savestate").textContent = "Saving…";
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pages: deck.pages, cols: deck.cols, rows: deck.rows, devForwardPort }) });
+    $("savestate").textContent = r.ok ? "All changes saved · the tablet updates automatically" : "Couldn't save: " + await r.text();
+  }, 450);
+}
+document.addEventListener("keydown", e => {
+  if ((e.key === "Delete" || e.key === "Backspace") && selected != null && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); deleteKey(selected); }
+  if (e.key === "Escape") { selected = null; renderInspector(); render(); }
+});
+
+// ---------------------------------------------------------------- tablets dialog
 async function loadStatus() {
   const s = await api("/api/status");
+  $("host").textContent = s.caps.host;
   $("code").textContent = s.code;
-  $("hostLabel").textContent = "· " + s.caps.host;
-  $("addr").textContent = "If the tablet doesn't find this PC, add it by address: " + (s.ips.join(" or ") || "unknown") + "  (port " + s.port + ")";
+  $("addr").textContent = "If the tablet doesn't find this PC, add it by address: " + (s.ips.join(" or ") || "unknown") + " (port " + s.port + ")";
+  $("pairDot").style.background = (s.devices || []).length ? "var(--ok)" : "var(--warn)";
   const w = $("keysWarn");
-  if (!s.caps.keys) { w.hidden = false; w.innerHTML = "Keyboard shortcuts aren't allowed yet. In a terminal, run <code>deskmate --setup</code> once, then restart Deskmate."; }
-  else w.hidden = true;
+  w.hidden = s.caps.keys;
+  w.innerHTML = "Keyboard shortcuts aren't allowed yet. In a terminal, run <code>deskmate --setup</code> once, then restart Deskmate.";
   const ul = $("devices");
-  ul.innerHTML = s.devices && s.devices.length ? "" : '<li class="muted">None yet</li>';
+  ul.innerHTML = (s.devices || []).length ? "" : '<li class="help">None yet</li>';
   (s.devices || []).forEach(d => {
     const li = document.createElement("li");
-    li.innerHTML = `<span>${esc(d.name)} <span class="muted">· paired ${esc(d.added)}</span></span>`;
-    const b = document.createElement("button"); b.className = "small danger"; b.textContent = "Remove";
-    b.onclick = async () => { if (confirm("Remove " + d.name + "? It will need the code to pair again.")) { await api("/api/revoke?id=" + d.id, { method: "POST" }); loadStatus(); } };
+    li.innerHTML = `<span>${esc(d.name)} <span class="help">· paired ${esc(d.added)}</span></span>`;
+    const b = document.createElement("button"); b.className = "danger"; b.textContent = "Remove";
+    b.onclick = async () => { if (confirm("Remove " + d.name + "? It will need a code to pair again.")) { await api("/api/revoke?id=" + d.id, { method: "POST" }); loadStatus(); } };
     li.appendChild(b); ul.appendChild(li);
   });
   $("autostart").checked = s.autostart;
-  const c = s.caps, parts = [];
-  if (c.volume) parts.push("volume"); if (c.clipboard) parts.push("clipboard"); if (c.nowPlaying) parts.push("now playing");
-  $("capsLine").textContent = parts.length ? "Working: " + parts.join(", ") : "";
+  const c = s.caps, on = [];
+  if (c.volume) on.push("volume"); if (c.clipboard) on.push("clipboard"); if (c.nowPlaying) on.push("now playing"); if (c.keys) on.push("shortcuts");
+  $("caps").textContent = "Working on this PC: " + (on.join(", ") || "basics");
 }
+$("pairBtn").onclick = () => { loadStatus(); $("pairDlg").showModal(); };
+$("closePair").onclick = $("donePair").onclick = () => $("pairDlg").close();
+$("newCode").onclick = async () => { await api("/api/newcode", { method: "POST" }); loadStatus(); };
+$("autostart").onchange = async e => { const r = await api("/api/autostart?on=" + (e.target.checked ? 1 : 0), { method: "POST" }); if (!r.ok) alert(r.error); };
+$("devPort").oninput = e => { devForwardPort = parseInt(e.target.value, 10) || 47810; changed(); };
+$("resetDeck").onclick = async () => { if (confirm("Replace all pages and keys with the defaults?")) { await api("/api/reset", { method: "POST" }); $("pairDlg").close(); await loadDeck(); } };
+$("search").oninput = renderLibrary;
 
-async function loadConfig() {
+async function loadDeck() {
   const c = await api("/api/config");
-  pages = c.pages || []; devForwardPort = c.devForwardPort;
-  $("devPort").value = devForwardPort;
-  if (pageIdx >= pages.length) pageIdx = 0;
+  deck = { cols: c.cols, rows: c.rows, pages: c.pages };
+  devForwardPort = c.devForwardPort; $("devPort").value = devForwardPort;
+  $("layout").value = deck.cols + "x" + deck.rows;
+  if (![...$("layout").options].some(o => o.value === $("layout").value)) {
+    const o = document.createElement("option"); o.value = $("layout").value; o.textContent = `${deck.cols} × ${deck.rows}`; $("layout").appendChild(o); $("layout").value = o.value;
+  }
+  pageIdx = Math.min(pageIdx, deck.pages.length - 1); path = []; selected = null;
   render();
 }
 
-function render() {
-  const tabs = $("tabs"); tabs.innerHTML = "";
-  pages.forEach((p, i) => {
-    const t = document.createElement("div"); t.className = "tab" + (i === pageIdx ? " active" : ""); t.textContent = p.name || "Untitled";
-    t.onclick = () => { pageIdx = i; render(); }; tabs.appendChild(t);
-  });
-  const page = pages[pageIdx];
-  $("pageName").value = page ? page.name : "";
-  $("delPage").disabled = pages.length <= 1;
-  const grid = $("grid"); grid.innerHTML = "";
-  if (!page) return;
-  page.buttons.forEach((b, i) => grid.appendChild(buttonCard(page, b, i)));
-  const add = document.createElement("button"); add.className = "add"; add.textContent = "+ Add button";
-  add.onclick = () => { page.buttons.push({ id: "", label: "New button", color: "#5B6CFF", action: { type: "keys", value: "" } }); markDirty(); render(); };
-  grid.appendChild(add);
-}
-
-function buttonCard(page, b, i) {
-  const el = document.createElement("div"); el.className = "bcard";
-  el.innerHTML = `
-    <div class="swatch" style="background:${esc(b.color)}">${esc(b.label)}</div>
-    <div class="body">
-      <div class="two">
-        <label class="f">Label<input data-k="label" value="${esc(b.label)}"></label>
-        <label class="f">Color<input data-k="color" type="color" value="${esc(b.color)}"></label>
-      </div>
-      <label class="f">Action
-        <select data-k="type">
-          ${["keys", "run", "open", "text"].map(t => `<option value="${t}" ${b.action.type === t ? "selected" : ""}>${{ keys: "Press keys", run: "Run command", open: "Open link / folder", text: "Type text" }[t]}</option>`).join("")}
-        </select>
-      </label>
-      <label class="f"><span data-hint>${hint(b.action.type)}</span><input data-k="value" value="${esc(b.action.value)}"></label>
-      <div class="actions">
-        <button class="small" data-a="test">Test</button>
-        <button class="small" data-a="left" ${i === 0 ? "disabled" : ""}>←</button>
-        <button class="small" data-a="right" ${i === page.buttons.length - 1 ? "disabled" : ""}>→</button>
-        <button class="small danger" data-a="del">Delete</button>
-      </div>
-    </div>`;
-  el.querySelectorAll("[data-k]").forEach(inp => inp.addEventListener("input", () => {
-    const k = inp.dataset.k;
-    if (k === "type") { b.action.type = inp.value; el.querySelector("[data-hint]").textContent = hint(inp.value); }
-    else if (k === "value") b.action.value = inp.value;
-    else b[k] = inp.value;
-    const sw = el.querySelector(".swatch"); sw.textContent = b.label; sw.style.background = b.color;
-    markDirty();
-  }));
-  el.querySelectorAll("[data-a]").forEach(btn => btn.onclick = async () => {
-    const a = btn.dataset.a;
-    if (a === "test") {
-      note("Testing in 2 seconds: click the window you want it to act on…");
-      setTimeout(async () => { const r = await api("/api/test", { method: "POST", body: JSON.stringify(b.action) }); note(r.ok ? "Done" : r.error, r.ok); }, 2000);
-      return;
-    }
-    if (a === "del") page.buttons.splice(i, 1);
-    if (a === "left") [page.buttons[i - 1], page.buttons[i]] = [page.buttons[i], page.buttons[i - 1]];
-    if (a === "right") [page.buttons[i + 1], page.buttons[i]] = [page.buttons[i], page.buttons[i + 1]];
-    markDirty(); render();
-  });
-  return el;
-}
-
-function hint(type) {
-  return { keys: "Keys, e.g. ctrl+shift+t", run: "Command", open: "Link, folder or file", text: "Text to type" }[type] || "Value";
-}
-
-$("pageName").addEventListener("input", e => { if (pages[pageIdx]) { pages[pageIdx].name = e.target.value; markDirty(); const t = $("tabs").children[pageIdx]; if (t) t.textContent = e.target.value || "Untitled"; } });
-$("addPage").onclick = () => { pages.push({ name: "Page " + (pages.length + 1), buttons: [] }); pageIdx = pages.length - 1; markDirty(); render(); };
-$("delPage").onclick = () => { if (pages.length > 1 && confirm("Delete the page \"" + pages[pageIdx].name + "\" and its buttons?")) { pages.splice(pageIdx, 1); pageIdx = 0; markDirty(); render(); } };
-$("devPort").addEventListener("input", e => { devForwardPort = parseInt(e.target.value, 10) || 47810; markDirty(); });
-$("save").onclick = async () => {
-  const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pages, devForwardPort }) });
-  if (r.ok) { dirty = false; $("save").textContent = "Save changes"; note("Saved. Pull down on the tablet's Macro Pad to refresh."); loadConfig(); }
-  else note("Couldn't save: " + await r.text(), false);
-};
-$("reset").onclick = async () => { if (confirm("Replace all buttons with the defaults?")) { await api("/api/reset", { method: "POST" }); loadConfig(); note("Defaults restored"); } };
-$("newCode").onclick = async () => { await api("/api/newcode", { method: "POST" }); loadStatus(); };
-$("autostart").onchange = async e => { const r = await api("/api/autostart?on=" + (e.target.checked ? 1 : 0), { method: "POST" }); if (!r.ok) note(r.error, false); };
-window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
-
-loadStatus(); loadConfig();
-setInterval(loadStatus, 5000);
+(async () => {
+  ICONS = await (await fetch("/icons.json")).json(); delete ICONS._format;
+  renderLibrary();
+  await loadDeck();
+  loadStatus();
+  setInterval(loadStatus, 8000);
+})();
 </script>
 </body>
 </html>

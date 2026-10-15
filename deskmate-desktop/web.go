@@ -54,32 +54,38 @@ func serveSettings(port int) (string, error) {
 		switch r.Method {
 		case http.MethodGet:
 			cfgMu.Lock()
-			out := map[string]any{"pages": cfg.Pages, "devForwardPort": cfg.DevForwardPort}
+			out := map[string]any{"pages": cfg.Pages, "devForwardPort": cfg.DevForwardPort, "cols": cfg.Cols, "rows": cfg.Rows}
 			cfgMu.Unlock()
 			writeJSON(w, out)
 		case http.MethodPut:
 			var in struct {
 				Pages          []Page `json:"pages"`
 				DevForwardPort int    `json:"devForwardPort"`
+				Cols           int    `json:"cols"`
+				Rows           int    `json:"rows"`
 			}
+			r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
 			if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			for pi := range in.Pages {
-				for bi := range in.Pages[pi].Buttons {
-					if in.Pages[pi].Buttons[bi].ID == "" {
-						in.Pages[pi].Buttons[bi].ID = newID()
-					}
-				}
+			if in.Cols < 2 || in.Cols > 8 || in.Rows < 1 || in.Rows > 5 || len(in.Pages) == 0 {
+				http.Error(w, "layout must be 2-8 columns and 1-5 rows with at least one page", http.StatusBadRequest)
+				return
+			}
+			for i := range in.Pages {
+				in.Pages[i].Buttons = nil
+				in.Pages[i].Keys = sanitizeKeys(in.Pages[i].Keys, in.Cols*in.Rows, false)
 			}
 			cfgMu.Lock()
 			cfg.Pages = in.Pages
+			cfg.Cols, cfg.Rows = in.Cols, in.Rows
 			if in.DevForwardPort > 0 && in.DevForwardPort < 65536 {
 				cfg.DevForwardPort = in.DevForwardPort
 			}
 			saveConfigLocked()
 			cfgMu.Unlock()
+			broadcast(msg{"op": "deckChanged"})
 			writeJSON(w, map[string]any{"ok": true})
 		}
 	})
@@ -123,8 +129,10 @@ func serveSettings(port int) (string, error) {
 	post("/api/reset", func(r *http.Request) error {
 		cfgMu.Lock()
 		defer cfgMu.Unlock()
-		cfg.Pages = defaultConfig().Pages
+		d := defaultConfig()
+		cfg.Pages, cfg.Cols, cfg.Rows = d.Pages, d.Cols, d.Rows
 		saveConfigLocked()
+		go broadcast(msg{"op": "deckChanged"})
 		return nil
 	})
 

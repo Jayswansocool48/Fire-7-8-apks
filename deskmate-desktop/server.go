@@ -106,6 +106,7 @@ func handle(conn net.Conn) {
 	defer conn.Close()
 	c := &client{conn: conn, done: make(chan struct{})}
 	defer close(c.done)
+	defer removeClient(c)
 	ip, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 	r := bufio.NewReader(conn)
 	for {
@@ -138,6 +139,7 @@ func handle(conn net.Conn) {
 			case "hello":
 				if name, ok := tokenValid(m.str("token")); ok {
 					c.authed, c.name = true, name
+					addClient(c)
 					log.Printf("%s connected from %s", name, ip)
 					reply(msg{"op": "welcome", "caps": capabilities()})
 				} else {
@@ -168,6 +170,7 @@ func handle(conn net.Conn) {
 				cfgMu.Unlock()
 				rotatePairCode()
 				c.authed, c.name = true, name
+				addClient(c)
 				log.Printf("Paired with %s (%s)", name, ip)
 				reply(msg{"op": "paired", "token": tok, "caps": capabilities()})
 			case "ping":
@@ -181,21 +184,24 @@ func handle(conn net.Conn) {
 		switch op {
 		case "ping":
 			reply(msg{"op": "pong"})
-		case "buttons":
+		case "deck":
 			cfgMu.Lock()
-			pages := cfg.Pages
+			out := msg{"op": "deck", "cols": cfg.Cols, "rows": cfg.Rows, "pages": cfg.Pages}
 			cfgMu.Unlock()
-			reply(msg{"op": "buttons", "pages": pages})
+			reply(out)
+		case "icons":
+			reply(msg{"op": "icons", "icons": iconSet()})
 		case "press":
-			b, ok := findButton(m.str("id"))
+			k, ok := findKey(m.str("id"))
 			if !ok {
-				fail(fmt.Errorf("that button no longer exists; pull down to refresh"))
+				fail(fmt.Errorf("that key changed on the PC; reloading"))
+				c.send(msg{"op": "deckChanged"})
 				continue
 			}
 			go func() {
-				if err := runAction(b.Action); err != nil {
-					log.Printf("Button %q: %v", b.Label, err)
-					c.send(msg{"op": "error", "message": b.Label + ": " + err.Error()})
+				if err := runAction(k.Action); err != nil {
+					log.Printf("Key %q: %v", k.Title, err)
+					c.send(msg{"op": "error", "message": k.Title + ": " + err.Error()})
 				}
 			}()
 		case "stats":
@@ -245,6 +251,27 @@ func handle(conn net.Conn) {
 		default:
 			fail(fmt.Errorf("unknown request %q", op))
 		}
+	}
+}
+
+var (
+	clientsMu sync.Mutex
+	clients   = map[*client]bool{}
+)
+
+func addClient(c *client)    { clientsMu.Lock(); clients[c] = true; clientsMu.Unlock() }
+func removeClient(c *client) { clientsMu.Lock(); delete(clients, c); clientsMu.Unlock() }
+
+// broadcast tells every connected tablet something changed (e.g. the deck was edited).
+func broadcast(m msg) {
+	clientsMu.Lock()
+	list := make([]*client, 0, len(clients))
+	for c := range clients {
+		list = append(list, c)
+	}
+	clientsMu.Unlock()
+	for _, c := range list {
+		go c.send(m)
 	}
 }
 

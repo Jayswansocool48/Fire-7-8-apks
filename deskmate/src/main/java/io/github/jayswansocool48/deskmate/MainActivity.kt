@@ -72,7 +72,7 @@ class MainActivity : Activity() {
         DeskClient.init(this)
         DeskClient.onState(stateListener)
         DeskClient.onMessage(messageListener)
-        push(HomeScreen(this))
+        push(DeckScreen(this))
         if (DeskClient.state == DeskClient.State.NO_PC) push(ConnectScreen(this))
     }
 
@@ -96,6 +96,22 @@ class MainActivity : Activity() {
         super.onPause()
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemBars()
+    }
+
+    /** Full screen, like a real Stream Deck. Swipe from the edge to show the bars briefly. */
+    @Suppress("DEPRECATION")
+    private fun hideSystemBars() {
+        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            or View.SYSTEM_UI_FLAG_FULLSCREEN
+            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN)
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         for (s in stack) s.onOrientationChanged()
@@ -113,6 +129,7 @@ class MainActivity : Activity() {
     }
 
     fun pop() {
+        if (stack.lastOrNull()?.handleBack() == true) return
         if (stack.size <= 1) {
             finish()
             return

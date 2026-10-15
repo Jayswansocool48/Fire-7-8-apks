@@ -19,6 +19,8 @@ abstract class Screen(val app: MainActivity) : FrameLayout(app) {
     open fun onHide() {}
     open fun onConnectionChanged() {}
     open fun onOrientationChanged() {}
+    /** Return true if the screen handled Back itself (e.g. closing a folder). */
+    open fun handleBack(): Boolean = false
 
     protected fun pad(v: View, all: Float = 16f): View {
         val p = app.dpi(all)
@@ -61,64 +63,6 @@ abstract class Screen(val app: MainActivity) : FrameLayout(app) {
 
     protected fun refreshBanner(bar: View?) {
         (bar?.tag as? Runnable)?.run()
-    }
-}
-
-// ---------------------------------------------------------------- Home
-
-class HomeScreen(app: MainActivity) : Screen(app) {
-    override val title = "Deskmate"
-    private val status = app.label("", 15f, Theme.DIM)
-    private val pcButton = PillButton(app, "Connect", Icon.PC)
-    private val dot = View(app)
-
-    init {
-        val col = app.vbox()
-        pad(col, 20f)
-
-        val head = app.hbox()
-        val titles = app.vbox()
-        titles.addView(app.label("Deskmate", 30f, Theme.TEXT, bold = true))
-        val statusRow = app.hbox()
-        statusRow.addView(dot, lp(app.dpi(10f), app.dpi(10f)).apply { rightMargin = app.dpi(8f) })
-        statusRow.addView(status)
-        titles.addView(statusRow, lp(WRAP, WRAP).apply { topMargin = app.dpi(4f) })
-        head.addView(titles, lp(0, WRAP, 1f))
-        pcButton.setOnClickListener { app.push(ConnectScreen(app)) }
-        head.addView(pcButton, lp(app.dpi(170f), app.dpi(48f)))
-        col.addView(head)
-
-        val grid = FlowGrid(app, app.dp(230f), app.dp(190f), app.dp(14f))
-        fun tile(t: String, s: String, icon: Icon, color: Int, open: () -> Screen) {
-            val v = ToolTile(app, t, s, icon, color)
-            v.setOnClickListener { app.push(open()) }
-            grid.addView(v)
-        }
-        tile("Macro Pad", "Big buttons for shortcuts, apps and commands on your PC.", Icon.PAD, Theme.PAD) { MacroScreen(app) }
-        tile("System Monitor", "CPU, GPU, memory, temperatures and network, live.", Icon.MONITOR, Theme.MONITOR) { MonitorScreen(app) }
-        tile("Media & Volume", "Play, pause, skip, volume and mic mute.", Icon.MEDIA, Theme.MEDIA) { MediaScreen(app) }
-        tile("Notes & Timer", "Notes, a focus timer and clipboard sharing with your PC.", Icon.NOTES, Theme.NOTES) { NotesScreen(app) }
-        tile("Game Dev Panel", "Sliders and switches that tweak your running game.", Icon.GAMEPAD, Theme.DEV) { DevScreen(app) }
-        col.addView(grid, lp(MATCH, WRAP).apply { topMargin = app.dpi(22f) })
-
-        val tip = app.label("Tip: the tablet stays awake while Deskmate is open, so it works as a desk dashboard.", 13f, Theme.DIM)
-        col.addView(tip, lp(MATCH, WRAP).apply { topMargin = app.dpi(18f) })
-        addView(scroll(col))
-        onConnectionChanged()
-    }
-
-    override fun onConnectionChanged() {
-        val s = DeskClient.state
-        val (text, color) = when (s) {
-            DeskClient.State.NO_PC -> "Not set up. Connect to your PC to start." to Theme.DIM
-            DeskClient.State.OFFLINE -> "Can't reach ${DeskClient.pcName}. Retrying…" to Theme.BAD
-            DeskClient.State.CONNECTING -> "Connecting to ${DeskClient.pcName}…" to Theme.WARN
-            DeskClient.State.NEED_PAIR -> "Waiting for pairing code" to Theme.WARN
-            DeskClient.State.ONLINE -> "Connected to ${DeskClient.pcName}" to Theme.OK
-        }
-        status.text = text
-        dot.background = rounded(color, app.dp(5f))
-        pcButton.update(if (s == DeskClient.State.NO_PC) "Connect" else "Change PC")
     }
 }
 
