@@ -1,11 +1,11 @@
-name: Build APK
+name: Build APKs
 
-# Rebuilds Inkwell.apk in the repo root whenever the code changes.
+# Builds every app in this repo and commits the APKs to the repo root.
 on:
   push:
     branches: [main]
     paths-ignore:
-      - "Inkwell.apk"
+      - "*.apk"
       - "**.md"
   workflow_dispatch:
 
@@ -23,17 +23,28 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Build release APK
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Prepare Codeling's web app for older WebViews
+        run: |
+          npm install --prefix tools --no-audit --no-fund
+          node tools/prepare-web.mjs codeling/web-src codeling/web-dist
+
+      - name: Build release APKs
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
-          cp app/build/outputs/apk/release/app-release.apk Inkwell.apk
+          ./gradlew --no-daemon :inkwell:assembleRelease :codeling:assembleRelease
+          cp inkwell/build/outputs/apk/release/inkwell-release.apk Inkwell.apk
+          cp codeling/build/outputs/apk/release/codeling-release.apk Codeling.apk
+          ls -la *.apk
 
-      - name: Commit the new APK
+      - name: Commit the new APKs
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add Inkwell.apk
+          git add Inkwell.apk Codeling.apk
           git diff --cached --quiet && exit 0
-          git commit -m "Update Inkwell.apk [skip ci]"
+          git commit -m "Update APKs [skip ci]"
           git push

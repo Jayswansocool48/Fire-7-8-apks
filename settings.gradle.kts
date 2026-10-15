@@ -14,5 +14,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Inkwell"
-include(":app")
+rootProject.name = "apps"
+include(":inkwell")
+include(":codeling")

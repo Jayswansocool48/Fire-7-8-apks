@@ -1,72 +1,37 @@
-# Inkwell
+# Apps
 
-A lightweight ibisPaint/Procreate-style drawing app, built for the Fire 7 (7th gen) and
-Fire HD 8 (8th gen) running LineageOS. Native Kotlin, no libraries, minSdk 21.
+Android apps for the Fire 7 (7th gen) and Fire HD 8 (8th gen) on LineageOS.
+Every time the code changes, GitHub rebuilds the APKs below automatically.
 
-## Install
-Download **[Inkwell.apk](Inkwell.apk)** from this repo onto the tablet, open it, and allow
-installs from that source when LineageOS asks. It's rebuilt automatically every time the
-code changes.
+| App | Download | What it is |
+| --- | --- | --- |
+| **Inkwell** | [Inkwell.apk](Inkwell.apk) | Drawing app in the style of ibisPaint / Procreate |
+| **Codeling** | [Codeling.apk](Codeling.apk) | Learn-to-code lessons with a creature that grows as you do |
 
-## Features
-- Brushes: ink pen, grainy pencil, marker (even opacity within a stroke), airbrush, eraser
-- Stabilizer (stroke smoothing), stylus pressure if your pen reports it
-- Up to 16 layers: add, delete, reorder, merge down, clear, hide, opacity, rename
-- Paint bucket fill and eyedropper
-- Color wheel with presets and recent colors
-- Pan / pinch-zoom / rotate with two fingers, flip canvas
-- 2-finger tap = undo, 3-finger tap = redo (memory-capped history)
-- Autosaves when you leave the app; export PNG to `Pictures/Inkwell`
-- Import a photo as a layer for tracing
+## Install on the tablet
+1. Open this repo in the tablet's browser and tap the APK you want.
+2. Tap **Download** (or **View raw**), then open the file.
+3. Allow installs from that source when LineageOS asks, then tap **Install**.
 
-## Build on Pop!_OS
+Or from a computer: `adb install -r Codeling.apk`
 
-### Option A: Android Studio (easiest)
-1. Install Android Studio (Pop!_Shop / Flathub, or the tarball from developer.android.com).
-2. **File → Open** and choose this `Inkwell` folder. Let Gradle sync; it downloads
-   the SDK pieces it needs. Accept any SDK licence prompts.
-3. Plug in the tablet (see "Prepare the tablet"), pick it in the device menu, press **Run ▶**.
+## Repo layout
+| Folder | Contents |
+| --- | --- |
+| `inkwell/` | Inkwell source: native Kotlin, no libraries |
+| `codeling/` | Android wrapper for Codeling; the web app itself is in `codeling/web-src/web/` |
+| `tools/prepare-web.mjs` | Rewrites Codeling's JavaScript and CSS so it runs on older WebViews (Android 7) |
 
-### Option B: command line
-Needs JDK 17 and the Android SDK (Android Studio installs one at `~/Android/Sdk`).
+## Codeling notes
+- Runs fully offline from inside the APK. Progress is saved on the tablet.
+- The Python course downloads its Python runtime the first time, so it needs internet once.
+- Documentation links open in the browser.
+- The web files here are a copy of the `codeling` repo's `web/` folder (version 2.0.0).
+  To update the APK after changing Codeling, copy the new `web/` folder into
+  `codeling/web-src/web/` and push.
+- On Android 7 the built-in web engine may be old. Codeling still runs, but if some screens
+  look cramped, updating **Android System WebView** fixes it.
 
-```bash
-export ANDROID_HOME=$HOME/Android/Sdk
-cd Inkwell
-chmod +x gradlew
-./gradlew assembleDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-For a smaller, faster build use `./gradlew assembleRelease` instead; the APK lands in
-`app/build/outputs/apk/release/` (signed with the debug key so it installs directly).
-
-## Prepare the tablet (LineageOS)
-1. Settings → About tablet → tap **Build number** 7 times.
-2. Settings → System → Developer options → turn on **Android debugging**.
-3. Connect USB, run `adb devices`, and accept the prompt on the tablet.
-
-If `adb devices` says `no permissions`, install the udev rules and replug:
-`sudo apt install android-sdk-platform-tools-common`.
-
-## Gestures
-| Action | Gesture |
-|---|---|
-| Draw | 1 finger or stylus |
-| Move / zoom / rotate | 2 fingers |
-| Undo / redo | tap with 2 / 3 fingers |
-| Brush size & opacity | drag the left sliders up/down |
-| Pick brush, stabilizer | tap the brush button again |
-| Rename layer | tap the selected layer |
-
-## Code map
-| File | What it does |
-|---|---|
-| `Brush.kt` | Brush presets and the stroke renderer (dabs → alpha buffer → layer) |
-| `CanvasView.kt` | Drawing surface, touch and gestures, cached layer compositing |
-| `PaintDocument.kt` | Layers, merge, fill, eyedropper, flatten |
-| `History.kt` | Undo/redo with a memory budget |
-| `ProjectStore.kt` | Autosave and PNG export |
-| `MainActivity.kt` | Toolbar, sliders, color picker, menus |
-| `LayersPanel.kt` | Layers list |
-| `Widgets.kt`, `Icons.kt` | Custom buttons, sliders, color picker, code-drawn icons |
+## Building locally
+Open this folder in Android Studio, or run `./gradlew assembleRelease`.
+APKs land in `inkwell/build/outputs/apk/` and `codeling/build/outputs/apk/`.
