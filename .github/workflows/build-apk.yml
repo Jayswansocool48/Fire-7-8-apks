@@ -1,6 +1,7 @@
-name: Build APKs
+name: Build apps
 
-# Builds every app in this repo and commits the APKs to the repo root.
+# Builds every app in this repo. APKs are committed to the repo root;
+# the Deskmate desktop companion goes to the "deskmate-desktop" release.
 on:
   push:
     branches: [main]
@@ -13,7 +14,38 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build Deskmate for Linux and Windows
+        working-directory: deskmate-desktop
+        run: |
+          go vet ./...
+          mkdir -p dist
+          build() { CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -trimpath -ldflags="-s -w" -o "dist/$3" . ; }
+          build linux amd64 deskmate-linux-x86_64
+          build linux arm64 deskmate-linux-arm64
+          build windows amd64 deskmate-windows-x64.exe
+          build windows arm64 deskmate-windows-arm64.exe
+          chmod +x dist/deskmate-linux-*
+          ls -la dist
+
+      - name: Publish to the deskmate-desktop release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view deskmate-desktop >/dev/null 2>&1 || gh release create deskmate-desktop \
+            --title "Deskmate desktop companion" \
+            --notes "Run this on your PC, then open Deskmate on the tablet. Linux: deskmate-linux-x86_64 (most PCs). Windows: deskmate-windows-x64.exe. See the README for setup."
+          gh release upload deskmate-desktop deskmate-desktop/dist/* --clobber
+
+  android:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,16 +67,18 @@ jobs:
       - name: Build release APKs
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :inkwell:assembleRelease :codeling:assembleRelease
+          ./gradlew --no-daemon :inkwell:assembleRelease :codeling:assembleRelease :deskmate:assembleRelease
           cp inkwell/build/outputs/apk/release/inkwell-release.apk Inkwell.apk
           cp codeling/build/outputs/apk/release/codeling-release.apk Codeling.apk
+          cp deskmate/build/outputs/apk/release/deskmate-release.apk Deskmate.apk
           ls -la *.apk
 
       - name: Commit the new APKs
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add Inkwell.apk Codeling.apk
+          git add Inkwell.apk Codeling.apk Deskmate.apk
           git diff --cached --quiet && exit 0
           git commit -m "Update APKs [skip ci]"
+          git pull --rebase origin main
           git push

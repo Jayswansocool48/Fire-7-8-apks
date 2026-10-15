@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deskmate</title>
+<style>
+  :root {
+    --bg: #F4F5F8; --card: #FFFFFF; --text: #1B1D24; --dim: #6B7080; --line: #E3E5EB;
+    --accent: #5B6CFF; --accent-soft: #E8EAFF; --danger: #D9465B; --ok: #1F9D6B; --warn-bg: #FFF4DB; --warn: #8A5A00;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14151A; --card: #1E2028; --text: #ECEDF2; --dim: #9196A6; --line: #2E313C;
+      --accent: #8391FF; --accent-soft: #2A2E4D; --warn-bg: #3A2F14; --warn: #F2C46B; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Ubuntu, "Fira Sans", sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 22px 24px 8px; max-width: 1100px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  .logo { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #5B6CFF, #9A5BFF); display: grid; place-items: center; color: #fff; font-weight: 700; }
+  main { max-width: 1100px; margin: 0 auto; padding: 8px 24px 60px; display: grid; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .top { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .top { grid-template-columns: 1fr; } }
+  .code { font: 700 44px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0.12em; }
+  .muted { color: var(--dim); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button, .btn { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 7px 14px; border-radius: 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--danger); }
+  button.small { padding: 4px 10px; font-size: 13px; }
+  .warn { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; margin-top: 12px; }
+  .warn code { font-weight: 600; }
+  ul.devices { list-style: none; padding: 0; margin: 0; }
+  ul.devices li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  ul.devices li:last-child { border-bottom: 0; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tab { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); cursor: pointer; background: var(--card); }
+  .tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .bcard { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .bcard .swatch { height: 46px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; padding: 0 10px; text-align: center; }
+  .bcard .body { padding: 10px; display: grid; gap: 8px; }
+  label.f { display: grid; gap: 3px; font-size: 12px; color: var(--dim); }
+  input, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 100%; }
+  input[type=color] { padding: 2px; height: 34px; }
+  .two { display: grid; grid-template-columns: 1fr 56px; gap: 8px; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .add { border: 2px dashed var(--line); border-radius: 12px; display: grid; place-items: center; min-height: 150px; color: var(--dim); cursor: pointer; background: transparent; }
+  .add:hover { border-color: var(--accent); color: var(--accent); }
+  .savebar { position: sticky; bottom: 14px; display: flex; justify-content: flex-end; gap: 10px; align-items: center; }
+  .savebar .note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; }
+  .help { font-size: 13px; color: var(--dim); margin-top: 6px; }
+  .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  .ok { color: var(--ok); }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.92em; }
+  details summary { cursor: pointer; color: var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">D</div>
+  <h1>Deskmate</h1>
+  <span class="muted" id="hostLabel"></span>
+</header>
+<main>
+  <div class="top">
+    <section class="card">
+      <h2>Pair a tablet</h2>
+      <div class="row" style="justify-content: space-between">
+        <div>
+          <div class="code" id="code">······</div>
+          <div class="muted" style="margin-top:6px">Open Deskmate on the tablet, choose this PC, and enter this code.</div>
+        </div>
+        <button class="small" id="newCode">New code</button>
+      </div>
+      <div class="help" id="addr"></div>
+      <div class="warn" id="keysWarn" hidden></div>
+    </section>
+    <section class="card">
+      <h2>Paired tablets</h2>
+      <ul class="devices" id="devices"></ul>
+      <div class="row" style="margin-top:12px; justify-content: space-between">
+        <label class="row" style="gap:8px"><input type="checkbox" id="autostart" style="width:auto"> Start Deskmate when I log in</label>
+        <span class="muted" id="capsLine"></span>
+      </div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Macro pad buttons</h2>
+    <div class="tabs" id="tabs"></div>
+    <div class="row" style="margin-bottom:12px">
+      <input id="pageName" style="max-width:240px" placeholder="Page name">
+      <button class="small" id="addPage">Add page</button>
+      <button class="small danger" id="delPage">Delete page</button>
+    </div>
+    <div class="grid" id="grid"></div>
+    <details style="margin-top:14px">
+      <summary>Action types and key names</summary>
+      <div class="help">
+        <p><b>Keys</b> presses a shortcut, e.g. <code>ctrl+shift+t</code>, <code>super+ctrl+down</code>, <code>f5</code>, <code>print</code>, <code>playpause</code>.
+          Keys: letters, digits, <code>f1</code>–<code>f16</code>, <code>ctrl shift alt super</code>, <code>enter esc tab space backspace delete insert home end pageup pagedown up down left right print</code>, and punctuation like <code>minus comma period slash</code>.</p>
+        <p><b>Run</b> runs a command, e.g. <code>code ~/projects/game</code> or <code>flatpak run org.godotengine.Godot</code>.</p>
+        <p><b>Open</b> opens a website, folder or file, e.g. <code>https://github.com</code> or <code>~/Downloads</code>.</p>
+        <p><b>Type</b> types some text into the focused window.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>Game Dev Panel</h2>
+    <div class="row">
+      <span>Send control changes to your game on UDP port</span>
+      <input id="devPort" type="number" min="1" max="65535" style="width:110px">
+    </div>
+    <div class="help">Each change arrives as one JSON message, e.g. <code>{"name":"speed","value":3.5}</code>, sent to <code>127.0.0.1</code>. The README has a ready-made Godot listener.</div>
+  </section>
+
+  <div class="savebar">
+    <span class="note" id="saveNote" hidden></span>
+    <button class="danger" id="reset">Restore default buttons</button>
+    <button class="primary" id="save">Save changes</button>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let pages = [], devForwardPort = 47810, pageIdx = 0, dirty = false;
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function note(text, ok = true) {
+  const n = $("saveNote"); n.hidden = false; n.textContent = text; n.className = "note " + (ok ? "ok" : "");
+  clearTimeout(note.t); note.t = setTimeout(() => n.hidden = true, 4000);
+}
+function markDirty() { dirty = true; $("save").textContent = "Save changes •"; }
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  return r.json();
+}
+
+async function loadStatus() {
+  const s = await api("/api/status");
+  $("code").textContent = s.code;
+  $("hostLabel").textContent = "· " + s.caps.host;
+  $("addr").textContent = "If the tablet doesn't find this PC, add it by address: " + (s.ips.join(" or ") || "unknown") + "  (port " + s.port + ")";
+  const w = $("keysWarn");
+  if (!s.caps.keys) { w.hidden = false; w.innerHTML = "Keyboard shortcuts aren't allowed yet. In a terminal, run <code>deskmate --setup</code> once, then restart Deskmate."; }
+  else w.hidden = true;
+  const ul = $("devices");
+  ul.innerHTML = s.devices && s.devices.length ? "" : '<li class="muted">None yet</li>';
+  (s.devices || []).forEach(d => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${esc(d.name)} <span class="muted">· paired ${esc(d.added)}</span></span>`;
+    const b = document.createElement("button"); b.className = "small danger"; b.textContent = "Remove";
+    b.onclick = async () => { if (confirm("Remove " + d.name + "? It will need the code to pair again.")) { await api("/api/revoke?id=" + d.id, { method: "POST" }); loadStatus(); } };
+    li.appendChild(b); ul.appendChild(li);
+  });
+  $("autostart").checked = s.autostart;
+  const c = s.caps, parts = [];
+  if (c.volume) parts.push("volume"); if (c.clipboard) parts.push("clipboard"); if (c.nowPlaying) parts.push("now playing");
+  $("capsLine").textContent = parts.length ? "Working: " + parts.join(", ") : "";
+}
+
+async function loadConfig() {
+  const c = await api("/api/config");
+  pages = c.pages || []; devForwardPort = c.devForwardPort;
+  $("devPort").value = devForwardPort;
+  if (pageIdx >= pages.length) pageIdx = 0;
+  render();
+}
+
+function render() {
+  const tabs = $("tabs"); tabs.innerHTML = "";
+  pages.forEach((p, i) => {
+    const t = document.createElement("div"); t.className = "tab" + (i === pageIdx ? " active" : ""); t.textContent = p.name || "Untitled";
+    t.onclick = () => { pageIdx = i; render(); }; tabs.appendChild(t);
+  });
+  const page = pages[pageIdx];
+  $("pageName").value = page ? page.name : "";
+  $("delPage").disabled = pages.length <= 1;
+  const grid = $("grid"); grid.innerHTML = "";
+  if (!page) return;
+  page.buttons.forEach((b, i) => grid.appendChild(buttonCard(page, b, i)));
+  const add = document.createElement("button"); add.className = "add"; add.textContent = "+ Add button";
+  add.onclick = () => { page.buttons.push({ id: "", label: "New button", color: "#5B6CFF", action: { type: "keys", value: "" } }); markDirty(); render(); };
+  grid.appendChild(add);
+}
+
+function buttonCard(page, b, i) {
+  const el = document.createElement("div"); el.className = "bcard";
+  el.innerHTML = `
+    <div class="swatch" style="background:${esc(b.color)}">${esc(b.label)}</div>
+    <div class="body">
+      <div class="two">
+        <label class="f">Label<input data-k="label" value="${esc(b.label)}"></label>
+        <label class="f">Color<input data-k="color" type="color" value="${esc(b.color)}"></label>
+      </div>
+      <label class="f">Action
+        <select data-k="type">
+          ${["keys", "run", "open", "text"].map(t => `<option value="${t}" ${b.action.type === t ? "selected" : ""}>${{ keys: "Press keys", run: "Run command", open: "Open link / folder", text: "Type text" }[t]}</option>`).join("")}
+        </select>
+      </label>
+      <label class="f"><span data-hint>${hint(b.action.type)}</span><input data-k="value" value="${esc(b.action.value)}"></label>
+      <div class="actions">
+        <button class="small" data-a="test">Test</button>
+        <button class="small" data-a="left" ${i === 0 ? "disabled" : ""}>←</button>
+        <button class="small" data-a="right" ${i === page.buttons.length - 1 ? "disabled" : ""}>→</button>
+        <button class="small danger" data-a="del">Delete</button>
+      </div>
+    </div>`;
+  el.querySelectorAll("[data-k]").forEach(inp => inp.addEventListener("input", () => {
+    const k = inp.dataset.k;
+    if (k === "type") { b.action.type = inp.value; el.querySelector("[data-hint]").textContent = hint(inp.value); }
+    else if (k === "value") b.action.value = inp.value;
+    else b[k] = inp.value;
+    const sw = el.querySelector(".swatch"); sw.textContent = b.label; sw.style.background = b.color;
+    markDirty();
+  }));
+  el.querySelectorAll("[data-a]").forEach(btn => btn.onclick = async () => {
+    const a = btn.dataset.a;
+    if (a === "test") {
+      note("Testing in 2 seconds: click the window you want it to act on…");
+      setTimeout(async () => { const r = await api("/api/test", { method: "POST", body: JSON.stringify(b.action) }); note(r.ok ? "Done" : r.error, r.ok); }, 2000);
+      return;
+    }
+    if (a === "del") page.buttons.splice(i, 1);
+    if (a === "left") [page.buttons[i - 1], page.buttons[i]] = [page.buttons[i], page.buttons[i - 1]];
+    if (a === "right") [page.buttons[i + 1], page.buttons[i]] = [page.buttons[i], page.buttons[i + 1]];
+    markDirty(); render();
+  });
+  return el;
+}
+
+function hint(type) {
+  return { keys: "Keys, e.g. ctrl+shift+t", run: "Command", open: "Link, folder or file", text: "Text to type" }[type] || "Value";
+}
+
+$("pageName").addEventListener("input", e => { if (pages[pageIdx]) { pages[pageIdx].name = e.target.value; markDirty(); const t = $("tabs").children[pageIdx]; if (t) t.textContent = e.target.value || "Untitled"; } });
+$("addPage").onclick = () => { pages.push({ name: "Page " + (pages.length + 1), buttons: [] }); pageIdx = pages.length - 1; markDirty(); render(); };
+$("delPage").onclick = () => { if (pages.length > 1 && confirm("Delete the page \"" + pages[pageIdx].name + "\" and its buttons?")) { pages.splice(pageIdx, 1); pageIdx = 0; markDirty(); render(); } };
+$("devPort").addEventListener("input", e => { devForwardPort = parseInt(e.target.value, 10) || 47810; markDirty(); });
+$("save").onclick = async () => {
+  const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pages, devForwardPort }) });
+  if (r.ok) { dirty = false; $("save").textContent = "Save changes"; note("Saved. Pull down on the tablet's Macro Pad to refresh."); loadConfig(); }
+  else note("Couldn't save: " + await r.text(), false);
+};
+$("reset").onclick = async () => { if (confirm("Replace all buttons with the defaults?")) { await api("/api/reset", { method: "POST" }); loadConfig(); note("Defaults restored"); } };
+$("newCode").onclick = async () => { await api("/api/newcode", { method: "POST" }); loadStatus(); };
+$("autostart").onchange = async e => { const r = await api("/api/autostart?on=" + (e.target.checked ? 1 : 0), { method: "POST" }); if (!r.ok) note(r.error, false); };
+window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+loadStatus(); loadConfig();
+setInterval(loadStatus, 5000);
+</script>
+</body>
+</html>
