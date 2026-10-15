@@ -34,6 +34,9 @@ jobs:
           build windows amd64 deskmate-windows-x64.exe
           build windows arm64 deskmate-windows-arm64.exe
           chmod +x dist/deskmate-linux-*
+          VERSION=$(grep -oP 'appVersion = "\K[^"]+' main.go)
+          packaging/linux/build-deb.sh dist/deskmate-linux-x86_64 amd64 "$VERSION" dist
+          packaging/linux/build-deb.sh dist/deskmate-linux-arm64 arm64 "$VERSION" dist
           ls -la dist
 
       - name: Publish to the deskmate-desktop release
@@ -42,7 +45,7 @@ jobs:
         run: |
           gh release view deskmate-desktop >/dev/null 2>&1 || gh release create deskmate-desktop \
             --title "Deskmate desktop companion" \
-            --notes "Run this on your PC, then open Deskmate on the tablet. Linux: deskmate-linux-x86_64 (most PCs). Windows: deskmate-windows-x64.exe. See the README for setup."
+            --notes "Pop!_OS / Ubuntu / Debian / Mint: download deskmate_*_amd64.deb and double-click it to install, then open Deskmate from your apps. Other Linux: deskmate-linux-x86_64. Windows: deskmate-windows-x64.exe."
           gh release upload deskmate-desktop deskmate-desktop/dist/* --clobber
 
   android:

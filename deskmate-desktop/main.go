@@ -6,11 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 )
 
-const appVersion = "1.0.0"
+const appVersion = "1.1.0"
 
 func main() {
 	setup := flag.Bool("setup", false, "Linux: allow Deskmate to press keys (asks for your password once)")
@@ -42,11 +43,24 @@ func main() {
 	port := cfg.Port
 	cfgMu.Unlock()
 
-	go statsLoop()
 	if err := serveTCP(port); err != nil {
-		fmt.Printf("Couldn't listen on port %d: %v\nIs Deskmate already running?\n", port, err)
+		// Already running (e.g. opened again from the app menu): show its settings page instead.
+		settings := fmt.Sprintf("http://127.0.0.1:%d", port+1)
+		if resp, herr := http.Get(settings + "/api/status"); herr == nil {
+			resp.Body.Close()
+			fmt.Println("Deskmate is already running. Opening its settings page.")
+			if !*background {
+				openURL(settings)
+			}
+			return
+		}
+		fmt.Printf("Couldn't listen on port %d: %v\n", port, err)
 		os.Exit(1)
 	}
+	if firstRun && !autostartEnabled() {
+		setAutostart(true) // turn off any time in the settings page
+	}
+	go statsLoop()
 	go serveDiscovery(port)
 	settingsURL, err := serveSettings(port + 1)
 	if err != nil {

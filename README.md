@@ -22,11 +22,16 @@ Or from a computer: `adb install -r Codeling.apk`
 
 | PC | File |
 | --- | --- |
-| Linux (Pop!_OS, Ubuntu, Fedora, Arch, …) | `deskmate-linux-x86_64` |
+| Pop!_OS, Ubuntu, Debian, Mint | `deskmate_<version>_amd64.deb` (double-click to install) |
+| Other Linux (Fedora, Arch, …) | `deskmate-linux-x86_64` |
 | Linux on ARM | `deskmate-linux-arm64` |
 | Windows | `deskmate-windows-x64.exe` |
 
-Linux, in a terminal:
+**Pop!_OS, Ubuntu, Debian, Mint:** download `deskmate_<version>_amd64.deb`, double-click it and
+click **Install**. Then open **Deskmate** from your app launcher. Shortcuts work after you log out and
+back in once. Deskmate starts by itself when you log in from then on.
+
+**Other Linux distros** (Fedora, Arch, …), in a terminal:
 ```bash
 cd ~/Downloads
 chmod +x deskmate-linux-x86_64
@@ -37,7 +42,7 @@ deskmate              # start it; the settings page opens in your browser
 Windows: double-click `deskmate-windows-x64.exe` and click **Allow** if the firewall asks
 (private networks). If SmartScreen warns about an unknown app, choose **More info → Run anyway**.
 
-Tick **Start Deskmate when I log in** on the settings page so it's always ready.
+Deskmate turns on **Start when I log in** the first time it runs; you can switch it off on the settings page.
 
 **2. On the tablet**, open Deskmate, pick your PC and type the 6-digit code shown on the PC.
 

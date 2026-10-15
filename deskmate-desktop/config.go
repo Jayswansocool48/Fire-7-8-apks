@@ -215,7 +215,11 @@ func loadConfig() {
 	}
 	cfg = defaultConfig()
 	saveConfigLocked()
+	firstRun = true
 }
+
+// firstRun is true the very first time Deskmate starts on this PC.
+var firstRun bool
 
 // saveConfigLocked writes the config; callers hold cfgMu (or are single-threaded at startup).
 func saveConfigLocked() {

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Deskmate
+GenericName=Stream Deck for your tablet
+Comment=Companion for the Deskmate tablet app: set up keys and pair tablets
+Exec=deskmate
+Icon=deskmate
+Terminal=false
+Categories=Utility;
+Keywords=stream;deck;macro;tablet;remote;
+StartupNotify=false

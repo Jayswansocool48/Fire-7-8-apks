@@ -1,0 +1,2 @@
+# Lets the logged-in user's Deskmate press keys through a virtual keyboard.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"

@@ -144,7 +144,7 @@ func inputReady() bool {
 }
 
 func inputHelp() string {
-	return "Keyboard shortcuts need permission to create a virtual keyboard. Run this once:  deskmate --setup"
+	return "Keyboard shortcuts need permission. Log out and back in once after installing, or run:  deskmate --setup"
 }
 
 // setupInput installs a udev rule giving the logged-in user access to /dev/uinput
