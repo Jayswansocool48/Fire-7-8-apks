@@ -7,7 +7,7 @@ Every time the code changes, GitHub rebuilds the APKs below automatically.
 | --- | --- | --- |
 | **Inkwell** | [Inkwell.apk](Inkwell.apk) | Drawing app in the style of ibisPaint / Procreate |
 | **Codeling** | [Codeling.apk](Codeling.apk) | Learn-to-code lessons with a creature that grows as you do |
-| **Deskmate** | [Deskmate.apk](Deskmate.apk) + [desktop program](../../releases/tag/deskmate-desktop) | Turns the tablet into a macro pad, system monitor, media remote, notes/timer and game dev panel for your PC |
+| **Deskmate** | [Deskmate.apk](Deskmate.apk) + [desktop program](../../releases/tag/deskmate-desktop) | Turns the tablet into a Stream Deck for your PC, plus a system monitor, media remote, notes/timer and game dev panel |
 
 ## Install on the tablet
 1. Open this repo in the tablet's browser and tap the APK you want.
@@ -51,10 +51,18 @@ Everything works out of the box on Pop!_OS. On other distros, these optional pac
 | Clipboard sharing | `wl-clipboard` (Wayland) or `xclip` (X11) |
 | GPU stats | NVIDIA driver (`nvidia-smi`) or AMD's `amdgpu` driver |
 
-### Macro buttons
-Edit them on the PC in the settings page (`http://127.0.0.1:47801`). Each button can press keys
-(`ctrl+shift+t`, `super+ctrl+down`, `f5`), run a command, open a link or folder, or type text.
-The tablet can only press the buttons you set up there, so nobody on your Wi-Fi can run anything else.
+### Your deck (Stream Deck style)
+The tablet's home screen is a full-screen grid of keys. Swipe left/right for pages; folders open
+more keys (top-left is Back); ⚙ at the bottom right opens the other tools.
+
+Set it up on the PC at `http://127.0.0.1:47801`, which works like the Stream Deck app:
+- **Layout:** 3×2, 4×3, 5×3 (Stream Deck MK.2), 6×4 or 8×4 (XL).
+- **Drag actions onto keys:** hotkeys (with a **Record** button), commands, links/folders, typed text,
+  folders, page buttons, media keys, live CPU/RAM/GPU/temperature/network/disk keys, a clock and focus timers.
+- **Look:** 80 built-in icons or your own image per key, plus a background color and title.
+- Drag keys to rearrange them. Everything saves automatically and the tablet updates instantly.
+
+Only actions saved on the PC can run there, so nobody on your Wi-Fi can make the PC do anything else.
 
 ### Game Dev Panel
 Every slider, switch or button change is sent to your game as one UDP message on the PC,
