@@ -1,0 +1,39 @@
+name: Build APK
+
+# Rebuilds Inkwell.apk in the repo root whenever the code changes.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "Inkwell.apk"
+      - "**.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk Inkwell.apk
+
+      - name: Commit the new APK
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add Inkwell.apk
+          git diff --cached --quiet && exit 0
+          git commit -m "Update Inkwell.apk [skip ci]"
+          git push
