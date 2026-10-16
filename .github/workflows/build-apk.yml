@@ -91,7 +91,7 @@ jobs:
         if: failure()
         run: |
           [ -f build.log ] || exit 0
-          grep -E "error:|error |e: |FAILED|What went wrong|Caused by" -A2 build.log | grep -v "^--$" | head -40 | while IFS= read -r line; do
+          { grep -E "error:|e: |FAILED|What went wrong|Caused by|Killed|OutOfMemory" -A2 build.log | grep -v "^--$" | head -30; echo "---- last lines ----"; tail -n 30 build.log; } | while IFS= read -r line; do
             echo "::error::$line"
           done
 
