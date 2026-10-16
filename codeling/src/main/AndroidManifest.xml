@@ -1,15 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Fonts, the Python runtime for the Python course, and documentation links. -->
+    <!-- Fonts, the Python runtime for the Python course, documentation links, the AI on your
+         computer (Ollama over Wi-Fi) and downloading the tablet AI model. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Settings → Uninstall Codeling opens Android's uninstall screen for this app. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <application
         android:allowBackup="true"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
         android:label="Codeling"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:largeHeap="true"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:usesCleartextTraffic="true">
 
         <activity
             android:name=".MainActivity"

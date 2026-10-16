@@ -17,6 +17,32 @@ Every time the code changes, GitHub rebuilds the APKs below automatically.
 
 Or from a computer: `adb install -r Codeling.apk`
 
+## Codeling's free AI tutor
+
+Codeling's tutor explains errors, gives hints and checks your code. It's free and comes from two places:
+
+| Where | What you get | Needs |
+| --- | --- | --- |
+| **Your computer** | Fast and smart (Ollama with `qwen2.5-coder:3b` or bigger) | The computer on and on the same Wi-Fi |
+| **This tablet** | Slow (a few words a second) and simpler (Qwen2.5 Coder 0.5B, 429 MB) | Nothing; works offline |
+
+When the computer can't be reached, the tablet model answers instead.
+
+**Use your computer's AI:**
+1. On the Pop!_OS computer, open Codeling, go to **Settings → AI tutor**, install Ollama and download a model if you haven't, then press **Let my tablet use this AI** (asks for your password). Anyone on your Wi-Fi can use the AI while this is on, so only do it at home.
+2. On the tablet, open Codeling, go to **Settings → AI tutor** and tap **Find my computer** (or type the address the computer shows).
+
+Without Codeling on the computer, run these in a terminal there instead:
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+sudo mkdir -p /etc/systemd/system/ollama.service.d && printf '[Service]\nEnvironment="OLLAMA_HOST=0.0.0.0"\n' | sudo tee /etc/systemd/system/ollama.service.d/codeling-tablet.conf && sudo systemctl daemon-reload && sudo systemctl restart ollama
+ollama pull qwen2.5-coder:3b
+```
+
+**Use the tablet's own AI:** in **Settings → AI tutor**, tap **Download the tablet model** (429 MB, from Hugging Face). If the download stops, tap it again to continue. **Remove** frees the space.
+
+The tablet model runs with [llama.cpp](https://github.com/ggml-org/llama.cpp) built into the APK for 64-bit and 32-bit ARM. CI downloads llama.cpp at the version in `codeling/src/main/cpp/LLAMA_CPP_VERSION`; to build locally, clone it into `codeling/src/main/cpp/llama.cpp` first.
+
 ## Deskmate setup
 
 **1. On your PC**, download the desktop program from the [deskmate-desktop release](../../releases/tag/deskmate-desktop):

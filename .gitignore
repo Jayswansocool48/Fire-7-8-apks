@@ -5,3 +5,5 @@ local.properties
 *.iml
 tools/node_modules/
 codeling/web-dist/
+codeling/src/main/cpp/llama.cpp/
+codeling/.cxx/

@@ -11,8 +11,25 @@ android {
         applicationId = "io.github.jayswansocool48.codeling"
         minSdk = 21
         targetSdk = 35
-        versionCode = 1
-        versionName = "2.0.0"
+        versionCode = 2
+        versionName = "2.2.0"
+
+        ndk {
+            // 64-bit and 32-bit ARM, so the tablet AI runs whichever way LineageOS was built
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_STL=c++_static", "-DCMAKE_BUILD_TYPE=Release")
+                cppFlags += listOf("-O3")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
     }
 
     sourceSets {
@@ -27,7 +44,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("debug")
         }
     }

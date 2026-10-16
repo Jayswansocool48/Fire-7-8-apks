@@ -619,6 +619,10 @@ footer{font-size:.8rem;color:var(--muted)}
 .ai-test{background:var(--accent-soft);border-radius:8px;padding:8px 12px;color:var(--ink)!important}
 .ai-body select{font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--surface);color:var(--ink);flex:1;min-width:0}
 .status.bad{color:var(--bad)}
+.ai-sub{font-size:.98rem;margin-top:6px}
+.ai-help summary{cursor:pointer;font-weight:700;padding:4px 0}
+.ai-help[open]{display:flex;flex-direction:column;gap:8px}
+#aiPcUrl{flex:1;min-width:0;font:inherit;font-size:16px;border:2px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--surface);color:var(--ink)}
 
 /* practice shell inside the editor */
 .shell{display:flex;flex-direction:column;flex:1;min-height:0}
@@ -6793,6 +6797,8 @@ function blank(){ return {v:2, done:{}, bosses:{}, dates:{}, frozen:{}, goalDays
 function normalize(o){ const b = blank(); if (!o || typeof o !== "object") return b; for (const k in b) if (o[k] !== undefined) b[k] = JSON.parse(JSON.stringify(o[k])); return b; }
 /* the desktop app passes its saved file in and receives every save */
 const NATIVE = (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.native) || null;
+// The Android app (Fire tablets) adds this for the AI tutor; everything else runs in its WebView.
+const ANDROID = window.CodelingAndroid || null;
 function loadLocal(){
   let fromFile = null, fromBrowser = null;
   try { if (window.__CODELING_SAVE__) fromFile = normalize(window.__CODELING_SAVE__); } catch(e){}
@@ -9467,6 +9473,13 @@ const AI = {kind: null, running: false, installed: false, checked: false, models
 const aiErr = (code, message) => Object.assign(new Error(message), {code, local: true});
 const aiErrorText = (err, fallback) => err && err.local ? err.message : err && err.code === "rate_limited" ? "The tutor is busy. Try again in a minute." : fallback;
 function fetchTimeout(url, opts, ms){ const c = new AbortController(); const t = setTimeout(() => c.abort(), ms); return fetch(url, Object.assign({}, opts, {signal: c.signal})).finally(() => clearTimeout(t)); }
+// The desktop app and the Android app answer AI requests through the same messages.
+function aiPost(obj){
+  if (ANDROID) { try { ANDROID.post(JSON.stringify(obj)); return true; } catch(e) { return false; } }
+  return nativePost(obj);
+}
+const aiBridged = () => AI.kind === "native" || AI.kind === "android";
+const aiModelLabel = name => { const m = AI.models.find(x => x.name === name); return m && m.label || name; };
 function aiPickModel(){
   const names = AI.models.map(m => m.name);
   if (PREFS.aiModel && names.includes(PREFS.aiModel)) return PREFS.aiModel;
@@ -9476,6 +9489,8 @@ function aiApply(st){
   AI.checked = true;
   AI.running = !!st.running; AI.installed = !!(st.installed || st.running); AI.version = st.version || "";
   AI.models = (st.models || []).filter(m => m && m.name);
+  if (st.android) AI.android = st.android;
+  if ("shared" in st) AI.share = {on: !!st.shared, addresses: st.addresses || [], busy: false, error: ""};
   AI.model = aiPickModel();
   if (AI.kind !== "claude") {
     const ok = PREFS.ai !== "off" && AI.running && !!AI.model;
@@ -9487,6 +9502,7 @@ function aiApply(st){
 }
 async function aiRefresh(){
   if (AI.kind === "claude" || (!AI.kind && window.claude && window.claude.use)) { renderAISettings(); return; }
+  if (ANDROID) { AI.kind = "android"; aiPost({type: "ai-status"}); return; }
   if (NATIVE) { AI.kind = "native"; nativePost({type: "ai-status"}); return; }
   AI.kind = "web";
   try {
@@ -9515,10 +9531,10 @@ async function ollamaFail(res){
 function aiChat(messages, o){
   o = o || {};
   if (!AI.model) return Promise.reject(aiErr("no_model", "Download an AI model in Settings first."));
-  if (AI.kind === "native") return new Promise((resolve, reject) => {
+  if (aiBridged()) return new Promise((resolve, reject) => {
     const id = "ai" + Date.now() + Math.random().toString(36).slice(2, 6);
     AI.calls.set(id, {onText: o.onText, resolve, reject});
-    if (!nativePost({type: "ai-chat", id, model: AI.model, messages, json: !!o.json})) { AI.calls.delete(id); reject(aiErr("offline", "Couldn't reach the desktop app.")); }
+    if (!aiPost({type: "ai-chat", id, model: AI.model, messages, json: !!o.json})) { AI.calls.delete(id); reject(aiErr("offline", "Couldn't reach the AI.")); }
   });
   return (async () => {
     let res;
@@ -9559,6 +9575,14 @@ function aiNative(msg){
   if (msg.event === "pull") { AI.pull = {model: msg.model, status: msg.status, completed: msg.completed, total: msg.total}; renderAISettings(); return; }
   if (msg.event === "pulled") { aiPulled(msg.model); return; }
   if (msg.event === "pull-error") { AI.pull = {model: msg.model, error: msg.text}; renderAISettings(); return; }
+  if (msg.event === "find") { AI.find = msg; renderAISettings(); return; }
+  if (msg.event === "tablet-progress") {
+    AI.tabletDl = msg.finished ? null : {completed: msg.completed, total: msg.total};
+    if (msg.finished) { PREFS.aiModel = PREFS.aiModel || ""; savePrefs(); FX.play("achievement"); toast("Tablet AI ready", "The tablet model is downloaded. It answers even without your computer.", "ach"); }
+    renderAISettings(); return;
+  }
+  if (msg.event === "tablet-error") { AI.tabletDl = {error: msg.text}; renderAISettings(); return; }
+  if (msg.event === "share") { AI.share = {on: msg.status === "on", addresses: msg.addresses || [], busy: false, error: msg.status === "error" ? msg.text : ""}; renderAISettings(); return; }
   if (msg.event === "install") { AI.install = msg; if (msg.status === "installed") { FX.play("achievement"); toast("Ollama installed", "Now download an AI model in Settings.", "ach"); } renderAISettings(); }
 }
 function aiPulled(model){
@@ -9569,7 +9593,7 @@ function aiPulled(model){
 }
 async function aiPull(model){
   AI.pull = {model, status: "starting", completed: 0, total: 0}; renderAISettings();
-  if (AI.kind === "native") { nativePost({type: "ai-pull", model}); return; }
+  if (aiBridged()) { aiPost({type: "ai-pull", model}); return; }
   try {
     const res = await fetch(AI.url + "/api/pull", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({model, stream: true})});
     if (!res.ok) throw await ollamaFail(res);
@@ -9588,6 +9612,7 @@ function renderAISettings(){
   const box = $("aiBody"); if (!box || $("settings").hidden) return;
   const copyRow = cmd => `<div class="cmd"><code>${esc(cmd)}</code><button class="btn small" type="button" data-copy-text="${esc(cmd)}">Copy</button></div>`;
   if (AI.kind === "claude") { box.innerHTML = `<p>Inside Claude, the tutor is Claude. It explains errors, gives hints, checks your code, writes lessons and makes extra practice questions.</p>`; return; }
+  if (AI.kind === "android") { box.innerHTML = androidAIHTML(copyRow); return; }
   const on = PREFS.ai !== "off";
   let html = `<p>The AI tutor explains errors, gives hints, checks your code, writes the lessons that aren't written yet, and makes extra practice questions. It's free: it runs an open AI model on your own computer with <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>, so it works offline and what you type stays on your computer.</p>
     <label class="switch"><input type="checkbox" id="prefAI" ${on ? "checked" : ""}> Use the AI tutor</label>`;
@@ -9620,9 +9645,60 @@ function renderAISettings(){
           ${have.has(m.id) ? `<span class="tag won">Downloaded</span>` : `<button class="btn small" type="button" data-ai-pull="${esc(m.id)}" ${p && !p.error ? "disabled" : ""}>${busy ? "Downloading…" : "Download"}</button>`}</li>`;
       }).join("")}</ul>${p && p.error ? `<p class="status bad">${esc(p.error)}</p>` : ""}`;
       if (AI.model) html += `<div class="row"><button class="btn" type="button" data-ai="test">Test the tutor</button></div>${AI.test ? `<p class="ai-test">${esc(AI.test)}</p>` : ""}`;
+      if (AI.kind === "native" && AI.share) {
+        const sh = AI.share;
+        html += `<h4 class="ai-sub">Use this AI from your tablet</h4>${sh.on
+          ? `<p class="status">Your tablet can use this computer's AI over Wi-Fi. In Codeling on the tablet, open <b>Settings → AI tutor</b> and tap <b>Find my computer</b>${sh.addresses.length ? `, or type <b>${esc(sh.addresses[0])}</b>` : ""}.</p><div class="row"><button class="btn" type="button" data-ai="share-off" ${sh.busy ? "disabled" : ""}>Stop sharing</button></div>`
+          : `<p class="status">Lets Codeling on your tablet use this computer's AI over Wi-Fi. Anyone on your Wi-Fi could use it too, so only turn this on at home. Asks for your password.</p><div class="row"><button class="btn" type="button" data-ai="share-on" ${sh.busy ? "disabled" : ""}>${sh.busy ? "Turning on…" : "Let my tablet use this AI"}</button></div>`}${sh.error ? `<p class="status bad">${esc(sh.error)}</p>` : ""}`;
+      }
     }
   }
   box.innerHTML = html;
+}
+// Settings for the Android app: the AI on your computer (over Wi-Fi) and the small model on the tablet.
+function androidAIHTML(copyRow){
+  const a = AI.android || {pc: {}, tablet: {}}, pc = a.pc || {}, tab = a.tablet || {}, on = PREFS.ai !== "off";
+  let html = `<p>The AI tutor explains errors, gives hints, checks your code and makes extra practice questions. It's free and comes from two places: <b>your computer</b> (fast and smart, over Wi-Fi) or <b>this tablet</b> (slower and simpler, but works anywhere). When your computer can't be reached, the tablet takes over.</p>
+    <label class="switch"><input type="checkbox" id="prefAI" ${on ? "checked" : ""}> Use the AI tutor</label>`;
+  if (!on) return html;
+  const ready = AI.running && AI.model;
+  html += `<p class="ai-status"><i class="${ready ? "good" : "bad"}" aria-hidden="true"></i>${esc(!AI.checked ? "Checking…" : ready ? "Ready · " + aiModelLabel(AI.model) : "Set up your computer or download the tablet model below.")}</p>`;
+  if (AI.models.length) html += `<label class="range" for="aiModel">Model <select id="aiModel">${AI.models.map(m => `<option value="${esc(m.name)}" ${m.name === AI.model ? "selected" : ""}>${esc(m.label || m.name + " (your computer)")}</option>`).join("")}</select></label>`;
+  if (ready) html += `<div class="row"><button class="btn" type="button" data-ai="test">Test the tutor</button></div>${AI.test ? `<p class="ai-test">${esc(AI.test)}</p>` : ""}`;
+
+  const f = AI.find || {};
+  html += `<h4 class="ai-sub">Your computer</h4>
+    <p class="status">${pc.ok ? `Connected to ${esc(pc.url)}${pc.version ? ", Ollama " + esc(pc.version) : ""}.` : pc.url ? esc(pc.error || "Not connected.") : "Not connected yet."}</p>
+    <div class="row"><input id="aiPcUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Computer address, like 192.168.1.20" value="${esc((pc.url || "").replace(/^http:\/\//, "").replace(/:11434$/, ""))}"><button class="btn small" type="button" data-ai="pc-set">Connect</button></div>
+    <div class="row"><button class="btn" type="button" data-ai="find" ${f.status === "searching" ? "disabled" : ""}>${f.status === "searching" ? "Looking on your Wi-Fi…" : "Find my computer"}</button></div>
+    ${f.status === "none" ? `<p class="status bad">No computer with the AI turned on was found on this Wi-Fi.</p>` : ""}`;
+  if (pc.ok) {
+    const have = new Set((pc.models || []).map(m => m.name)), p = AI.pull;
+    html += `<p class="status">${(pc.models || []).length ? "Download another model onto your computer:" : "Download a model onto your computer to start:"}</p><ul class="ai-models">${AI_MODELS.map(m => {
+      const busy = p && !p.error && p.model === m.id, pct = busy && p.total ? Math.round(p.completed / p.total * 100) : 0;
+      return `<li><div><b>${esc(m.id)}</b> <span class="status">${m.size}</span><br><span class="status">${esc(m.note)}</span>${busy ? `<span class="bar ai-bar" aria-hidden="true"><i style="width:${pct}%"></i></span>` : ""}</div>${have.has(m.id) ? `<span class="tag won">Downloaded</span>` : `<button class="btn small" type="button" data-ai-pull="${esc(m.id)}" ${p && !p.error ? "disabled" : ""}>${busy ? "Downloading…" : "Download"}</button>`}</li>`;
+    }).join("")}</ul>${p && p.error ? `<p class="status bad">${esc(p.error)}</p>` : ""}`;
+  } else {
+    html += `<details class="ai-help"><summary>Set up your computer (one time)</summary>
+      <p class="status">Easiest: open Codeling on your Pop!_OS computer, go to <b>Settings → AI tutor</b>, and press <b>Let my tablet use this AI</b>. Then tap <b>Find my computer</b> here.</p>
+      <p class="status">Or in a terminal on the computer: install Ollama, let it accept your tablet, and download a model:</p>
+      ${copyRow("curl -fsSL https://ollama.com/install.sh | sh")}
+      ${copyRow(`sudo mkdir -p /etc/systemd/system/ollama.service.d && printf '[Service]\nEnvironment="OLLAMA_HOST=0.0.0.0"\n' | sudo tee /etc/systemd/system/ollama.service.d/codeling-tablet.conf && sudo systemctl daemon-reload && sudo systemctl restart ollama`)}
+      ${copyRow("ollama pull qwen2.5-coder:3b")}
+      <p class="status">Anyone on your Wi-Fi can use the AI on your computer once this is on, so only do it on your home network. If you use a firewall, allow port 11434.</p></details>`;
+  }
+
+  const dl = AI.tabletDl;
+  html += `<h4 class="ai-sub">On this tablet</h4>`;
+  if (tab.supported === false) html += `<p class="status">This tablet's processor can't run the tablet model.</p>`;
+  else if (tab.downloaded) html += `<p class="status">Downloaded (${esc(tab.size || "")}). Answers take a while and are simpler than your computer's.</p><div class="row"><button class="btn small" type="button" data-ai="tablet-delete">Remove</button></div>`;
+  else {
+    const busy = (dl && !dl.error) || tab.downloading, pct = dl && dl.total ? Math.round(dl.completed / dl.total * 100) : 0;
+    html += `<p class="status">A small model (${esc(tab.size || "")}) that runs on the tablet without your computer or the internet. It writes a few words a second and is much simpler than your computer's AI.</p>
+      ${busy ? `<span class="bar ai-bar" aria-hidden="true"><i style="width:${pct}%"></i></span><p class="status">${dl && dl.total ? `${fmtBytes(dl.completed)} of ${fmtBytes(dl.total)}` : "Starting the download…"}</p>` : `<div class="row"><button class="btn" type="button" data-ai="tablet-download">${tab.partial ? "Continue the download" : "Download the tablet model"}</button></div>`}
+      ${dl && dl.error ? `<p class="status bad">${esc(dl.error)}</p>` : ""}`;
+  }
+  return html;
 }
 function wireAISettings(){
   const box = $("aiBody");
@@ -9638,6 +9714,11 @@ function wireAISettings(){
     if (a === "check") { AI.checked = false; renderAISettings(); aiRefresh(); }
     if (a === "start") { b.disabled = true; b.textContent = "Starting…"; nativePost({type: "ai-start"}); }
     if (a === "install") { AI.install = {status: "downloading"}; renderAISettings(); nativePost({type: "ai-install"}); }
+    if (a === "share-on" || a === "share-off") { AI.share = Object.assign({}, AI.share, {busy: true, error: ""}); renderAISettings(); nativePost({type: "ai-share", on: a === "share-on"}); }
+    if (a === "find") { AI.find = {status: "searching"}; renderAISettings(); aiPost({type: "ai-find"}); }
+    if (a === "pc-set") { const v = $("aiPcUrl").value.trim(); AI.find = null; AI.checked = false; renderAISettings(); aiPost({type: "ai-set-pc", url: v}); }
+    if (a === "tablet-download") { AI.tabletDl = {completed: 0, total: 0}; renderAISettings(); aiPost({type: "ai-tablet-download"}); }
+    if (a === "tablet-delete") { aiPost({type: "ai-tablet-delete"}); }
     if (a === "test" && TUTOR) {
       AI.test = "Thinking…"; renderAISettings();
       try { const r = await TUTOR("Say hello to a new coding student in one short, friendly sentence.", {onText: ({text}) => { AI.test = text; const p = $("aiBody").querySelector(".ai-test"); if (p) p.textContent = text; }}); AI.test = r.text.trim(); }
@@ -9779,7 +9860,7 @@ document.getElementById("gwRestart").addEventListener("click", restartGame);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !document.getElementById("gamewin").hidden) closeGameWindow(); });
 
 /* ============ SOUND & MOTION ============ */
-const APP_VERSION = "2.0.0";
+const APP_VERSION = "2.2.0";
 const PREFKEY = APP_SLUG + "-prefs";
 const PREFS = (() => { const d = {sound: true, volume: 0.6, motion: "system"}; try { return Object.assign(d, JSON.parse(localStorage.getItem(PREFKEY) || "{}")); } catch(e) { return d; } })();
 function savePrefs(){ try { localStorage.setItem(PREFKEY, JSON.stringify(PREFS)); } catch(e){} }
@@ -9944,12 +10025,13 @@ const FX = (() => {
 
 /* ============ SETTINGS: sound, motion, updates, uninstall ============ */
 const PLATFORM = {
-  kind: NATIVE ? "desktop" : (window.claude && window.claude.use) ? "claude" : (matchMedia("(display-mode: standalone)").matches ? "pwa" : "web"),
+  kind: NATIVE ? "desktop" : ANDROID ? "android" : (window.claude && window.claude.use) ? "claude" : (matchMedia("(display-mode: standalone)").matches ? "pwa" : "web"),
   install: null, version: APP_VERSION, store: false
 };
 function platformLabel(){
   if (PLATFORM.kind === "desktop") return PLATFORM.install === "flatpak" ? (PLATFORM.store ? "Desktop app (Flatpak from the store)" : PLATFORM.local ? "Desktop app (Flatpak built with install.sh)" : "Desktop app (Flatpak)") : PLATFORM.install === "deb" ? "Desktop app (.deb package)" : "Desktop app (run from source)";
   if (PLATFORM.kind === "claude") return "Running inside Claude";
+  if (PLATFORM.kind === "android") return "Tablet app (Android)";
   if (PLATFORM.kind === "pwa") return "Installed web app";
   return "Web version";
 }
@@ -9975,6 +10057,7 @@ function uninstallDescription(){
     if (PLATFORM.install === "deb") return "Removes the Codeling package and its launcher icon, then deletes all your progress, code files and settings. You'll be asked for your password.";
     return "Deletes all your progress, code files and settings. This copy runs from a folder, so delete that folder yourself afterwards.";
   }
+  if (PLATFORM.kind === "android") return "Removes the Codeling app from this tablet, with all your progress, code files, settings and the tablet AI model. Android asks you to confirm.";
   if (PLATFORM.kind === "claude") return "Deletes all your progress, code files, tutor lessons and settings here and in your Claude account. The page itself stays in your Claude artifacts; delete it there if you want it gone too.";
   return "Deletes all your progress, code files and settings from this browser, plus the offline copy. Then follow the steps shown to remove the app icon.";
 }
@@ -9994,6 +10077,12 @@ async function uninstallApp(){
   if (PLATFORM.kind === "desktop") {
     status.textContent = PLATFORM.install === "deb" ? "Removing Codeling… enter your password if asked." : "Removing Codeling…";
     nativePost({type: "uninstall"});
+    return;
+  }
+  if (PLATFORM.kind === "android") {
+    status.textContent = "Confirm in the Android window to remove Codeling.";
+    btn.disabled = false;
+    aiPost({type: "app-uninstall"});
     return;
   }
   try { await wipeAllData(); } catch(e){}
@@ -10020,6 +10109,7 @@ function checkForUpdates(){
   $("installUpdate").hidden = true; $("restartApp").hidden = true;
   if (PLATFORM.kind === "desktop") { st.textContent = "Checking GitHub for a newer version…"; nativePost({type: "check-update"}); return; }
   if (PLATFORM.kind === "claude") { st.textContent = "This page always runs the newest version when it's published, so there's nothing to update."; return; }
+  if (PLATFORM.kind === "android") { st.innerHTML = `The newest Codeling.apk is always on <a href="https://github.com/Jayswansocool48/Fire-7-8-apks" target="_blank" rel="noopener">your apps page on GitHub</a>. Download it and tap Install; your progress stays.`; return; }
   st.textContent = "The web version updates itself whenever you open it online.";
   if (navigator.serviceWorker && location.protocol.startsWith("http")) {
     navigator.serviceWorker.getRegistration().then(r => { if (r) return r.update(); }).then(() => { st.textContent = "Checked. If a newer version was found, reload Codeling to start using it."; $("restartApp").hidden = false; }).catch(() => {});

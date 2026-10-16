@@ -62,6 +62,11 @@ jobs:
         with:
           node-version: 20
 
+      - name: Get llama.cpp for Codeling's tablet AI
+        run: |
+          VERSION=$(cat codeling/src/main/cpp/LLAMA_CPP_VERSION)
+          git clone --depth 1 --branch "$VERSION" https://github.com/ggml-org/llama.cpp codeling/src/main/cpp/llama.cpp
+
       - name: Prepare Codeling's web app for older WebViews
         run: |
           npm install --prefix tools --no-audit --no-fund
@@ -70,12 +75,21 @@ jobs:
       - name: Build release APKs
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :inkwell:assembleRelease :codeling:assembleRelease :deskmate:assembleRelease :gamecodex:assembleRelease
+          set -o pipefail
+          ./gradlew --no-daemon :inkwell:assembleRelease :codeling:assembleRelease :deskmate:assembleRelease 2>&1 | tee build.log :gamecodex:assembleRelease
           cp inkwell/build/outputs/apk/release/inkwell-release.apk Inkwell.apk
           cp codeling/build/outputs/apk/release/codeling-release.apk Codeling.apk
           cp deskmate/build/outputs/apk/release/deskmate-release.apk Deskmate.apk
           cp gamecodex/build/outputs/apk/release/gamecodex-release.apk GameCodex.apk
           ls -la *.apk
+
+      - name: Show why the build failed
+        if: failure()
+        run: |
+          [ -f build.log ] || exit 0
+          grep -E "error:|error |e: |FAILED|What went wrong|Caused by" -A2 build.log | grep -v "^--$" | head -40 | while IFS= read -r line; do
+            echo "::error::$line"
+          done
 
       - name: Commit the new APKs
         run: |

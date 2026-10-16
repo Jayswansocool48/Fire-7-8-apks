@@ -25,6 +25,7 @@ import java.io.IOException
  */
 class MainActivity : Activity() {
     private lateinit var web: WebView
+    private lateinit var ai: AiBridge
 
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,6 +45,9 @@ class MainActivity : Activity() {
             useWideViewPort = true
             loadWithOverviewMode = true
         }
+        // The free AI tutor: Ollama on your computer over Wi-Fi, or a small model on the tablet.
+        ai = AiBridge(this, web)
+        web.addJavascriptInterface(ai, "CodelingAndroid")
         web.webViewClient = AssetClient()
         web.webChromeClient = WebChromeClient()
         setContentView(web)
@@ -71,6 +75,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        ai.close()
         web.destroy()
         super.onDestroy()
     }
