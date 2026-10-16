@@ -72,15 +72,19 @@ jobs:
           npm install --prefix tools --no-audit --no-fund
           node tools/prepare-web.mjs codeling/web-src codeling/web-dist
 
+      - name: Add three.js to Kiln's web app
+        run: kiln/sync-web.sh
+
       - name: Build release APKs
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew --no-daemon :inkwell:assembleRelease :codeling:assembleRelease :deskmate:assembleRelease 2>&1 | tee build.log :gamecodex:assembleRelease
+          ./gradlew --no-daemon :inkwell:assembleRelease :codeling:assembleRelease :deskmate:assembleRelease :gamecodex:assembleRelease :kiln:assembleRelease 2>&1 | tee build.log
           cp inkwell/build/outputs/apk/release/inkwell-release.apk Inkwell.apk
           cp codeling/build/outputs/apk/release/codeling-release.apk Codeling.apk
           cp deskmate/build/outputs/apk/release/deskmate-release.apk Deskmate.apk
           cp gamecodex/build/outputs/apk/release/gamecodex-release.apk GameCodex.apk
+          cp kiln/build/outputs/apk/release/kiln-release.apk Kiln.apk
           ls -la *.apk
 
       - name: Show why the build failed
@@ -95,7 +99,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add Inkwell.apk Codeling.apk Deskmate.apk GameCodex.apk
+          git add Inkwell.apk Codeling.apk Deskmate.apk GameCodex.apk Kiln.apk
           git diff --cached --quiet && exit 0
           git commit -m "Update APKs [skip ci]"
           git pull --rebase origin main

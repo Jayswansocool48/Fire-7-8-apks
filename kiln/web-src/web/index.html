@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kiln</title>
+  <link rel="icon" href="/icon.svg">
+  <link rel="stylesheet" href="/style.css">
+  <script>
+    // Apply the saved theme before first paint so there's no flash of the wrong colours.
+    try { const t = localStorage.getItem('kiln.theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <script type="importmap">{"imports":{"three":"/vendor/three.module.js","three/addons/":"/vendor/addons/"}}</script>
+</head>
+<body>
+  <div id="splash">
+    <img src="/icon.svg" alt="">
+    <h1>Kiln</h1>
+    <div class="heat"><i></i></div>
+  </div>
+
+  <div id="app" class="hidden">
+    <nav class="rail" aria-label="Main">
+      <img class="logo" src="/icon.svg" alt="Kiln">
+      <div id="nav"></div>
+      <div class="spacer"></div>
+      <div id="railtools"></div>
+    </nav>
+
+    <main>
+      <header class="top">
+        <div class="titles">
+          <h1 id="title">Board</h1>
+          <p id="sub"></p>
+        </div>
+        <div class="tools">
+          <span id="savestate" class="savestate" role="status"></span>
+          <label class="search" id="searchbox"><input id="q" type="search" placeholder="Search assets" autocomplete="off" aria-label="Search"></label>
+          <button class="icon ghost" id="themebtn"></button>
+          <button class="pri" id="addcat"></button>
+        </div>
+      </header>
+      <div id="overview"></div>
+      <div id="view"></div>
+    </main>
+
+    <aside id="assistant" class="assistant hidden" aria-label="Assistant"></aside>
+  </div>
+
+  <div id="toasts" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

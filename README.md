@@ -9,6 +9,7 @@ Every time the code changes, GitHub rebuilds the APKs below automatically.
 | **Codeling** | [Codeling.apk](Codeling.apk) | Learn-to-code lessons with a creature that grows as you do |
 | **Game Codex** | [GameCodex.apk](GameCodex.apk) | Game design notebook: characters, props, story & quests, mechanics and levels, with a sketch pad and idea generators |
 | **Deskmate** | [Deskmate.apk](Deskmate.apk) + [desktop program](../../releases/tag/deskmate-desktop) | Turns the tablet into a Stream Deck for your PC, plus a system monitor, media remote, notes/timer and game dev panel |
+| **Kiln** | [Kiln.apk](Kiln.apk) | Game-asset boards, file library, assistant and a Blender-style 3D viewer (**Fire HD 8 only**) |
 
 ## Install on the tablet
 1. Open this repo in the tablet's browser and tap the APK you want.
@@ -16,6 +17,17 @@ Every time the code changes, GitHub rebuilds the APKs below automatically.
 3. Allow installs from that source when LineageOS asks, then tap **Install**.
 
 Or from a computer: `adb install -r Codeling.apk`
+
+## Kiln on the tablet
+- Needs the **Fire HD 8 (8th gen)** on LineageOS 21. The Fire 7's web engine is too old for the 3D viewer.
+- Your boards and files stay on the tablet. They aren't shared with Kiln on your PC.
+- **3D viewer:** one finger orbits (or uses the selected tool), two fingers pinch to zoom and pan.
+  When you move, rotate, scale, extrude or inset, drag anywhere to adjust, then tap ✓ (or ✕ to cancel).
+  The tools and the X/Y/Z axes work like Blender's.
+- **Assistant:** Claude and ChatGPT work with an API key. Ollama runs on your PC: start it there with
+  `OLLAMA_HOST=0.0.0.0 ollama serve`, then in Kiln's Settings set the address to your PC's IP, like
+  `http://192.168.1.20:11434`.
+- **Uninstall:** in Kiln, open Settings ▸ Uninstall, or long-press the icon ▸ App info ▸ Uninstall.
 
 ## Codeling's free AI tutor
 

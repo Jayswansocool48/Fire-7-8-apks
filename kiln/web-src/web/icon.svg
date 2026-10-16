@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="clay" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff6ee"/>
+      <stop offset="1" stop-color="#efd7c1"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".75" r=".75">
+      <stop offset="0" stop-color="#ffe9a3"/>
+      <stop offset=".55" stop-color="#ffb347"/>
+      <stop offset="1" stop-color="#ff6a3d"/>
+    </radialGradient>
+    <radialGradient id="halo" cx=".5" cy=".72" r=".45">
+      <stop offset="0" stop-color="#ffb347" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ffb347" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="tile"><rect x="8" y="8" width="240" height="240" rx="56"/></clipPath>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <path d="M8 64a56 56 0 0 1 56-56h128a56 56 0 0 1 56 56v20H8z" fill="#fff" opacity=".08"/>
+  <circle cx="128" cy="168" r="96" fill="url(#halo)" clip-path="url(#tile)"/>
+  <!-- heat wisp + chimney -->
+  <path d="M162 40c-6-8 6-12 0-20" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".55"/>
+  <rect x="150" y="48" width="24" height="36" rx="5" fill="#e6c8ad"/>
+  <!-- ground shadow -->
+  <ellipse cx="128" cy="210" rx="82" ry="10" fill="#1e1b4b" opacity=".35"/>
+  <!-- kiln dome -->
+  <path d="M60 200V138c0-42 30-72 68-72s68 30 68 72v62z" fill="url(#clay)"/>
+  <path d="M74 112c10-18 30-32 54-32" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".7"/>
+  <path d="M64 150h128M68 124h120" stroke="#e3c4a8" stroke-width="3" opacity=".7"/>
+  <!-- door glow -->
+  <path d="M98 200v-40c0-18 13-32 30-32s30 14 30 32v40z" fill="url(#glow)"/>
+  <!-- asset cube being fired -->
+  <g transform="translate(128 176)">
+    <path d="M0-17l15 8.5L0 0l-15-8.5z" fill="#4c1d95" opacity=".55"/>
+    <path d="M-15-8.5L0 0v17l-15-8.5z" fill="#4c1d95" opacity=".75"/>
+    <path d="M15-8.5L0 0v17l15-8.5z" fill="#4c1d95" opacity=".9"/>
+  </g>
+  <!-- plinth -->
+  <rect x="48" y="196" width="160" height="14" rx="7" fill="#e2c3a6"/>
+</svg>
