@@ -64,7 +64,7 @@ class KilnServer(
             val d = pdir(parts[1]) ?: return notFound()
             return when (parts[2]) {
                 "state" -> json(File(d, "state.json").let { if (it.exists()) it.readText() else "{}" })
-                "files" -> json(listFiles(File(d, "files")).toString())
+                "files" -> json(listFiles(File(d, "files").canonicalFile).toString())
                 else -> notFound()
             }
         }
@@ -112,14 +112,14 @@ class KilnServer(
         if (parts[0] != "api" || parts.size != 3) return notFound()
         val pid = parts[1]
         val d = pdir(pid) ?: return notFound()
-        val fd = File(d, "files")
+        val fd = File(d, "files").canonicalFile  // filesDir is a symlink on Android; compare real paths
         return when (parts[2]) {
             "state" -> { write(File(d, "state.json"), body); json("{}") }
             "upload" -> {
                 var p = safe(fd, q["path"]?.firstOrNull() ?: "") ?: return text(Response.Status.BAD_REQUEST, "{}")
                 if (q["overwrite"].isNullOrEmpty()) p = unique(p)
                 write(p, body)
-                json(JSONObject().put("url", "/files/$pid/" + p.relativeTo(fd).invariantSeparatorsPath).toString())
+                json(JSONObject().put("url", fileUrl(pid, p, fd)).toString())
             }
             "delete" -> {
                 val p = safe(fd, q["path"]?.firstOrNull() ?: "")
@@ -133,7 +133,7 @@ class KilnServer(
                 dd.mkdirs()
                 val p = unique(File(dd, src.name))
                 if (!src.renameTo(p)) return text(Response.Status.BAD_REQUEST, "{}")
-                json(JSONObject().put("url", "/files/$pid/" + p.relativeTo(fd).invariantSeparatorsPath).toString())
+                json(JSONObject().put("url", fileUrl(pid, p, fd)).toString())
             }
             else -> notFound()
         }
@@ -172,6 +172,10 @@ class KilnServer(
         while (off < buf.size) { val r = ins.read(buf, off, buf.size - off); if (r < 0) break; off += r }
         return if (off == buf.size) buf else buf.copyOf(off)
     }
+
+    /** /files/<id>/<path> with each part URL-encoded, like server.py returns. */
+    private fun fileUrl(pid: String, p: File, fd: File) =
+        "/files/$pid/" + p.relativeTo(fd).invariantSeparatorsPath.split('/').joinToString("/") { android.net.Uri.encode(it) }
 
     private fun pdir(pid: String): File? = if (Regex("[a-z0-9]{3,16}").matches(pid)) File(prof, pid) else null
 

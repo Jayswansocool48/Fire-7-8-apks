@@ -18,11 +18,11 @@ await step('state and file upload round-trip', async () => {
     const id = 'smoketest';
     await fetch(`/api/${id}/state`, { method: 'POST', body: JSON.stringify({ hello: 1 }) });
     const s = await fetch(`/api/${id}/state`).then(r => r.json());
-    const u = await fetch(`/api/${id}/upload?path=textures/a b+c.txt`, { method: 'POST', body: 'hi' }).then(r => r.json());
+    const u = await fetch(`/api/${id}/upload?path=${encodeURIComponent('textures/a b+c.txt')}`, { method: 'POST', body: 'hi' }).then(r => r.json());
     const f = await fetch(u.url).then(r => r.text()); const list = await fetch(`/api/${id}/files`).then(r => r.json());
     return { s, u, f, list };
   });
-  if (r.s.hello !== 1 || r.f !== 'hi' || !r.list.some(x => x.kind === 'Textures')) throw new Error(JSON.stringify(r));
+  if (r.s.hello !== 1 || r.f !== 'hi' || !r.list.some(x => x.path === 'textures/a b+c.txt' && x.kind === 'Textures')) throw new Error(JSON.stringify(r));
 });
 await step('requests without the app cookie are refused', async () => {
   const st = await page.evaluate(() => fetch('/api/profiles', { credentials: 'omit' }).then(r => r.status));
@@ -48,7 +48,7 @@ await step('Add Cube, then extrude a face by touch', async () => {
   const after = await page.evaluate(() => window.V.ed.em.f.length);
   if (!(after > before)) throw new Error(`faces ${before} -> ${after}`);
 });
-await step('no errors in the console', async () => { if (errors.length) throw new Error(errors.slice(0, 3).join(' | ')); });
+await step('no errors in the console', async () => { const real = errors.filter(e => !/status of 403/.test(e)); /* 403 is the cookie test above */ if (real.length) throw new Error(real.slice(0, 3).join(' | ')); });
 const passed = out.filter(l => l.startsWith('ok')).length;
 out.push(`${passed}/${out.length} passed`); console.log(out.join('\n')); writeFileSync(process.env.OUT + '/RESULTS.txt', out.join('\n') + '\n');
 await device.close(); process.exit(passed === out.length - 1 ? 0 : 1);
