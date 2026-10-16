@@ -37,6 +37,8 @@ class MainActivity : Activity() {
         server = KilnServer(assets, File(filesDir, "Kiln").apply { mkdirs() }) { runOnUiThread { askUninstall() } }
         server.start(NanoHTTPDTimeout, false)
 
+        // Debug builds can be inspected from a computer (chrome://inspect); used by the emulator test in CI.
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
         web = WebView(this)
         web.setBackgroundColor(0xFF1B1B1F.toInt())
         web.overScrollMode = View.OVER_SCROLL_NEVER
