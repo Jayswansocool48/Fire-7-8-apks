@@ -1,11 +1,11 @@
 // Drives Kiln inside the Android emulator over the WebView's DevTools socket (debug build only).
 // Checks: the page and its /api load, a profile can be made, the 3D viewer opens and its tools work by touch.
-import { chromium } from 'playwright';
+import { _android as android } from 'playwright';
 import { writeFileSync } from 'node:fs';
 const out = [], step = async (name, fn) => { try { await fn(); out.push('ok   ' + name); } catch (e) { out.push('FAIL ' + name + ' — ' + (e.message || e).split('\n')[0]); } };
-const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
-const ctx = browser.contexts()[0];
-let page = ctx.pages().find(p => p.url().includes('127.0.0.1')) || ctx.pages()[0];
+const [device] = await android.devices();
+const webview = await device.webView({ pkg: 'io.github.jayswansocool48.kiln' }, { timeout: 60000 });
+const page = await webview.page(), ctx = page.context();
 const errors = []; page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); }); page.on('pageerror', e => errors.push(e.message));
 await step('page loads from the built-in server', async () => {
   await page.waitForFunction(() => document.readyState === 'complete', null, { timeout: 30000 });
@@ -51,4 +51,4 @@ await step('Add Cube, then extrude a face by touch', async () => {
 await step('no errors in the console', async () => { if (errors.length) throw new Error(errors.slice(0, 3).join(' | ')); });
 const passed = out.filter(l => l.startsWith('ok')).length;
 out.push(`${passed}/${out.length} passed`); console.log(out.join('\n')); writeFileSync(process.env.OUT + '/RESULTS.txt', out.join('\n') + '\n');
-await browser.close(); process.exit(passed === out.length - 1 ? 0 : 1);
+await device.close(); process.exit(passed === out.length - 1 ? 0 : 1);

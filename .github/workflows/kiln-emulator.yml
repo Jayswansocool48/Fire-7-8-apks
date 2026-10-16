@@ -51,8 +51,7 @@ jobs:
             adb uninstall io.github.jayswansocool48.kiln
             adb install -r kiln/build/outputs/apk/debug/kiln-debug.apk
             adb shell am start -W -n io.github.jayswansocool48.kiln/.MainActivity; sleep 12
-            adb forward tcp:9222 localabstract:webview_devtools_remote_$(adb shell pidof io.github.jayswansocool48.kiln | tr -d '\r')
-            OUT=screens node kiln/tests/smoke.mjs || touch screens/FAILED
+            OUT=screens node kiln/tests/smoke.mjs > screens/smoke.log 2>&1 || touch screens/FAILED; cat screens/smoke.log
             adb exec-out screencap -p > screens/02-viewer-extrude.png
             adb shell input keyevent KEYCODE_BACK; sleep 2; adb exec-out screencap -p > screens/03-after-back.png
             adb logcat -d | grep -E "FATAL|AndroidRuntime" | head -40 > screens/logcat.txt || true
@@ -66,4 +65,4 @@ jobs:
       - name: Result
         run: |
           grep -q "release: running" screens/release.txt || { echo "::error::Release APK didn't stay running"; exit 1; }
-          [ ! -f screens/FAILED ] || { echo "::error::$(grep FAIL screens/RESULTS.txt | head -3 | tr '\n' ' ')"; exit 1; }
+          [ ! -f screens/FAILED ] || { echo "::error::$(tail -5 screens/smoke.log | tr '\n' ' ')"; exit 1; }
