@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "io.github.jayswansocool48.codeling"
-        minSdk = 21
+        minSdk = 23
         targetSdk = 35
         versionCode = 2
         versionName = "2.2.0"
