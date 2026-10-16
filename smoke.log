@@ -1,0 +1,8 @@
+ok   page loads from the built-in server
+ok   user agent marks the Android app
+ok   state and file upload round-trip
+ok   requests without the app cookie are refused
+ok   3D viewer opens with WebGL and the Blender UI
+ok   Add Cube, then extrude a face by touch
+ok   no errors in the console
+7/7 passed
