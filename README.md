@@ -7,6 +7,7 @@ Every time the code changes, GitHub rebuilds the APKs below automatically.
 | --- | --- | --- |
 | **Inkwell** | [Inkwell.apk](Inkwell.apk) | Drawing app in the style of ibisPaint / Procreate |
 | **Codeling** | [Codeling.apk](Codeling.apk) | Learn-to-code lessons with a creature that grows as you do |
+| **Game Codex** | [GameCodex.apk](GameCodex.apk) | Game design notebook: characters, props, story & quests, mechanics and levels, with a sketch pad and idea generators |
 | **Deskmate** | [Deskmate.apk](Deskmate.apk) + [desktop program](../../releases/tag/deskmate-desktop) | Turns the tablet into a Stream Deck for your PC, plus a system monitor, media remote, notes/timer and game dev panel |
 
 ## Install on the tablet
@@ -96,6 +97,7 @@ Then in any script: `Tweaks.tweak.connect(func(n, v): if n == "speed": speed = v
 | --- | --- |
 | `inkwell/` | Inkwell source: native Kotlin, no libraries |
 | `codeling/` | Android wrapper for Codeling; the web app itself is in `codeling/web-src/web/` |
+| `gamecodex/` | Android wrapper for Game Codex; the web app itself is in `gamecodex/web-src/web/` |
 | `deskmate/` | Deskmate tablet app (Kotlin, no libraries) |
 | `deskmate-desktop/` | Deskmate desktop program (Go, no dependencies; Linux and Windows) |
 | `tools/prepare-web.mjs` | Rewrites Codeling's JavaScript and CSS so it runs on older WebViews (Android 7) |
@@ -109,6 +111,16 @@ Then in any script: `Tweaks.tweak.connect(func(n, v): if n == "speed": speed = v
   `codeling/web-src/web/` and push.
 - On Android 7 the built-in web engine may be old. Codeling still runs, but if some screens
   look cramped, updating **Android System WebView** fixes it.
+
+## Game Codex notes
+- Made for the Fire HD 8 (8th gen) on LineageOS 21; works in portrait and landscape.
+- Fully offline: the APK has no internet permission. Games are saved as files in the app's private storage, the same format as the Pop!_OS app.
+- Export a game (Overview → Export) as a `.gamecodex` file to move it between the tablet and the Pop!_OS app; Import works both ways.
+- **Add images** opens the tablet's gallery/files. Back closes the open dialog, sketch or menu first.
+- Settings → Uninstall opens Android's uninstall prompt, which removes the app and all of its games.
+- The web files are a copy of the `game-codex` repo's `web/` folder (version 0.1.0). To update the APK after changing Game Codex,
+  copy the new `web/` folder into `gamecodex/web-src/web/` and push. Tablet-only additions (storage bridge, touch sizes,
+  icon sidebar in landscape) live in `gamecodex/android-assets/web/`.
 
 ## Building locally
 Open this folder in Android Studio, or run `./gradlew assembleRelease`.

@@ -18,3 +18,4 @@ rootProject.name = "apps"
 include(":inkwell")
 include(":codeling")
 include(":deskmate")
+include(":gamecodex")
