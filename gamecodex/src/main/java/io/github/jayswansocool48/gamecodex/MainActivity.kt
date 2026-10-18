@@ -371,10 +371,17 @@ class MainActivity : Activity() {
     // ---------- updates (from the Fire-7-8-apks repository) ----------
 
     private fun checkUpdate() {
-        val r = Net.request(UPDATE_INFO, headers = mapOf("Cache-Control" to "no-cache"), anyGithubHost = true, userAgent = "GameCodex/" + versionName())
+        // raw.githubusercontent.com first; GitHub's API as a fallback (it serves the same file)
+        var r = Net.request(UPDATE_INFO, headers = mapOf("Cache-Control" to "no-cache"), anyGithubHost = true, userAgent = "GameCodex/" + versionName())
+        if (r.status != 200) r = Net.request(UPDATE_INFO_API, headers = mapOf("Accept" to "application/vnd.github.raw+json"), userAgent = "GameCodex/" + versionName())
         val info = try { JSONObject(r.body) } catch (e: Exception) { null }
         if (r.status != 200 || info == null) {
-            send(JSONObject().put("type", "update").put("status", "error").put("text", "Couldn't reach GitHub to check for updates. Check your internet connection."))
+            val text = when (r.status) {
+                0 -> "Couldn't reach GitHub to check for updates. Check your internet connection."
+                404 -> "There's no update information on GitHub yet. Try again in a few minutes."
+                else -> "GitHub didn't answer the update check (" + r.status + "). Try again later."
+            }
+            send(JSONObject().put("type", "update").put("status", "error").put("text", text))
             return
         }
         val latest = info.optString("versionName")
@@ -398,7 +405,8 @@ class MainActivity : Activity() {
         }
         send(JSONObject().put("type", "update").put("status", "downloading").put("latest", latest))
         val apk = File(cacheDir, "GameCodex-update.apk")
-        val r = Net.request(info.optString("apk", UPDATE_APK), anyGithubHost = true, toFile = apk, timeoutMs = 600_000, userAgent = "GameCodex/" + versionName())
+        var r = Net.request(info.optString("apk", UPDATE_APK), anyGithubHost = true, toFile = apk, timeoutMs = 600_000, userAgent = "GameCodex/" + versionName())
+        if (r.status != 200) r = Net.request(UPDATE_APK_API, headers = mapOf("Accept" to "application/vnd.github.raw+json"), toFile = apk, timeoutMs = 600_000, userAgent = "GameCodex/" + versionName())
         if (r.status != 200 || !apk.exists()) {
             send(JSONObject().put("type", "update").put("status", "error").put("text", "The download failed. Check your connection and try again."))
             return
@@ -572,6 +580,8 @@ class MainActivity : Activity() {
         private const val START_URL = "https://$HOST/index.html"
         private const val UPDATE_INFO = "https://raw.githubusercontent.com/Jayswansocool48/Fire-7-8-apks/main/GameCodex.json"
         private const val UPDATE_APK = "https://raw.githubusercontent.com/Jayswansocool48/Fire-7-8-apks/main/GameCodex.apk"
+        private const val UPDATE_INFO_API = "https://api.github.com/repos/Jayswansocool48/Fire-7-8-apks/contents/GameCodex.json"
+        private const val UPDATE_APK_API = "https://api.github.com/repos/Jayswansocool48/Fire-7-8-apks/contents/GameCodex.apk"
         private const val ACTION_INSTALL_STATUS = "io.github.jayswansocool48.gamecodex.INSTALL_STATUS"
         private const val REQ_FILES = 1
         private const val REQ_EXPORT = 2

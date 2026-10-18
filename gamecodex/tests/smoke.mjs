@@ -29,6 +29,7 @@ shot('01-library-empty');
 
 await step('a sample game opens and is saved to the tablet', async () => {
   await page.click('text=Open a sample game');
+  await page.waitForSelector('.ov-name', { timeout: 10000 });
   await wait(1500);
   const files = adb(`shell run-as ${PKG} ls files/game-codex/projects`);
   if (!/\.json/.test(files)) throw new Error('no project file: ' + files);
@@ -43,7 +44,7 @@ await step('a sketch is saved as a file and served back with byte ranges', async
     Codex.app.addArt(p.entries.characters[0], c.toDataURL('image/png'), 'sketch', 'smoke');
     await new Promise((res) => setTimeout(res, 800));
     const id = p.entries.characters[0].art.slice(-1)[0].id;
-    const url = Codex.Store.mediaUrl(id);
+    const url = 'https://appassets.androidplatform.net/media/' + id; // from the tablet's storage, not the page's cache
     const full = await fetch(url);
     const part = await fetch(url, { headers: { Range: 'bytes=0-9' } });
     return { url, full: full.status, part: part.status, len: (await part.arrayBuffer()).byteLength, range: part.headers.get('content-range') };
@@ -101,7 +102,8 @@ await step('the update check reads the APK repository', async () => {
     Codex.Store.post({ type: 'check-update' });
     setTimeout(() => res({ status: 'timeout' }), 30000);
   }));
-  if (!['current', 'available', 'error'].includes(r.status)) throw new Error(JSON.stringify(r));
+  // this commit's GameCodex.json isn't published until the APK build finishes, so "available" or "current" both pass
+  if (!['current', 'available'].includes(r.status)) throw new Error(JSON.stringify(r));
   out.push('     update check said: ' + r.status + (r.text ? ' (' + r.text + ')' : ''));
 });
 
