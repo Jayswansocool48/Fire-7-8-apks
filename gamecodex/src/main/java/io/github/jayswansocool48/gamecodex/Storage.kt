@@ -4,9 +4,8 @@ import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -15,7 +14,7 @@ import java.util.zip.ZipOutputStream
 /**
  * Saves games the same way the desktop app does, inside the app's private folder:
  *   game-codex/projects/<id>.json   one file per game
- *   game-codex/media/<id>.png|jpg   sketches and images
+ *   game-codex/media/<id>.<ext>     sketches, images, videos, sounds and 3D models
  *   game-codex/settings.json
  * Android removes all of it when the app is uninstalled.
  */
@@ -97,6 +96,32 @@ class Storage(appFiles: File) {
         for (i in 0 until ids.length()) mediaFile(ids.optString(i))?.delete()
     }
 
+    fun missingMedia(ids: JSONArray?): JSONArray {
+        val out = JSONArray()
+        if (ids == null) return out
+        for (i in 0 until ids.length()) {
+            val id = ids.optString(i)
+            val f = mediaFile(id) ?: continue
+            if (!f.exists()) out.put(id)
+        }
+        return out
+    }
+
+    /** Copy a picked file into the media folder. Returns its entry for the page, or null for unknown types. */
+    fun addMediaFile(name: String, input: InputStream): JSONObject? {
+        var ext = name.substringAfterLast('.', "").lowercase()
+        if (ext == "jpeg") ext = "jpg"
+        val kind = KINDS[ext] ?: return null
+        val id = newId(ext)
+        val target = File(media, id)
+        val tmp = File(media, "$id.tmp")
+        tmp.outputStream().use { input.copyTo(it, 256 * 1024) }
+        tmp.renameTo(target)
+        return JSONObject().put("id", id).put("name", name).put("size", target.length()).put("kind", kind)
+    }
+
+    private fun newId(ext: String) = "m" + UUID.randomUUID().toString().replace("-", "").take(14) + "." + ext
+
     fun deleteAll() {
         root.deleteRecursively()
         projects.mkdirs()
@@ -105,8 +130,7 @@ class Storage(appFiles: File) {
 
     // ---------- export and import (.gamecodex files are zips, same as the desktop app) ----------
 
-    fun exportZip(project: JSONObject, markdown: String): ByteArray {
-        val out = ByteArrayOutputStream()
+    fun exportZip(project: JSONObject, markdown: String, out: java.io.OutputStream) {
         ZipOutputStream(out).use { zip ->
             val wrapper = JSONObject().put("format", "game-codex").put("version", 1).put("project", project)
             zip.putNextEntry(ZipEntry("project.json"))
@@ -119,52 +143,88 @@ class Storage(appFiles: File) {
                 val f = mediaFile(id) ?: continue
                 if (!f.exists()) continue
                 zip.putNextEntry(ZipEntry("media/$id"))
-                zip.write(f.readBytes())
+                f.inputStream().use { it.copyTo(zip, 256 * 1024) }
                 zip.closeEntry()
             }
         }
-        return out.toByteArray()
     }
 
-    /** Returns the imported game with fresh picture ids, or throws IllegalArgumentException. */
-    fun importBytes(bytes: ByteArray): JSONObject {
+    /** Store kit: generated pictures and text from the page, plus trailer files from the media folder. */
+    fun exportKit(files: JSONArray?, kitMedia: JSONArray?, out: java.io.OutputStream) {
+        fun safe(path: String) = path.isNotEmpty() && !path.startsWith("/") && path.split('/').none { it == ".." }
+        ZipOutputStream(out).use { zip ->
+            if (files != null) for (i in 0 until files.length()) {
+                val f = files.optJSONObject(i) ?: continue
+                val path = f.optString("path")
+                if (!safe(path)) continue
+                val data = f.optString("data")
+                val bytes = if (data.startsWith("data:")) decodeAnyDataUrl(data) else data.toByteArray()
+                if (bytes == null) continue
+                zip.putNextEntry(ZipEntry(path))
+                zip.write(bytes)
+                zip.closeEntry()
+            }
+            if (kitMedia != null) for (i in 0 until kitMedia.length()) {
+                val m = kitMedia.optJSONObject(i) ?: continue
+                val src = mediaFile(m.optString("id")) ?: continue
+                val path = m.optString("path")
+                if (!src.exists() || !safe(path)) continue
+                zip.putNextEntry(ZipEntry(path))
+                src.inputStream().use { it.copyTo(zip, 256 * 1024) }
+                zip.closeEntry()
+            }
+        }
+    }
+
+    /**
+     * Reads a .gamecodex file (a zip) or a browser export (.json) as a stream, so big videos never
+     * have to fit in memory. Returns the game with fresh file ids, or throws IllegalArgumentException.
+     */
+    fun importStream(input: InputStream): JSONObject {
         val notOurs = IllegalArgumentException("That file isn't a Game Codex export.")
-        val files = HashMap<String, ByteArray>()
-        val data: JSONObject
-        val isZip = bytes.size > 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()
+        val buffered = java.io.BufferedInputStream(input, 64 * 1024)
+        buffered.mark(4)
+        val isZip = buffered.read() == 'P'.code && buffered.read() == 'K'.code
+        buffered.reset()
+        val mapping = LinkedHashMap<String, String>()
+        val project: JSONObject
         if (isZip) {
-            var projectJson: String? = null
-            ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+            var found: JSONObject? = null
+            ZipInputStream(buffered).use { zip ->
                 while (true) {
                     val entry = zip.nextEntry ?: break
                     val name = entry.name
-                    if (name == "project.json") projectJson = String(zip.readBytes())
-                    else if (name.startsWith("media/") && MEDIA_ID.matches(name.removePrefix("media/"))) {
-                        files[name.removePrefix("media/")] = zip.readBytes()
+                    if (name == "project.json") {
+                        val data = try { JSONObject(String(zip.readBytes())) } catch (e: JSONException) { throw notOurs }
+                        if (data.optString("format") != "game-codex") throw notOurs
+                        found = data.optJSONObject("project") ?: throw notOurs
+                    } else if (name.startsWith("media/") && MEDIA_ID.matches(name.removePrefix("media/"))) {
+                        val old = name.removePrefix("media/")
+                        val id = newId(old.substringAfterLast('.'))
+                        val tmp = File(media, "$id.tmp")
+                        tmp.outputStream().use { zip.copyTo(it, 256 * 1024) }
+                        tmp.renameTo(File(media, id))
+                        mapping[old] = id
                     }
                 }
             }
-            data = try { JSONObject(projectJson ?: throw notOurs) } catch (e: JSONException) { throw notOurs }
+            project = found ?: throw notOurs
+            // drop files the game doesn't use (if any)
+            val used = projectMedia(project).toSet()
+            mapping.entries.removeAll { (old, new) -> if (old !in used) { File(media, new).delete(); true } else false }
         } else {
-            data = try { JSONObject(String(bytes)) } catch (e: JSONException) { throw notOurs }
+            val data = try { JSONObject(String(buffered.readBytes())) } catch (e: JSONException) { throw notOurs }
+            if (data.optString("format") != "game-codex") throw notOurs
+            project = data.optJSONObject("project") ?: throw notOurs
             val inline = data.optJSONObject("media")
-            inline?.keys()?.forEach { id ->
-                val raw = decodeDataUrl(inline.optString(id))
-                if (MEDIA_ID.matches(id) && raw != null) files[id] = raw
+            for (old in projectMedia(project)) {
+                val raw = inline?.optString(old)?.let { decodeAnyDataUrl(it) } ?: continue
+                val id = newId(old.substringAfterLast('.'))
+                writeAtomic(File(media, id), raw)
+                mapping[old] = id
             }
         }
-        if (data.optString("format") != "game-codex") throw notOurs
-        val project = data.optJSONObject("project") ?: throw notOurs
         if (!PROJECT_ID.matches(project.optString("id"))) project.put("id", "p" + UUID.randomUUID().toString().replace("-", "").take(12))
-
-        // New ids so an imported copy never shares picture files with another game.
-        val mapping = LinkedHashMap<String, String>()
-        for (id in projectMedia(project)) {
-            val raw = files[id] ?: continue
-            val newId = "m" + UUID.randomUUID().toString().replace("-", "").take(14) + id.substring(id.lastIndexOf('.'))
-            writeAtomic(File(media, newId), raw)
-            mapping[id] = newId
-        }
         remapMedia(project, mapping)
         return project
     }
@@ -180,18 +240,30 @@ class Storage(appFiles: File) {
         }
     }
 
-    /** Every picture a game uses: entry art plus its cover. */
+    /** Every file a game uses: entry art, model posters and its cover. */
     fun projectMedia(project: JSONObject): List<String> {
         val ids = LinkedHashSet<String>()
         project.optString("cover").takeIf { it.isNotEmpty() && it != "null" }?.let { ids.add(it) }
-        forEachArt(project) { a -> a.optString("id").takeIf { it.isNotEmpty() }?.let { ids.add(it) } }
+        forEachArt(project) { a ->
+            for (key in arrayOf("id", "poster")) a.optString(key).takeIf { it.isNotEmpty() && it != "null" }?.let { ids.add(it) }
+        }
         return ids.filter { MEDIA_ID.matches(it) }
     }
 
     private fun remapMedia(project: JSONObject, mapping: Map<String, String>) {
         mapping[project.optString("cover")]?.let { project.put("cover", it) }
-        forEachArt(project) { a -> mapping[a.optString("id")]?.let { a.put("id", it) } }
+        forEachArt(project) { a -> for (key in arrayOf("id", "poster")) mapping[a.optString(key)]?.let { a.put(key, it) } }
         project.put("media", JSONArray(mapping.values.toList()))
+    }
+
+    private fun decodeAnyDataUrl(data: String): ByteArray? {
+        val comma = data.indexOf(',')
+        if (!data.startsWith("data:") || comma < 0 || !data.substring(0, comma).endsWith(";base64")) return null
+        return try {
+            Base64.decode(data.substring(comma + 1), Base64.DEFAULT)
+        } catch (e: IllegalArgumentException) {
+            null
+        }
     }
 
     private fun decodeDataUrl(data: String): ByteArray? {
@@ -205,7 +277,14 @@ class Storage(appFiles: File) {
 
     companion object {
         val PROJECT_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
-        val MEDIA_ID = Regex("^[A-Za-z0-9_-]{1,64}\\.(png|jpg)$")
+        // Must match MEDIA_ID in web/js/store.js and the desktop app.
+        val KINDS = mapOf(
+            "png" to "image", "jpg" to "image", "webp" to "image", "gif" to "image",
+            "mp4" to "video", "webm" to "video", "mov" to "video", "m4v" to "video",
+            "mp3" to "audio", "ogg" to "audio", "wav" to "audio", "m4a" to "audio", "flac" to "audio",
+            "glb" to "model", "gltf" to "model", "obj" to "model", "stl" to "model", "fbx" to "model",
+        )
+        val MEDIA_ID = Regex("^[A-Za-z0-9_-]{1,64}\\.(png|jpg|webp|gif|mp4|webm|mov|m4v|mp3|ogg|wav|m4a|flac|glb|gltf|obj|stl|fbx)$")
         val DATA_URL = Regex("^data:image/(png|jpeg);base64,(.*)$", RegexOption.DOT_MATCHES_ALL)
     }
 }

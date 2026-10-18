@@ -12,8 +12,8 @@ android {
         minSdk = 21
         // 34 = Android 14, what LineageOS 21 is. Keeps the app out of Android 15's forced edge-to-edge.
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     sourceSets {
@@ -24,12 +24,27 @@ android {
         }
     }
 
+    signingConfigs {
+        // One fixed key so each new APK installs over the last one (Settings → Check for updates).
+        // It's in this public repo; move it to a GitHub secret before handing the app to other people.
+        create("gamecodex") {
+            storeFile = file("signing/gamecodex.keystore")
+            storePassword = "gamecodex-fire"
+            keyAlias = "gamecodex"
+            keyPassword = "gamecodex-fire"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("gamecodex")
+            applicationIdSuffix = ".debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("gamecodex")
         }
     }
 
@@ -44,6 +59,6 @@ android {
 
     androidResources {
         // Keep the web files byte-for-byte.
-        noCompress += listOf("html", "js", "css", "json", "svg")
+        noCompress += listOf("html", "js", "css", "json", "svg", "woff")
     }
 }

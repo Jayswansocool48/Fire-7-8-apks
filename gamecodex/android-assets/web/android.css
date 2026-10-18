@@ -2,45 +2,30 @@
 
 /* Fingers need bigger targets than a mouse. */
 @media (pointer: coarse) {
-  .icon-btn { width: 42px; height: 42px; }
-  .icon-btn.sm { width: 36px; height: 36px; }
+  .topbar { height: 60px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .icon-btn.sm { width: 38px; height: 38px; }
   .btn.sm { padding: 8px 12px; }
   .chip { padding: 7px 14px; }
+  .tab { padding: 0 14px; }
   .pips { gap: 6px; }
-  .pip { width: 22px; height: 22px; }
-  .stat { grid-template-columns: 96px 1fr auto; }
+  .pip { width: 24px; height: 14px; }
   .card { padding: 10px 8px; }
-  .nav-item { padding: 11px 10px; }
+  .lib-row { padding: 9px 8px; }
   .tool { width: 46px; height: 46px; }
   .swatch { min-width: 32px; }
   .sketch-size input { width: 140px; }
   .sketch-help { display: none; }
-  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select { min-height: 42px; }
-  /* No hover on touch screens, so editable titles always show they can be tapped. */
+  .menu button { padding: 12px 12px; }
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select { min-height: 44px; }
+  /* No hover on touch screens: favorite stars always show, and editable titles show they can be tapped. */
+  .fav { opacity: 1; }
   .sheet-name, .ov-name, .ov-pitch { border-color: var(--line) !important; }
 }
 
-/* Landscape on an 8" tablet: the sidebar becomes a row of icons so the sheet gets the room. */
-@media (min-width: 861px) and (max-width: 1180px) {
-  .shell { grid-template-columns: 64px 1fr; }
-  .nav { padding: 10px 8px; align-items: center; }
-  .project-switch { justify-content: center; padding: 6px; }
-  .project-name, .chev, .nav-item span, .nav-item .count { display: none; }
-  .nav-item { justify-content: center; padding: 12px 0; }
-  .nav-item > svg { width: 22px; height: 22px; }
-  .nav-item[aria-current="page"]::before { left: -8px; }
-  .nav-list, .nav-foot { width: 100%; }
-  .main.split { grid-template-columns: minmax(250px, 290px) 1fr; }
+/* Landscape on an 8" tablet (about 1080 px wide): a narrower library list. */
+@media (min-width: 761px) and (max-width: 1180px) {
+  .lib-side { width: 230px; }
+  .split { grid-template-columns: minmax(240px, 290px) 1fr; }
   .editor-pane { padding: 20px 22px 60px; }
-  .shelf { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .ov-head { grid-template-columns: 170px 1fr; gap: 22px; }
-  .cover { width: 170px; }
-}
-
-/* Portrait: a smaller cover so the game's name and pitch stay near the top. */
-@media (max-width: 860px) {
-  .ov-head { grid-template-columns: 120px 1fr; gap: 16px; align-items: start; }
-  .ov-head .menu-btn { grid-column: 1 / -1; }
-  .cover { width: 120px; }
-  .overview { padding-top: 16px; }
 }

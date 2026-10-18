@@ -84,6 +84,11 @@ jobs:
           cp codeling/build/outputs/apk/release/codeling-release.apk Codeling.apk
           cp deskmate/build/outputs/apk/release/deskmate-release.apk Deskmate.apk
           cp gamecodex/build/outputs/apk/release/gamecodex-release.apk GameCodex.apk
+          # What Game Codex's in-app update check reads.
+          code=$(grep -oP 'versionCode = \K[0-9]+' gamecodex/build.gradle.kts)
+          name=$(grep -oP 'versionName = "\K[^"]+' gamecodex/build.gradle.kts)
+          printf '{"versionCode": %s, "versionName": "%s", "apk": "https://raw.githubusercontent.com/%s/main/GameCodex.apk"}\n' "$code" "$name" "$GITHUB_REPOSITORY" > GameCodex.json
+          cat GameCodex.json
           cp kiln/build/outputs/apk/release/kiln-release.apk Kiln.apk
           ls -la *.apk
 
@@ -99,7 +104,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add Inkwell.apk Codeling.apk Deskmate.apk GameCodex.apk Kiln.apk
+          git add Inkwell.apk Codeling.apk Deskmate.apk GameCodex.apk GameCodex.json Kiln.apk
           git diff --cached --quiet && exit 0
           git commit -m "Update APKs [skip ci]"
           git pull --rebase origin main

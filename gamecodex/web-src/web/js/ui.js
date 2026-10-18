@@ -64,6 +64,18 @@ window.Codex = window.Codex || {};
     upload: "M12 20V9m-5 5 5-5 5 5M5 4h14",
     link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1",
     menu: "M4 7h16M4 12h16M4 17h16",
+    video: "M4 6h12v12H4zM16 10l4-2v8l-4-2",
+    music: "M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm11-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z",
+    cube: "M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zm0 0v18M4 7.5l8 4.5 8-4.5",
+    star: "M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z",
+    cloud: "M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 9.5 4.3 4.3 0 0 0 7 18z",
+    refresh: "M20 11a8 8 0 0 0-14.6-4.5M4 4v3h3M4 13a8 8 0 0 0 14.6 4.5M20 20v-3h-3",
+    user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 9a7 7 0 0 1 14 0",
+    logout: "M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10",
+    store: "M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9h16M9 20v-6h6v6",
+    grid: "M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z",
+    more: "M5 12h.01M12 12h.01M19 12h.01",
+    github: "M9 19c-4 1.3-4-2-6-2.5m12 4.5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1-.3-3.4 1.3a11.6 11.6 0 0 0-6.2 0C6.6 2.8 5.6 3.1 5.6 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4.2 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21",
   };
 
   function uid(prefix) {
@@ -146,6 +158,36 @@ window.Codex = window.Codex || {};
     });
   }
 
+  // A small popup menu under a button. items: [{label, icon, onclick, danger}] or "-" for a divider,
+  // or a Node to put at the top.
+  function menu(anchor, items) {
+    const el = h("div", { class: "menu", role: "menu" });
+    items.forEach((it) => {
+      if (it === "-") el.appendChild(h("hr"));
+      else if (it instanceof Node) el.appendChild(it);
+      else el.appendChild(h("button", { type: "button", role: "menuitem", class: it.danger ? "danger-text btn-reset" : "", onclick: () => { close(); it.onclick(); } }, it.icon ? icon(it.icon) : null, it.label));
+    });
+    const back = h("div", { class: "menu-catch", style: { position: "fixed", inset: "0", zIndex: 59 }, onmousedown: () => close(), ontouchstart: () => close() });
+    document.body.appendChild(back);
+    document.body.appendChild(el);
+    const r = anchor.getBoundingClientRect();
+    const w = el.offsetWidth;
+    el.style.top = Math.min(r.bottom + 6, window.innerHeight - el.offsetHeight - 8) + "px";
+    el.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + "px";
+    const buttons = () => [...el.querySelectorAll("button")];
+    function onKey(e) {
+      const b = buttons(), i = b.indexOf(document.activeElement);
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); anchor.focus(); }
+      else if (e.key === "ArrowDown") { e.preventDefault(); (b[i + 1] || b[0]).focus(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); (b[i - 1] || b[b.length - 1]).focus(); }
+      else if (e.key === "Tab") close();
+    }
+    function close() { el.remove(); back.remove(); document.removeEventListener("keydown", onKey, true); }
+    document.addEventListener("keydown", onKey, true);
+    requestAnimationFrame(() => { const b = buttons()[0]; if (b) b.focus(); });
+    return { close };
+  }
+
   // Load a picked image file, shrink it so saves stay small, and return a data URL.
   function readImage(file, max) {
     max = max || 1600;
@@ -170,5 +212,5 @@ window.Codex = window.Codex || {};
     });
   }
 
-  Object.assign(Codex, { h, icon, ICONS, uid, esc, autosize, toast, dialog, ask, readImage });
+  Object.assign(Codex, { h, icon, ICONS, uid, esc, autosize, toast, dialog, ask, menu, readImage });
 })();

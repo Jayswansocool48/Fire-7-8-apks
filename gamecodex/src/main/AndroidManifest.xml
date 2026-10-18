@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- No INTERNET permission: Game Codex works fully offline. -->
+    <!-- Only for GitHub: signing in, syncing games to your own private repository, and updates. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Settings → Check for updates installs the new APK. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Settings → Uninstall Game Codex opens Android's own uninstall prompt. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />

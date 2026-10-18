@@ -1,18 +1,30 @@
-/* Game Codex: the main screen, projects, lists, idea generators and settings. */
+/* Game Codex: the library, the top bar, game screens, import/export, settings and updates. */
 (function () {
-  const { h, icon, ICONS, uid, toast, dialog, ask, Store, SECTIONS, sectionById } = Codex;
+  const { h, icon, ICONS, uid, toast, dialog, ask, menu, Store, SECTIONS, sectionById } = Codex;
 
   const loaded = Store.init();
-  const data = { projects: loaded.projects, settings: Object.assign({ theme: "system" }, loaded.settings) };
-  const view = { project: null, section: "overview", entry: null, search: "", filter: "", listScroll: 0, navOpen: false };
-  let info = { version: Store.version, install: Store.native ? "flatpak" : "browser" };
+  const data = { projects: loaded.projects, settings: Object.assign({ theme: "system", autoUpdate: true, favorites: [], opened: {}, libSort: "opened" }, loaded.settings) };
+  SECTIONS.forEach((s) => data.projects.forEach((p) => { p.entries = p.entries || {}; p.entries[s.id] = p.entries[s.id] || []; }));
+  const view = { page: "library", project: null, section: "overview", entry: null, search: "", filter: "", libSearch: "" };
+  let info = { version: Store.version, install: Store.platform };
+  let update = null; // {latest, canInstall, text} once a newer version is found
   const appEl = document.getElementById("app");
 
   // ---------- data ----------
   function project() { return data.projects.find((p) => p.id === view.project) || null; }
 
+  // Each new game starts with its own palette, which also colors its box art until it has a cover.
+  const PALETTES = [
+    ["#3b1f5e", "#ff6b9d", "#ffd166", "#2ec4b6"], ["#0f4c5c", "#e36414", "#fb8b24", "#9a031e"], ["#1d3557", "#e63946", "#f1faee", "#a8dadc"],
+    ["#283618", "#dda15e", "#fefae0", "#bc6c25"], ["#2b2d42", "#ef233c", "#edf2f4", "#8d99ae"], ["#003049", "#f77f00", "#fcbf49", "#d62828"],
+    ["#10002b", "#7b2cbf", "#e0aaff", "#3c096c"], ["#06402b", "#2dc653", "#e2f9b8", "#155d27"], ["#3d0c11", "#d4a373", "#faedcd", "#9c6644"],
+    ["#0b2545", "#13c4a3", "#eef4ed", "#8da9c4"],
+  ];
   function newProject(fields) {
-    const p = Object.assign({ id: uid("p"), name: "Untitled game", genre: [], platforms: [], pitch: "", audience: "", artStyle: "", palette: ["#2b2d42", "#ef8354", "#f6d55c", "#3caea3"], notes: "", media: [], created: Date.now(), entries: {} }, fields);
+    const used = data.projects.map((x) => (x.palette || [])[0]);
+    const free = PALETTES.filter((pal) => !used.includes(pal[0]));
+    const pal = (free.length ? free : PALETTES)[Math.floor(Math.random() * (free.length || PALETTES.length))].slice();
+    const p = Object.assign({ id: uid("p"), name: "Untitled game", genre: [], platforms: [], pitch: "", audience: "", artStyle: "", palette: pal, notes: "", media: [], created: Date.now(), entries: {} }, fields);
     SECTIONS.forEach((s) => { p.entries[s.id] = p.entries[s.id] || []; });
     data.projects.push(p);
     Store.saveProject(p, true);
@@ -23,10 +35,18 @@
     const p = project();
     if (!p) return;
     Store.saveProject(p);
-    if (opts && opts.list) { renderList(); renderNav(); }
+    if (opts && opts.list) { renderList(); renderTopbar(); }
   }
 
   function saveSettings() { Store.saveSettings(data.settings); }
+
+  // Every file a game uses: entry art, model posters and the cover.
+  function mediaOf(p) {
+    const ids = new Set();
+    if (p.cover) ids.add(p.cover);
+    SECTIONS.forEach((s) => (p.entries[s.id] || []).forEach((e) => (e.art || []).forEach((a) => { if (a.id) ids.add(a.id); if (a.poster) ids.add(a.poster); })));
+    return [...ids];
+  }
 
   function createEntry(sectionId, fields, opts) {
     const p = project();
@@ -53,11 +73,13 @@
     copy.id = uid("e");
     copy.name = (e.name || "Untitled") + " (copy)";
     copy.created = Date.now();
-    // the copy gets its own picture files so deleting one doesn't break the other
-    copy.art = (e.art || []).map((a) => {
-      const url = Store.mediaUrl(a.id);
-      return url.startsWith("data:") ? { ...a, id: addMedia(url) } : { ...a, id: copyMedia(a.id) };
-    });
+    // the copy gets its own files so deleting one doesn't break the other
+    const dup = (mid) => {
+      if (!mid) return mid;
+      const url = Store.mediaUrl(mid);
+      return url.startsWith("data:") ? addMedia(url) : copyMedia(mid);
+    };
+    copy.art = (e.art || []).map((a) => Object.assign({}, a, { id: dup(a.id), poster: a.poster ? dup(a.poster) : undefined }));
     p.entries[sectionId].splice(p.entries[sectionId].indexOf(e) + 1, 0, copy);
     changed();
     go(sectionId, copy.id);
@@ -69,11 +91,11 @@
     const s = sectionById(sectionId);
     const list = p.entries[sectionId];
     const e = list.find((x) => x.id === id);
-    if (!(await ask({ title: "Delete " + (e.name || "this " + s.one) + "?", text: "Its notes and pictures are removed for good. Links to it from other entries are removed too.", confirm: "Delete", danger: true }))) return;
-    const ids = (e.art || []).map((a) => a.id);
+    if (!(await ask({ title: "Delete " + (e.name || "this " + s.one) + "?", text: "Its notes and files are removed for good. Links to it from other entries are removed too.", confirm: "Delete", danger: true }))) return;
+    const ids = [];
+    (e.art || []).forEach((a) => { ids.push(a.id); if (a.poster) ids.push(a.poster); });
     removeMediaIds(ids);
     list.splice(list.indexOf(e), 1);
-    // drop links that pointed at it
     SECTIONS.forEach((sec) => (p.entries[sec.id] || []).forEach((x) => sec.fields.forEach((f) => {
       if (f.type === "links" && f.to === sectionId && x[f.key]) x[f.key] = x[f.key].filter((l) => l.id !== id);
     })));
@@ -98,7 +120,8 @@
 
   function removeMediaIds(ids) {
     const p = project();
-    p.media = p.media.filter((m) => !ids.includes(m));
+    ids = ids.filter(Boolean);
+    p.media = (p.media || []).filter((m) => !ids.includes(m));
     Store.deleteMedia(ids);
   }
 
@@ -107,25 +130,65 @@
     entry.art.push({ id: addMedia(dataUrl), kind, caption: caption || "" });
     changed({ list: true });
   }
+  function addFile(entry, f) {
+    entry.art = entry.art || [];
+    const item = { id: f.id, kind: f.kind, name: f.name, size: f.size, caption: (f.name || "").replace(/\.[^.]+$/, "") };
+    entry.art.push(item);
+    project().media.push(f.id);
+    changed({ list: true });
+    return item;
+  }
+  function setPoster(entry, item, posterId) {
+    const old = item.poster;
+    item.poster = posterId;
+    project().media.push(posterId);
+    if (old) removeMediaIds([old]);
+    changed({ list: true });
+  }
   function removeArt(entry, index) {
     const [a] = entry.art.splice(index, 1);
-    removeMediaIds([a.id]);
+    removeMediaIds([a.id, a.poster]);
     changed({ list: true });
   }
   function replaceArt(entry, index, dataUrl) {
     const old = entry.art[index].id;
-    entry.art[index] = { ...entry.art[index], id: addMedia(dataUrl), kind: "sketch" };
+    entry.art[index] = Object.assign({}, entry.art[index], { id: addMedia(dataUrl), kind: "sketch" });
     removeMediaIds([old]);
     changed({ list: true });
   }
 
+  // How far along the design is: the checklist on the overview and the badge in the library.
+  function checklist(p) {
+    const n = (id) => (p.entries[id] || []).length;
+    const story = p.entries.story || [];
+    return [
+      ["A pitch", !!(p.pitch || "").trim()],
+      ["A genre", (p.genre || []).length > 0],
+      ["Cover art", !!p.cover],
+      ["An art style", !!(p.artStyle || "").trim()],
+      ["A main character", (p.entries.characters || []).some((c) => c.role === "Protagonist") || n("characters") > 0],
+      ["Three characters", n("characters") >= 3],
+      ["A prop", n("props") > 0],
+      ["A storyline", story.some((s) => s.kind === "Storyline")],
+      ["A quest", story.some((s) => s.kind === "Quest")],
+      ["A core mechanic", n("mechanics") > 0],
+      ["A first level", n("levels") > 0],
+      ["A teaser or trailer", (p.entries.media || []).some((m) => /Teaser|Trailer/.test(m.type || "") || (m.art || []).some((a) => a.kind === "video"))],
+    ];
+  }
+  function progress(p) {
+    const c = checklist(p);
+    return Math.round((c.filter((x) => x[1]).length / c.length) * 100);
+  }
+  function entryCount(p) { return SECTIONS.reduce((n, s) => n + (p.entries[s.id] || []).length, 0); }
+
   // ---------- navigation ----------
   function go(section, entryId, opts) {
     const sectionChanged = view.section !== section;
+    view.page = "game";
     view.section = section;
     view.entry = entryId || null;
     if (sectionChanged) { view.search = ""; view.filter = ""; }
-    view.navOpen = false;
     render();
     if (opts && opts.focusName) requestAnimationFrame(() => { const n = document.querySelector(".sheet-name"); if (n) n.focus(); });
     else if (entryId) requestAnimationFrame(() => { const c = document.querySelector('.card[aria-current="true"]'); if (c) c.scrollIntoView({ block: "nearest" }); });
@@ -134,8 +197,14 @@
   function openProject(id) {
     view.project = id;
     data.settings.lastProject = id;
+    data.settings.opened = Object.assign({}, data.settings.opened, { [id]: Date.now() });
     saveSettings();
     go("overview");
+  }
+
+  function showLibrary() {
+    view.page = "library";
+    render();
   }
 
   // ---------- rendering ----------
@@ -147,66 +216,219 @@
 
   function render() {
     applyTheme();
-    const p = project();
+    if (view.page === "game" && !project()) view.page = "library";
     appEl.innerHTML = "";
-    if (!p) { appEl.appendChild(welcome()); return; }
-    appEl.className = "shell" + (view.navOpen ? " nav-open" : "");
-    appEl.appendChild(h("nav", { class: "nav", id: "nav", "aria-label": "Game sections" }));
-    const main = h("main", { class: "main", id: "main" });
-    appEl.appendChild(main);
-    renderNav();
-    if (view.section === "overview") main.appendChild(overview(p));
+    appEl.appendChild(h("header", { class: "topbar", id: "topbar" }));
+    if (update && !data.settings.hideUpdate) appEl.appendChild(updateBanner());
+    const pageEl = h("main", { class: "page", id: "main" });
+    appEl.appendChild(pageEl);
+    renderTopbar();
+    if (view.page === "library") { pageEl.append(...library()); return; }
+    const p = project();
+    if (view.section === "overview") pageEl.appendChild(overview(p));
     else {
       const s = sectionById(view.section);
-      main.classList.add("split", "tone-" + s.color);
-      if (view.entry) main.classList.add("has-entry");
-      main.appendChild(h("section", { class: "list-pane", id: "list", "aria-label": s.name }));
-      main.appendChild(h("div", { class: "editor-pane", id: "editor" }));
+      const split = h("div", { class: "split tone-" + s.color + (view.entry ? " has-entry" : "") },
+        h("section", { class: "list-pane", id: "list", "aria-label": s.name }),
+        h("div", { class: "editor-pane", id: "editor" }));
+      pageEl.appendChild(split);
       renderList();
       renderEditor();
     }
   }
 
-  function renderNav() {
-    const nav = document.getElementById("nav");
-    const p = project();
-    if (!nav || !p) return;
-    nav.innerHTML = "";
-    nav.appendChild(h("button", { type: "button", class: "project-switch", "aria-haspopup": "dialog", onclick: projectsDialog },
-      h("span", { class: "logo", "aria-hidden": "true" }, logoMark()),
-      h("span", { class: "project-name" }, h("small", null, "Game"), h("strong", null, p.name || "Untitled game")),
-      icon(ICONS.chevron, "chev")));
-
-    const item = (id, label, count, tone, d, key) => h("a", {
-      href: "#" + id, class: "nav-item" + (tone ? " tone-" + tone : ""), "aria-current": view.section === id ? "page" : null,
-      title: key ? label + " (Alt+" + key + ")" : label,
-      onclick: (e) => { e.preventDefault(); go(id); },
-    }, icon(d), h("span", null, label), count != null ? h("span", { class: "count" }, count) : null);
-
-    nav.appendChild(h("div", { class: "nav-list" },
-      item("overview", "Overview", null, null, ICONS.home, 1),
-      SECTIONS.map((s, i) => item(s.id, s.name, p.entries[s.id].length, s.color, s.icon, i + 2))));
-
-    nav.appendChild(h("div", { class: "nav-foot" },
-      h("button", { type: "button", class: "nav-item", onclick: () => ideasDialog() }, icon(ICONS.dice), h("span", null, "Idea generators")),
-      h("button", { type: "button", class: "nav-item", onclick: settingsDialog }, icon(ICONS.gear), h("span", null, "Settings"))));
-  }
-
-  function logoMark() {
+  function markSvg(size) {
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("viewBox", "0 0 64 64");
-    svg.innerHTML = '<rect x="6" y="8" width="52" height="48" rx="10" fill="currentColor" opacity=".18"/><path d="M14 18c6-2 12-2 18 2v28c-6-4-12-4-18-2z" fill="currentColor"/><path d="M50 18c-6-2-12-2-18 2v28c6-4 12-4 18-2z" fill="currentColor" opacity=".7"/>';
+    svg.setAttribute("aria-hidden", "true");
+    if (size) { svg.setAttribute("width", size); svg.setAttribute("height", size); }
+    svg.innerHTML = Codex.LOGO_SVG;
     return svg;
   }
 
+  function renderTopbar() {
+    const bar = document.getElementById("topbar");
+    if (!bar) return;
+    bar.innerHTML = "";
+    const p = project();
+    bar.appendChild(h("button", { type: "button", class: "mark", title: "Library", "aria-label": "Library", onclick: showLibrary }, markSvg()));
+    bar.appendChild(h("button", { type: "button", class: "tb-link tb-hide-narrow", "aria-current": view.page === "library" ? "page" : null, onclick: showLibrary }, "Library"));
+    if (p && view.page === "game") {
+      bar.appendChild(h("span", { class: "tb-sep tb-hide-narrow", "aria-hidden": "true" }));
+      bar.appendChild(h("button", { type: "button", class: "tb-game", "aria-haspopup": "menu", title: "Game menu", onclick: (e) => gameMenu(e.currentTarget, p) },
+        h("span", null, p.name || "Untitled game"), icon(ICONS.chevron)));
+      const tab = (id, label, tone, d, count) => h("button", {
+        type: "button", class: "tab" + (tone ? " tone-" + tone : ""), "aria-current": view.section === id ? "page" : null, title: label,
+        onclick: () => go(id),
+      }, icon(d), h("span", null, label), count != null ? h("span", { class: "count" }, count) : null);
+      bar.appendChild(h("nav", { class: "tabs", "aria-label": "Sections" },
+        tab("overview", "Overview", null, ICONS.home),
+        SECTIONS.map((s) => tab(s.id, s.name, s.color, s.icon, p.entries[s.id].length))));
+    } else bar.appendChild(h("span", { class: "tb-spacer" }));
+    const account = data.settings.account;
+    const sync = Codex.Account ? Codex.Account.status() : "off";
+    bar.appendChild(h("div", { class: "tb-end" },
+      h("button", { type: "button", class: "icon-btn", title: "Idea generators", "aria-label": "Idea generators", onclick: () => ideasDialog() }, icon(ICONS.dice)),
+      h("button", { type: "button", class: "icon-btn avatar-btn", title: account ? "Signed in as " + account.login : "Sign in to keep your games", "aria-label": "Account", onclick: (e) => Codex.Account.open(e.currentTarget) },
+        account && account.avatar ? h("img", { class: "avatar", src: account.avatar, alt: "" }) : icon(ICONS.user),
+        account ? h("span", { class: "sync-dot " + sync, "aria-hidden": "true" }) : null),
+      h("button", { type: "button", class: "icon-btn", title: "Settings", "aria-label": "Settings", onclick: settingsDialog }, icon(ICONS.gear))));
+  }
+
+  function gameMenu(anchor, p) {
+    const fav = (data.settings.favorites || []).includes(p.id);
+    menu(anchor, [
+      { label: "Back to library", icon: ICONS.grid, onclick: showLibrary },
+      { label: fav ? "Remove from favorites" : "Add to favorites", icon: ICONS.star, onclick: () => toggleFav(p.id) },
+      "-",
+      { label: "Export…", icon: ICONS.download, onclick: () => exportDialog(p) },
+      { label: "Store kit for Steam or Roblox…", icon: ICONS.store, onclick: () => Codex.StoreKit.open(p, api) },
+      { label: "Update from a .gamecodex file…", icon: ICONS.upload, onclick: () => Store.importProject(p.id) },
+      "-",
+      { label: "Delete this game", icon: ICONS.trash, danger: true, onclick: () => deleteProject(p) },
+    ]);
+  }
+
+  function toggleFav(id) {
+    const f = data.settings.favorites = (data.settings.favorites || []).slice();
+    const i = f.indexOf(id);
+    if (i < 0) f.push(id); else f.splice(i, 1);
+    saveSettings();
+    render();
+  }
+
+  // ---------- library ----------
+  // Box art: the game's cover, or one made from its name and palette.
+  function coverArt(p) {
+    if (p.cover) return h("img", { src: Store.mediaUrl(p.cover), alt: "", loading: "lazy" });
+    const pal = (p.palette && p.palette.length ? p.palette : ["#24345e", "#ff7f6e", "#f5c04a"]);
+    const el = h("span", { class: "gen-cover", "aria-hidden": "true" }, h("b", null, p.name || "Untitled game"), (p.genre || []).length ? h("small", null, p.genre.slice(0, 2).join(" · ")) : null);
+    el.style.setProperty("--c1", pal[0]);
+    el.style.setProperty("--c2", pal[1] || pal[0]);
+    el.style.setProperty("--c3", shade(pal[0], -0.45));
+    return el;
+  }
+
+  function shade(hex, amt) {
+    const n = parseInt((hex || "#333333").slice(1), 16);
+    const f = (c) => Math.max(0, Math.min(255, Math.round(c + (amt < 0 ? c * amt : (255 - c) * amt))));
+    return "#" + [n >> 16 & 255, n >> 8 & 255, n & 255].map(f).map((c) => c.toString(16).padStart(2, "0")).join("");
+  }
+
+  function sortedGames() {
+    const opened = data.settings.opened || {};
+    const list = data.projects.slice();
+    const by = data.settings.libSort;
+    if (by === "name") list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    else if (by === "updated") list.sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    else if (by === "progress") list.sort((a, b) => progress(b) - progress(a));
+    else if (by === "size") list.sort((a, b) => entryCount(b) - entryCount(a));
+    else list.sort((a, b) => (opened[b.id] || b.updated || 0) - (opened[a.id] || a.updated || 0));
+    return list;
+  }
+
+  function library() {
+    if (!data.projects.length) return [h("div", { class: "lib-main" }, libraryEmpty())];
+    const q = view.libSearch.toLowerCase();
+    const games = sortedGames().filter((p) => !q || (p.name || "").toLowerCase().includes(q) || (p.genre || []).join(" ").toLowerCase().includes(q));
+    const favs = data.settings.favorites || [];
+    const az = data.projects.slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+    const search = h("input", { type: "search", id: "lib-search", value: view.libSearch, placeholder: "Search games", "aria-label": "Search games" });
+    search.addEventListener("input", () => {
+      view.libSearch = search.value;
+      const grid = document.getElementById("lib-grid");
+      if (grid) { grid.replaceWith(libGrid(sortedGames().filter((p) => !search.value || (p.name || "").toLowerCase().includes(search.value.toLowerCase())))); }
+    });
+    const row = (p) => h("li", null, h("button", { type: "button", class: "lib-row", onclick: () => openProject(p.id) },
+      p.cover ? h("img", { class: "mini", src: Store.mediaUrl(p.cover), alt: "" }) : h("span", { class: "mini", style: { background: "linear-gradient(160deg, " + ((p.palette || [])[1] || "#556") + ", " + ((p.palette || [])[0] || "#334") + ")" } }),
+      h("span", null, p.name || "Untitled game")));
+    const side = h("aside", { class: "lib-side", "aria-label": "Your games" },
+      h("div", { class: "search" }, icon(ICONS.search), search),
+      h("div", { class: "lib-groups" },
+        favs.length ? [h("div", { class: "lib-group-title" }, icon(ICONS.star), "Favorites", h("span", { class: "n" }, "(" + favs.filter((id) => data.projects.some((p) => p.id === id)).length + ")")),
+          h("ul", { class: "rows" }, az.filter((p) => favs.includes(p.id)).map(row))] : null,
+        h("div", { class: "lib-group-title" }, "All games", h("span", { class: "n" }, "(" + az.length + ")")),
+        h("ul", { class: "rows" }, az.map(row))),
+      h("div", { class: "lib-side-foot" },
+        h("button", { type: "button", class: "btn ghost sm", onclick: () => newGameDialog() }, icon(ICONS.plus), "New game"),
+        h("button", { type: "button", class: "btn ghost sm", onclick: () => Store.importProject(null) }, icon(ICONS.upload), "Import a .gamecodex file")));
+
+    const sort = h("select", { "aria-label": "Sort by" },
+      [["opened", "Recently opened"], ["updated", "Recently edited"], ["name", "Name"], ["progress", "% of design planned"], ["size", "Most entries"]].map(([v, l]) => h("option", { value: v }, l)));
+    sort.value = data.settings.libSort;
+    sort.addEventListener("change", () => { data.settings.libSort = sort.value; saveSettings(); render(); });
+
+    const main = h("section", { class: "lib-main", "aria-label": "Library" },
+      h("header", { class: "lib-head" },
+        h("h1", null, "All games", h("span", { class: "n" }, "(" + data.projects.length + ")")),
+        h("label", { class: "sort" }, "Sort by", sort),
+        h("span", { class: "grow" }),
+        h("button", { type: "button", class: "btn primary", onclick: () => newGameDialog() }, icon(ICONS.plus), "New game")),
+      libGrid(games));
+    return [side, main];
+  }
+
+  function libGrid(games) {
+    const favs = data.settings.favorites || [];
+    const grid = h("div", { class: "lib-grid", id: "lib-grid" });
+    games.forEach((p) => {
+      const pct = progress(p);
+      const fav = favs.includes(p.id);
+      grid.appendChild(h("div", { class: "game-card" },
+        h("button", { type: "button", class: "game-cover", "aria-label": "Open " + (p.name || "Untitled game") + ", " + pct + "% planned", onclick: () => openProject(p.id) },
+          coverArt(p),
+          h("span", { class: "badge" + (pct === 100 ? " done" : "") }, pct === 100 ? icon(ICONS.check) : null, pct + "% planned")),
+        h("button", { type: "button", class: "fav", "aria-pressed": String(fav), "aria-label": (fav ? "Remove " : "Add ") + (p.name || "this game") + (fav ? " from" : " to") + " favorites", onclick: () => toggleFav(p.id) }, icon(ICONS.star)),
+        h("div", { class: "game-title" }, p.name || "Untitled game"),
+        h("div", { class: "game-meta" }, entryCount(p) + " entries" + ((p.genre || []).length ? " · " + p.genre.slice(0, 2).join(", ") : ""))));
+    });
+    grid.appendChild(h("div", { class: "game-card new-card" },
+      h("button", { type: "button", class: "game-cover", onclick: () => newGameDialog() }, h("span", null, icon(ICONS.plus), "New game"))));
+    return grid;
+  }
+
+  function libraryEmpty() {
+    const name = h("input", { id: "new-name", placeholder: "Working title", "aria-label": "Game name", autofocus: true });
+    const create = () => { const p = newProject({ name: name.value.trim() || "Untitled game" }); openProject(p.id); };
+    name.addEventListener("keydown", (e) => { if (e.key === "Enter") create(); });
+    const signedIn = !!data.settings.account;
+    return h("div", { class: "lib-empty" },
+      h("div", { class: "mark-big", "aria-hidden": "true" }, markSvg(96)),
+      h("h1", null, "Your library is empty"),
+      h("p", null, "Every game you design lives here: characters, props, story, quests, mechanics, levels, teasers and 3D models."),
+      h("div", { class: "welcome-form" }, name, h("button", { type: "button", class: "btn primary", onclick: create }, "Start a game")),
+      h("div", { class: "row-btns" },
+        h("button", { type: "button", class: "btn ghost", onclick: () => { const p = Codex.sampleGame(newProject); openProject(p.id); } }, "Open a sample game"),
+        h("button", { type: "button", class: "btn ghost", onclick: () => Store.importProject(null) }, icon(ICONS.upload), "Import a game"),
+        signedIn ? null : h("button", { type: "button", class: "btn ghost", onclick: (e) => Codex.Account.open(e.currentTarget) }, icon(ICONS.github), "Sign in to get your games")));
+  }
+
+  function newGameDialog() {
+    const name = h("input", { placeholder: "Working title", "aria-label": "Game name", autofocus: true });
+    const create = () => { d.close(); const p = newProject({ name: name.value.trim() || "Untitled game" }); openProject(p.id); };
+    name.addEventListener("keydown", (e) => { if (e.key === "Enter") create(); });
+    const d = dialog({
+      title: "New game", class: "small",
+      body: [name, h("p", { class: "muted" }, "You can change the name any time.")],
+      actions: [
+        h("button", { type: "button", class: "btn ghost", onclick: () => { d.close(); const p = Codex.sampleGame(newProject); openProject(p.id); } }, "Sample game instead"),
+        h("button", { type: "button", class: "btn primary", onclick: create }, "Create game")],
+    });
+  }
+
+  // ---------- list and editor ----------
   function entryThumb(s, e) {
-    if (e.art && e.art[0]) return h("img", { class: "thumb", src: Store.mediaUrl(e.art[0].id), alt: "", loading: "lazy" });
+    const a = (e.art || [])[0];
+    const src = a ? (a.kind === "model" ? a.poster : a.kind === "video" || a.kind === "audio" ? null : a.id) : null;
+    if (src) return h("img", { class: "thumb", src: Store.mediaUrl(src), alt: "", loading: "lazy" });
+    if (a && (a.kind === "video" || a.kind === "audio")) return h("span", { class: "thumb initial", "aria-hidden": "true" }, icon(a.kind === "video" ? ICONS.video : ICONS.music));
     return h("span", { class: "thumb initial", "aria-hidden": "true" }, (e.name || "?").trim().charAt(0).toUpperCase() || "?");
   }
 
   function filterKey(s) {
-    return { characters: "role", props: "type", story: "kind", mechanics: "category", levels: null }[s.id];
+    return { characters: "role", props: "type", story: "kind", mechanics: "category", levels: null, media: "type" }[s.id];
   }
 
   function sortedEntries(p, s) {
@@ -246,11 +468,10 @@
     });
 
     el.appendChild(h("header", { class: "list-head" },
-      h("button", { type: "button", class: "icon-btn menu-btn", "aria-label": "Show sections", "aria-controls": "nav", onclick: () => { view.navOpen = !view.navOpen; appEl.classList.toggle("nav-open", view.navOpen); } }, icon(ICONS.menu)),
       h("h1", null, s.name),
       h("div", { class: "list-actions" },
-        h("button", { type: "button", class: "btn ghost sm", title: "Random " + s.one, onclick: () => ideasDialog(s.id) }, icon(ICONS.dice), "Roll"),
-        h("button", { type: "button", class: "btn primary sm", title: "New " + s.one + " (Ctrl+N)", onclick: () => createEntry(s.id) }, icon(ICONS.plus), "New"))));
+        s.id === "media" ? null : h("button", { type: "button", class: "btn ghost sm", title: "Random " + s.one, onclick: () => ideasDialog(s.id) }, icon(ICONS.dice), "Roll"),
+        h("button", { type: "button", class: "btn tone sm", title: "New " + s.one + " (Ctrl+N)", onclick: () => createEntry(s.id) }, icon(ICONS.plus), "New"))));
     el.appendChild(h("div", { class: "search" }, icon(ICONS.search), search));
     if (filters.length > 1 || (s.id === "story" && filters.length)) {
       el.appendChild(h("div", { class: "filters", role: "group", "aria-label": "Filter" },
@@ -263,8 +484,8 @@
       ul.appendChild(h("li", { class: "empty" },
         h("p", null, s.empty),
         h("div", { class: "row-btns" },
-          h("button", { type: "button", class: "btn primary", onclick: () => createEntry(s.id) }, icon(ICONS.plus), "New " + s.one),
-          h("button", { type: "button", class: "btn ghost", onclick: () => ideasDialog(s.id) }, icon(ICONS.dice), "Roll one"))));
+          h("button", { type: "button", class: "btn tone", onclick: () => createEntry(s.id) }, icon(ICONS.plus), "New " + s.one),
+          s.id === "media" ? null : h("button", { type: "button", class: "btn ghost", onclick: () => ideasDialog(s.id) }, icon(ICONS.dice), "Roll one"))));
     } else if (!shown.length) {
       ul.appendChild(h("li", { class: "empty" }, h("p", null, "Nothing matches “" + (view.search || view.filter) + "”."),
         h("button", { type: "button", class: "btn ghost", onclick: () => { view.search = ""; view.filter = ""; renderList(); } }, "Clear search")));
@@ -317,18 +538,24 @@
   function overview(p) {
     const wrap = h("div", { class: "overview" });
     const name = h("input", { class: "ov-name", value: p.name, "aria-label": "Game name", spellcheck: "false" });
-    name.addEventListener("input", () => { p.name = name.value; changed(); const n = document.querySelector(".project-name strong"); if (n) n.textContent = p.name || "Untitled game"; });
+    name.addEventListener("input", () => { p.name = name.value; changed(); const n = document.querySelector(".tb-game span"); if (n) n.textContent = p.name || "Untitled game"; });
     const pitch = Codex.autosize(h("textarea", { class: "ov-pitch", rows: 2, placeholder: "Your game in one or two sentences. What does the player do, and why is it fun?", "aria-label": "Pitch" }));
     pitch.value = p.pitch || "";
     pitch.addEventListener("input", () => { p.pitch = pitch.value; changed(); });
+    const pct = progress(p);
 
-    wrap.appendChild(h("header", { class: "ov-head" },
-      h("button", { type: "button", class: "icon-btn menu-btn", "aria-label": "Show sections", "aria-controls": "nav", onclick: () => { view.navOpen = !view.navOpen; appEl.classList.toggle("nav-open", view.navOpen); } }, icon(ICONS.menu)),
-      cover(p), h("div", { class: "ov-title" }, name, pitch,
-        h("button", { type: "button", class: "btn ghost sm", onclick: () => ideasDialog("game") }, icon(ICONS.dice), "Roll a game idea"))));
+    const hero = h("header", { class: "ov-hero" },
+      p.cover ? h("div", { class: "ov-hero-bg", style: { backgroundImage: "url(\"" + Store.mediaUrl(p.cover) + "\")" } }) : null,
+      cover(p),
+      h("div", { class: "ov-title" }, name, pitch,
+        h("div", { class: "progress", title: "Your design checklist below" }, h("strong", null, pct + "%"), h("span", { class: "progress-bar" }, h("i", { style: { width: pct + "%" } })), "planned"),
+        h("div", { class: "row-btns" },
+          h("button", { type: "button", class: "btn ghost sm", onclick: () => ideasDialog("game") }, icon(ICONS.dice), "Roll a game idea"),
+          h("button", { type: "button", class: "btn ghost sm", onclick: () => Codex.StoreKit.open(p, api) }, icon(ICONS.store), "Store kit"))));
+    wrap.appendChild(hero);
 
-    // counts per section: the codex at a glance
-    wrap.appendChild(h("section", { class: "shelf", "aria-label": "Sections" }, SECTIONS.map((s) => {
+    const body = h("div", { class: "ov-body" });
+    body.appendChild(h("section", { class: "shelf", "aria-label": "Sections" }, SECTIONS.map((s) => {
       const list = sortedEntries(p, s);
       const recent = list.slice().sort((a, b) => (b.created || 0) - (a.created || 0)).slice(0, 3);
       return h("div", { class: "spine tone-" + s.color },
@@ -336,6 +563,9 @@
         h("ul", null, recent.length ? recent.map((e) => h("li", null, h("button", { type: "button", onclick: () => go(s.id, e.id) }, e.name || "Untitled"))) : h("li", { class: "muted" }, "None yet")),
         h("button", { type: "button", class: "spine-add", "aria-label": "New " + s.one, onclick: () => { view.section = s.id; createEntry(s.id); } }, icon(ICONS.plus), "New " + s.one));
     })));
+
+    body.appendChild(h("section", { class: "ov-section" }, h("h2", null, "Design checklist"),
+      h("ul", { class: "todo" }, checklist(p).map(([label, done]) => h("li", { class: done ? "done" : "" }, icon(done ? ICONS.check : ICONS.plus), label, h("span", { class: "sr-only", style: { position: "absolute", left: "-9999px" } }, done ? " (done)" : " (to do)"))))));
 
     const details = h("section", { class: "fields ov-fields", "aria-label": "Game details" });
     const chipsField = (label, key, options) => h("div", { class: "field wide" }, h("span", { class: "label" }, label),
@@ -357,11 +587,13 @@
     details.appendChild(palette(p));
     details.appendChild(text("Inspirations", "inspirations", "Games, films and books it borrows from", true));
     details.appendChild(text("Notes", "notes", "Anything else", true));
-    wrap.appendChild(details);
+    body.appendChild(h("section", { class: "ov-section" }, h("h2", null, "About the game"), details));
 
-    wrap.appendChild(h("footer", { class: "sheet-foot" },
+    body.appendChild(h("div", { class: "ov-actions" },
       h("button", { type: "button", class: "btn ghost", onclick: () => exportDialog(p) }, icon(ICONS.download), "Export"),
+      h("button", { type: "button", class: "btn ghost", onclick: () => Store.importProject(p.id) }, icon(ICONS.upload), "Update from a .gamecodex file"),
       h("button", { type: "button", class: "btn ghost danger-text", onclick: () => deleteProject(p) }, icon(ICONS.trash), "Delete this game")));
+    wrap.appendChild(body);
     return wrap;
   }
 
@@ -371,17 +603,17 @@
       const f = file.files[0];
       if (!f) return;
       try {
-        const url = await Codex.readImage(f, 1600);
+        const url = await Codex.readImage(f, 2000);
         if (p.cover) removeMediaIds([p.cover]);
         p.cover = addMedia(url);
         changed();
         render();
       } catch (err) { toast(err.message); }
     });
-    const btn = h("button", { type: "button", class: "cover" + (p.cover ? "" : " none"), "aria-label": p.cover ? "Change cover image" : "Add a cover image", onclick: () => file.click() },
-      p.cover ? h("img", { src: Store.mediaUrl(p.cover), alt: "Cover art for " + (p.name || "this game") }) : [icon(ICONS.image), h("span", null, "Cover art")]);
+    const btn = h("button", { type: "button", class: "cover", "aria-label": p.cover ? "Change cover art" : "Add cover art", onclick: () => file.click() },
+      coverArt(p), h("span", { class: "cover-hint" }, p.cover ? "Change cover" : "Add cover art"));
     return h("div", { class: "cover-wrap" }, btn, file,
-      p.cover ? null : h("button", { type: "button", class: "btn ghost sm", onclick: () => Codex.Sketch.open({ title: "Cover for " + (p.name || "your game"), onSave: (d) => { p.cover = addMedia(d); changed(); render(); } }) }, icon(ICONS.pencil), "Sketch it"));
+      h("button", { type: "button", class: "btn ghost sm", onclick: () => Codex.Sketch.open({ title: "Cover for " + (p.name || "your game"), onSave: (d) => { if (p.cover) removeMediaIds([p.cover]); p.cover = addMedia(d); changed(); render(); } }) }, icon(ICONS.pencil), "Sketch a cover"));
   }
 
   function palette(p) {
@@ -403,46 +635,84 @@
   }
 
   async function deleteProject(p) {
-    if (!(await ask({ title: "Delete " + (p.name || "this game") + "?", text: "Every character, prop, story entry, mechanic, level and picture in it is removed for good. Export it first if you want a copy.", confirm: "Delete game", danger: true }))) return;
-    Store.deleteMedia(p.media || []);
-    Store.deleteProject(p.id);
-    data.projects = data.projects.filter((x) => x.id !== p.id);
-    view.project = data.projects[0] ? data.projects[0].id : null;
-    data.settings.lastProject = view.project;
-    saveSettings();
-    view.section = "overview";
+    if (!(await ask({ title: "Delete " + (p.name || "this game") + "?", text: "Everything in it is removed for good" + (data.settings.account ? ", on this device and in your GitHub account" : "") + ". Export it first if you want a copy.", confirm: "Delete game", danger: true }))) return;
+    removeProject(p.id, true);
+    view.page = "library";
     render();
     toast("Deleted " + (p.name || "the game"));
   }
 
-  // ---------- welcome & projects ----------
-  function welcome() {
-    appEl.className = "welcome-shell";
-    const name = h("input", { id: "new-name", placeholder: "Working title", "aria-label": "Game name", autofocus: true });
-    const create = () => { const p = newProject({ name: name.value.trim() || "Untitled game" }); openProject(p.id); };
-    name.addEventListener("keydown", (e) => { if (e.key === "Enter") create(); });
-    return h("main", { class: "welcome" },
-      h("div", { class: "welcome-mark", "aria-hidden": "true" }, logoMark()),
-      h("h1", null, "Game Codex"),
-      h("p", { class: "lead" }, "One place for everything in your game: characters, props, story, quests, dialogue, mechanics and levels, with sketches and art right next to them."),
-      h("div", { class: "welcome-form" }, name, h("button", { type: "button", class: "btn primary", onclick: create }, "Start a game")),
-      h("button", { type: "button", class: "btn ghost", onclick: () => { const p = Codex.sampleGame(newProject); openProject(p.id); } }, "Open a sample game"),
-      data.projects.length ? h("button", { type: "button", class: "btn ghost", onclick: projectsDialog }, "Open one of my games") : null,
-      h("button", { type: "button", class: "btn ghost", onclick: () => Store.importProject() }, icon(ICONS.upload), "Import a game"));
+  // Also used by sync when a game was deleted on another device (fromUser false).
+  function removeProject(id, fromUser) {
+    const p = data.projects.find((x) => x.id === id);
+    if (!p) return;
+    Store.deleteMedia(mediaOf(p).concat(p.media || []));
+    Store.deleteProject(id);
+    data.projects = data.projects.filter((x) => x.id !== id);
+    data.settings.favorites = (data.settings.favorites || []).filter((x) => x !== id);
+    if (fromUser && Codex.Account) Codex.Account.noteDeleted(id);
+    saveSettings();
+    if (view.project === id) { view.project = null; view.page = "library"; }
+    render();
   }
 
-  function projectsDialog() {
-    const list = h("ul", { class: "project-list" }, data.projects.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0)).map((p) => h("li", null,
-      h("button", { type: "button", class: "project-row", "aria-current": p.id === view.project ? "true" : null, onclick: () => { d.close(); openProject(p.id); } },
-        p.cover ? h("img", { src: Store.mediaUrl(p.cover), alt: "" }) : h("span", { class: "thumb initial", "aria-hidden": "true" }, (p.name || "?").charAt(0).toUpperCase()),
-        h("span", null, h("strong", null, p.name || "Untitled game"), h("small", null, SECTIONS.reduce((n, s) => n + p.entries[s.id].length, 0) + " entries" + (p.genre.length ? ", " + p.genre.slice(0, 2).join(" ") : "")))))));
-    const name = h("input", { placeholder: "New game name", "aria-label": "New game name" });
-    const create = () => { d.close(); const p = newProject({ name: name.value.trim() || "Untitled game" }); openProject(p.id); };
-    name.addEventListener("keydown", (e) => { if (e.key === "Enter") create(); });
-    const d = dialog({
-      title: "Your games",
-      body: [list, h("div", { class: "welcome-form" }, name, h("button", { type: "button", class: "btn primary", onclick: create }, icon(ICONS.plus), "New game"))],
-      actions: [h("button", { type: "button", class: "btn ghost", onclick: () => { d.close(); Store.importProject(); } }, icon(ICONS.upload), "Import a game")],
+  // Put a game from sync or an import in place. Keeps its updated time.
+  function putProject(p, opts) {
+    SECTIONS.forEach((s) => { p.entries = p.entries || {}; p.entries[s.id] = p.entries[s.id] || []; });
+    ["media", "genre", "platforms", "palette"].forEach((k) => { p[k] = p[k] || []; });
+    const i = data.projects.findIndex((x) => x.id === p.id);
+    if (i >= 0) {
+      const old = data.projects[i];
+      const keep = new Set(mediaOf(p));
+      Store.deleteMedia(mediaOf(old).filter((m) => !keep.has(m)));
+      data.projects[i] = p;
+    } else data.projects.push(p);
+    Store.saveProject(p, true, { keepTime: !(opts && opts.touch) });
+    if (view.page === "library" || view.project === p.id) render();
+  }
+
+  // ---------- import, and updating a game from a file ----------
+  Store.on("imported", async (m) => {
+    if (m.error) { toast(m.error); return; }
+    const incoming = m.project;
+    const target = m.target && data.projects.find((x) => x.id === m.target);
+    const same = !target && data.projects.find((x) => x.id === incoming.id);
+    const existing = target || same;
+    if (existing) {
+      const choice = await chooseUpdate(existing, incoming, !!target);
+      if (choice === "cancel") { Store.deleteMedia(mediaOf(incoming)); return; }
+      if (choice === "update") {
+        incoming.id = existing.id;
+        incoming.created = existing.created || incoming.created;
+        putProject(incoming, { touch: true });
+        openProject(existing.id);
+        toast("Updated " + (existing.name || "the game") + " from the file");
+        return;
+      }
+      incoming.id = uid("p");
+      incoming.name = (incoming.name || "Untitled game") + " (copy)";
+    }
+    putProject(incoming, { touch: true });
+    openProject(incoming.id);
+    toast("Imported " + (incoming.name || "the game"));
+  });
+
+  function chooseUpdate(existing, incoming, explicit) {
+    return new Promise((resolve) => {
+      let result = "cancel";
+      const when = (t) => (t ? new Date(t).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "unknown");
+      const older = (incoming.updated || 0) < (existing.updated || 0);
+      const d = dialog({
+        title: explicit ? "Update " + (existing.name || "this game") + "?" : (existing.name || "This game") + " is already in your library",
+        class: "small",
+        body: h("div", { class: "stack" },
+          h("p", null, "The file has “" + (incoming.name || "Untitled game") + "” with " + entryCount(incoming) + " entries, saved " + when(incoming.updated) + ". Your copy has " + entryCount(existing) + " entries, saved " + when(existing.updated) + "."),
+          older ? h("p", { class: "danger-text", style: { color: "var(--danger)", margin: 0 } }, "The file is older than your copy.") : null,
+          h("button", { type: "button", class: "option", onclick: () => { result = "update"; d.close(); } }, h("strong", null, "Update my game with the file"), h("small", null, "Replaces your copy with what's in the file.")),
+          h("button", { type: "button", class: "option", onclick: () => { result = "copy"; d.close(); } }, h("strong", null, "Keep both"), h("small", null, "Adds the file as a separate game."))),
+        actions: [h("button", { type: "button", class: "btn ghost", onclick: () => d.close() }, "Cancel")],
+        onClose: () => resolve(result),
+      });
     });
   }
 
@@ -473,7 +743,14 @@
     }
 
     function use(r) {
-      if (!project()) return;
+      if (!project() || view.page !== "game") {
+        d.close();
+        const p = newProject({ name: r.section ? "Untitled game" : "New game", pitch: r.section ? "" : r.text });
+        openProject(p.id);
+        if (r.section) createEntry(r.section, JSON.parse(JSON.stringify(r.fields)));
+        toast("Started a new game with it");
+        return;
+      }
       if (!r.section) {
         const p = project();
         p.pitch = p.pitch ? p.pitch + "\n" + r.text : r.text;
@@ -491,16 +768,18 @@
 
     function drawResults() {
       results.innerHTML = "";
+      const inGame = project() && view.page === "game";
       history.forEach((r, i) => results.appendChild(h("li", { class: "idea" + (i === 0 ? " fresh" : "") + (r.section ? " tone-" + sectionById(r.section).color : "") },
         h("div", null, h("strong", null, r.title), h("p", null, r.text)),
-        project() ? h("button", { type: "button", class: "btn " + (i === 0 ? "primary" : "ghost") + " sm", onclick: () => use(r) }, r.section ? "Add to " + sectionById(r.section).name.toLowerCase() : "Add to pitch") : null)));
+        h("button", { type: "button", class: "btn " + (i === 0 ? "primary" : "ghost") + " sm", onclick: () => use(r) },
+          !inGame ? "Start a game with it" : r.section ? "Add to " + sectionById(r.section).name.toLowerCase() : "Add to pitch"))));
     }
 
     const rollBtn = h("button", { type: "button", class: "btn primary roll", onclick: roll }, icon(ICONS.dice), "Roll again");
     const d = dialog({
       title: "Idea generators",
       class: "wide ideas-dialog",
-      body: [h("p", { class: "muted" }, "Random starting points made on your computer. Roll until something sparks, then add it and make it yours."), tabs, h("div", { class: "roll-row" }, rollBtn, styleBox), results],
+      body: [h("p", { class: "muted" }, "Random starting points made on your device. Roll until something sparks, then add it and make it yours."), tabs, h("div", { class: "roll-row" }, rollBtn, styleBox), results],
     });
     d.el.addEventListener("keydown", (e) => { if (e.key === "r" && e.target.tagName !== "INPUT" && e.target.tagName !== "SELECT") { e.preventDefault(); roll(); } });
     drawTabs();
@@ -517,11 +796,49 @@
       class: "small",
       body: h("div", { class: "stack" },
         h("button", { type: "button", class: "option", onclick: () => { d.close(); Store.exportProject(p, Codex.toMarkdown(p, { images: true }), fileBase(p)); } },
-          h("strong", null, "Game Codex file"), h("small", null, "Everything, including pictures. Import it on another computer or keep it as a backup.")),
+          h("strong", null, "Game Codex file (.gamecodex)"), h("small", null, "Everything, including pictures, videos and models. Open it on another device, keep it as a backup, or use it to update a game.")),
         h("button", { type: "button", class: "option", onclick: () => { d.close(); Store.exportMarkdown(Codex.toMarkdown(p), fileBase(p)); } },
-          h("strong", null, "Design document (Markdown)"), h("small", null, "A readable game design doc to share or paste into GitHub, Notion or Google Docs."))),
+          h("strong", null, "Design document (Markdown)"), h("small", null, "A readable game design doc to share or paste into GitHub, Notion or Google Docs.")),
+        h("button", { type: "button", class: "option", onclick: () => { d.close(); Codex.StoreKit.open(p, api); } },
+          h("strong", null, "Store kit for Steam or Roblox"), h("small", null, "Store page text and every image size the store asks for, ready to upload."))),
     });
   }
+
+  // ---------- updates ----------
+  function updateBanner() {
+    const u = update;
+    const btn = u.canInstall
+      ? h("button", { type: "button", class: "btn primary sm", onclick: (e) => { e.currentTarget.disabled = true; e.currentTarget.textContent = "Downloading…"; Store.post({ type: "install-update" }); } }, "Update now")
+      : null;
+    return h("div", { class: "banner", role: "status" },
+      icon(ICONS.download),
+      h("span", { class: "grow" }, h("strong", null, "Game Codex " + u.latest + " is available. "), u.canInstall ? "Your games are kept." : (u.text || "")),
+      btn,
+      h("button", { type: "button", class: "btn ghost sm", onclick: () => { update = null; render(); } }, "Later"));
+  }
+
+  function checkForUpdates(quiet) {
+    if (!Store.native) return;
+    updateQuiet = quiet;
+    data.settings.lastUpdateCheck = Date.now();
+    saveSettings();
+    Store.post({ type: "check-update" });
+  }
+  let updateQuiet = false;
+  let updateUi = () => {};
+
+  Store.on("update", (m) => {
+    if (m.status === "available") { update = m; if (updateQuiet) render(); }
+    if (m.status === "installed") {
+      update = null;
+      render();
+      if (m.restart !== false) toast("Version " + m.latest + " is installed. Restarting…");
+      setTimeout(() => { Store.flush(data.projects); Store.post({ type: "restart" }); }, 1500);
+    }
+    if (m.status === "error" && !updateQuiet && !document.getElementById("update-status")) toast(m.text);
+    if (m.status === "error" && document.querySelector(".banner .btn.primary")) { toast(m.text); render(); }
+    updateUi(m);
+  });
 
   // ---------- settings ----------
   function settingsDialog() {
@@ -533,56 +850,62 @@
 
     const updateStatus = h("p", { class: "muted", id: "update-status", "aria-live": "polite" }, "");
     const updateBtn = h("button", { type: "button", class: "btn ghost", onclick: () => {
-      if (!Store.native) { updateStatus.textContent = "Updates are for the desktop app. This browser copy always runs the files it was opened from."; return; }
+      if (!Store.native) { updateStatus.textContent = "Updates are for the desktop and tablet apps."; return; }
       updateStatus.textContent = "Checking…";
-      Store.post({ type: "check-update" });
-    } }, "Check for updates");
+      checkForUpdates(false);
+    } }, icon(ICONS.refresh), "Check for updates");
     const installBtn = h("button", { type: "button", class: "btn primary", hidden: true, onclick: () => { installBtn.disabled = true; Store.post({ type: "install-update" }); } }, "Install update");
-    const restartBtn = h("button", { type: "button", class: "btn primary", hidden: true, onclick: () => { Store.flush(data.projects); Store.post({ type: "restart" }); } }, "Restart Game Codex");
+    const auto = h("input", { type: "checkbox", id: "auto-update", checked: data.settings.autoUpdate !== false });
+    auto.addEventListener("change", () => { data.settings.autoUpdate = auto.checked; saveSettings(); });
     updateUi = (m) => {
       if (!document.contains(updateStatus)) return;
       installBtn.hidden = true;
       if (m.status === "current") updateStatus.textContent = "You have the newest version (" + m.current + ").";
       else if (m.status === "available") {
-        updateStatus.textContent = "Version " + m.latest + " is available (you have " + m.current + "). " + (m.store ? "Update it from the COSMIC Store." : m.local ? "Run ./install.sh again in the game-codex folder to update." : m.canInstall ? "" : "Download it from the GitHub releases page.");
+        updateStatus.textContent = "Version " + m.latest + " is available (you have " + m.current + "). " + (m.canInstall ? "" : m.text || "");
         installBtn.hidden = !m.canInstall;
         installBtn.disabled = false;
       } else if (m.status === "downloading") updateStatus.textContent = "Downloading " + m.latest + "…";
       else if (m.status === "installing") updateStatus.textContent = m.text;
-      else if (m.status === "installed") { updateStatus.textContent = "Version " + m.latest + " is installed. Restart to use it."; restartBtn.hidden = false; }
+      else if (m.status === "installed") updateStatus.textContent = "Version " + m.latest + " is installed. Restarting…";
       else updateStatus.textContent = m.text;
     };
+    const where = info.install === "android" ? "this tablet" : Store.native ? "this computer" : "this browser";
 
     const d = dialog({
       title: "Settings",
       class: "wide settings",
       body: [
         h("section", null, h("h3", null, "Look"), theme),
+        h("section", null, h("h3", null, "Account"), Codex.Account.settingsPanel(() => d.close())),
         h("section", null, h("h3", null, "Updates"),
-          h("p", null, "Game Codex " + (info.version || "dev") + (info.install === "flatpak" ? ", installed as a Flatpak" : info.install === "browser" ? ", running in a browser" : "")),
-          h("div", { class: "row-btns" }, updateBtn, installBtn, restartBtn), updateStatus),
+          h("p", null, "Game Codex " + (info.version || "dev") + (info.install === "flatpak" ? " (Flatpak)" : info.install === "android" ? " for Android" : info.install === "browser" ? ", running in a browser" : "")),
+          h("div", { class: "row-btns" }, updateBtn, installBtn), updateStatus,
+          Store.native ? h("label", { class: "switch-row", for: "auto-update" }, auto, "Check for updates when Game Codex starts") : null),
         h("section", null, h("h3", null, "Your data"),
-          h("p", null, "Your games are saved only on this computer" + (Store.native ? ", in the app's own folder" : ", in this browser") + ". Nothing is uploaded and there's no account."),
+          h("p", null, "Your games are saved on " + where + (data.settings.account ? " and in a private repository on your GitHub account" : "") + ". No ads, no tracking."),
           h("div", { class: "row-btns" },
-            project() ? h("button", { type: "button", class: "btn ghost", onclick: () => { d.close(); exportDialog(project()); } }, icon(ICONS.download), "Export this game") : null,
-            h("button", { type: "button", class: "btn ghost", onclick: () => { d.close(); Store.importProject(); } }, icon(ICONS.upload), "Import a game"),
+            project() && view.page === "game" ? h("button", { type: "button", class: "btn ghost", onclick: () => { d.close(); exportDialog(project()); } }, icon(ICONS.download), "Export this game") : null,
+            h("button", { type: "button", class: "btn ghost", onclick: () => { d.close(); Store.importProject(null); } }, icon(ICONS.upload), "Import a game"),
             h("button", { type: "button", class: "btn ghost danger-text", onclick: async () => {
               d.close();
-              if (await ask({ title: "Delete all your data?", text: "Every game, sketch, image and setting in Game Codex is erased from this computer. This can't be undone. The app stays installed.", confirm: "Delete everything", danger: true })) {
+              if (await ask({ title: "Delete all your data on " + where + "?", text: "Every game, file and setting in Game Codex is erased from " + where + ". This can't be undone. The app stays installed" + (data.settings.account ? ", you're signed out, and the copies in your GitHub account are kept" : "") + ".", confirm: "Delete everything", danger: true })) {
+                if (Codex.Account) Codex.Account.signOut(true);
                 Store.deleteAllData();
                 data.projects = [];
-                data.settings = { theme: "system" };
+                data.settings = { theme: "system", autoUpdate: true, favorites: [], opened: {}, libSort: "opened" };
                 view.project = null;
+                view.page = "library";
                 render();
-                toast("All your Game Codex data was deleted");
+                toast("All your Game Codex data on " + where + " was deleted");
               }
             } }, "Delete all my data"))),
         h("section", null, h("h3", null, "Privacy and terms"), privacyText()),
         h("section", { class: "danger-zone" }, h("h3", null, "Uninstall"),
-          h("p", null, "Removes Game Codex from this computer along with all of your games, sketches and settings. Export anything you want to keep first."),
+          h("p", null, "Removes Game Codex from " + where + " along with all of its games, files and settings there. Games saved to your GitHub account stay there until you delete the game-codex-saves repository."),
           h("button", { type: "button", class: "btn danger", onclick: async () => {
             d.close();
-            if (!(await ask({ title: "Uninstall Game Codex?", text: "The app and all of your games, sketches and settings will be removed from this computer. Export first if you want to keep anything.", confirm: "Uninstall", danger: true }))) return;
+            if (!(await ask({ title: "Uninstall Game Codex?", text: "The app and everything it saved on " + where + " will be removed. Export first or sign in with GitHub if you want to keep your games.", confirm: "Uninstall", danger: true }))) return;
             if (!Store.native) { Store.deleteAllData(); data.projects = []; view.project = null; render(); toast("Data deleted. To remove this browser copy, delete its folder."); return; }
             Store.flush(data.projects);
             Store.post({ type: "uninstall" });
@@ -594,63 +917,58 @@
   function privacyText() {
     return h("div", { class: "legal" },
       h("details", null, h("summary", null, "Privacy policy"),
-        h("p", null, "Game Codex doesn't collect, send or sell any personal data. Everything you make stays in files on your computer. There are no accounts, ads, analytics or tracking."),
-        h("p", null, "The only time it goes online is when you press Check for updates: it asks GitHub for the newest release. GitHub sees your IP address, as with any website (see GitHub's privacy statement)."),
-        h("p", null, "Cookies: the app sets none. Children: the app collects no data from anyone, so it's safe for any age.")),
+        h("p", null, "Game Codex doesn't collect, send or sell personal data. There are no ads, analytics or tracking. Everything you make is saved in the app's own folder on your device."),
+        h("p", null, "If you sign in with GitHub, your games and their files are copied to a private repository called game-codex-saves on your own GitHub account, so you can open them on your other devices. Game Codex talks only to GitHub for this, using a sign-in token kept on your device. Sign out to stop syncing; delete the repository on GitHub to remove the copies there."),
+        h("p", null, "Checking for updates asks GitHub for the newest release. GitHub sees your IP address, as with any website (see GitHub's privacy statement). The app sets no cookies and collects nothing from anyone, so it's safe for any age.")),
       h("details", null, h("summary", null, "Terms of use"),
-        h("p", null, "Game Codex is free. What you make in it belongs to you. The app is provided as it is, without warranty; keep backups of important work with Export."),
-        h("p", null, "Refunds: there's nothing to buy, so there's nothing to refund. There are no hidden fees or in-app purchases.")),
+        h("p", null, "Game Codex is free. What you make in it belongs to you. The app is provided as it is, without warranty; keep backups of important work with Export or by signing in."),
+        h("p", null, "Refunds: there's nothing to buy, so there's nothing to refund. There are no hidden fees or in-app purchases. Store kits help you prepare store pages; publishing on Steam or Roblox follows their own rules and fees.")),
       h("details", null, h("summary", null, "Deleting your data"),
-        h("p", null, "Use Delete all my data above, or Uninstall to remove the app too. Because nothing is stored anywhere else, that removes it completely.")),
+        h("p", null, "Use Delete all my data above, or Uninstall to remove the app too. If you signed in, also delete the game-codex-saves repository in your GitHub settings.")),
       h("p", { class: "muted" }, "Made by Jayswansocool48. Questions or problems: github.com/Jayswansocool48/game-codex/issues"));
   }
 
-  let updateUi = () => {};
-
-  // ---------- messages from the desktop window ----------
-  Store.on("info", (m) => { info = Object.assign(info, m); });
-  Store.on("update", (m) => updateUi(m));
+  // ---------- messages from the native side ----------
+  Store.on("info", (m) => {
+    info = Object.assign(info, m);
+    const day = 12 * 3600 * 1000;
+    if (data.settings.autoUpdate !== false && Date.now() - (data.settings.lastUpdateCheck || 0) > day) checkForUpdates(true);
+  });
   Store.on("uninstall", (m) => {
     if (m.status === "ok") {
       document.body.innerHTML = "";
-      document.body.appendChild(h("main", { class: "welcome" }, h("h1", null, "Game Codex was uninstalled"), h("p", { class: "lead" }, "Your data is being removed. This window closes in a moment.")));
+      document.body.appendChild(h("main", { class: "lib-empty" }, h("h1", null, "Game Codex was uninstalled"), h("p", null, "Your data is being removed. This window closes in a moment.")));
       setTimeout(() => Store.post({ type: "uninstall-finish" }), 1500);
     } else toast(m.text);
   });
-  Store.on("imported", (m) => {
-    if (m.error) { toast(m.error); return; }
-    const p = m.project;
-    if (data.projects.some((x) => x.id === p.id)) { p.id = uid("p"); p.name = (p.name || "Untitled game") + " (imported)"; }
-    SECTIONS.forEach((s) => { p.entries = p.entries || {}; p.entries[s.id] = p.entries[s.id] || []; });
-    p.media = p.media || [];
-    p.genre = p.genre || [];
-    p.platforms = p.platforms || [];
-    p.palette = p.palette || [];
-    data.projects.push(p);
-    Store.saveProject(p, true);
-    openProject(p.id);
-    toast("Imported " + (p.name || "the game"));
-  });
   Store.on("exported", (m) => toast(m.error ? m.error : "Saved " + m.file));
-  Store.on("data-deleted", () => {});
 
   // ---------- keyboard ----------
   document.addEventListener("keydown", (e) => {
-    if (document.querySelector(".backdrop") || document.body.classList.contains("sketching") || !project()) return;
+    if (document.querySelector(".backdrop, .menu") || document.body.classList.contains("sketching")) return;
     const mod = e.ctrlKey || e.metaKey;
     const typing = /INPUT|TEXTAREA|SELECT/.test(e.target.tagName);
+    if (view.page !== "game") {
+      if ((mod && e.key.toLowerCase() === "f") || (e.key === "/" && !typing)) { const s = document.getElementById("lib-search"); if (s) { e.preventDefault(); s.focus(); } }
+      else if (mod && e.key.toLowerCase() === "n") { e.preventDefault(); newGameDialog(); }
+      return;
+    }
     if (mod && e.key.toLowerCase() === "n" && view.section !== "overview") { e.preventDefault(); createEntry(view.section); }
     else if ((mod && e.key.toLowerCase() === "f") || (e.key === "/" && !typing)) { const s = document.getElementById("search"); if (s) { e.preventDefault(); s.focus(); } }
-    else if (e.altKey && /^[1-6]$/.test(e.key)) { e.preventDefault(); go(e.key === "1" ? "overview" : SECTIONS[+e.key - 2].id); }
-    else if (e.key === "Escape" && view.navOpen) { view.navOpen = false; appEl.classList.remove("nav-open"); }
+    else if (e.altKey && /^[1-7]$/.test(e.key)) { e.preventDefault(); go(e.key === "1" ? "overview" : SECTIONS[+e.key - 2].id); }
+    else if (e.altKey && e.key.toLowerCase() === "l") { e.preventDefault(); showLibrary(); }
   });
   window.addEventListener("beforeunload", () => Store.flush(data.projects));
 
-  const api = { createEntry, duplicateEntry, deleteEntry, addArt, removeArt, replaceArt, currentProject: project, render };
+  const api = {
+    createEntry, duplicateEntry, deleteEntry, addArt, addFile, setPoster, removeArt, replaceArt,
+    currentProject: project, render, renderTopbar, putProject, removeProject, mediaOf,
+    projects: () => data.projects, settings: () => data.settings, saveSettings, isOpen: () => view.page,
+  };
   Codex.app = api;
 
-  // start
-  const last = data.settings.lastProject;
-  view.project = data.projects.some((p) => p.id === last) ? last : data.projects[0] ? data.projects[0].id : null;
+  // start: the library, or straight back into the game that was open last time
+  view.page = "library";
+  if (Codex.Account) Codex.Account.init(api, loaded.signedIn);
   render();
 })();

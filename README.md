@@ -7,7 +7,7 @@ Every time the code changes, GitHub rebuilds the APKs below automatically.
 | --- | --- | --- |
 | **Inkwell** | [Inkwell.apk](Inkwell.apk) | Drawing app in the style of ibisPaint / Procreate |
 | **Codeling** | [Codeling.apk](Codeling.apk) | Learn-to-code lessons with a creature that grows as you do |
-| **Game Codex** | [GameCodex.apk](GameCodex.apk) | Game design notebook: characters, props, story & quests, mechanics and levels, with a sketch pad and idea generators |
+| **Game Codex** | [GameCodex.apk](GameCodex.apk) | Game design app: a library of your games with characters, story, levels, teasers, 3D models and Steam/Roblox store kits; syncs with the Pop!_OS app |
 | **Deskmate** | [Deskmate.apk](Deskmate.apk) + [desktop program](../../releases/tag/deskmate-desktop) | Turns the tablet into a Stream Deck for your PC, plus a system monitor, media remote, notes/timer and game dev panel |
 | **Kiln** | [Kiln.apk](Kiln.apk) | Game-asset boards, file library, assistant and a Blender-style 3D viewer (**Fire HD 8 only**) |
 
@@ -151,14 +151,21 @@ Then in any script: `Tweaks.tweak.connect(func(n, v): if n == "speed": speed = v
   look cramped, updating **Android System WebView** fixes it.
 
 ## Game Codex notes
-- Made for the Fire HD 8 (8th gen) on LineageOS 21; works in portrait and landscape.
-- Fully offline: the APK has no internet permission. Games are saved as files in the app's private storage, the same format as the Pop!_OS app.
-- Export a game (Overview → Export) as a `.gamecodex` file to move it between the tablet and the Pop!_OS app; Import works both ways.
-- **Add images** opens the tablet's gallery/files. Back closes the open dialog, sketch or menu first.
-- Settings → Uninstall opens Android's uninstall prompt, which removes the app and all of its games.
-- The web files are a copy of the `game-codex` repo's `web/` folder (version 0.1.0). To update the APK after changing Game Codex,
-  copy the new `web/` folder into `gamecodex/web-src/web/` and push. Tablet-only additions (storage bridge, touch sizes,
-  icon sidebar in landscape) live in `gamecodex/android-assets/web/`.
+- Made for the Fire HD 8 (8th gen) on LineageOS 21 (Android 14); works in portrait and landscape.
+- Same app as the Pop!_OS version (version 0.2.0): library, characters, props, story & quests, mechanics,
+  levels, media (teasers and trailers), 3D models, store kits for Steam and Roblox.
+- **Sign in with GitHub** (person icon, top right) to sync games with the Pop!_OS app through a private
+  `game-codex-saves` repository on your account. That and update checks are the only network use.
+- **Updates:** the app checks `GameCodex.json` here and shows an update banner; tap **Update now** and allow
+  "Install unknown apps" for Game Codex the first time.
+- **Signing:** Game Codex APKs are signed with `gamecodex/signing/gamecodex.keystore` so each one installs over the last.
+  The key is in this public repo; move it to a GitHub secret before giving the APK to anyone else.
+  APKs from before 0.2.0 were signed with a throwaway key: uninstall that one once (sign in or export first), then install this one.
+- Export a game as `.gamecodex` to move it between devices without an account; Import or **Update from a .gamecodex file** brings it in.
+- The web files are a copy of the `game-codex` repo's `web/` folder. To update the APK after changing Game Codex,
+  copy the new `web/` folder into `gamecodex/web-src/web/`, raise `versionCode`/`versionName` in `gamecodex/build.gradle.kts`, and push.
+  Tablet-only additions (storage bridge, touch sizes) live in `gamecodex/android-assets/web/`.
+- `.github/workflows/gamecodex-emulator.yml` runs it on an Android 14 emulator at the Fire HD 8's screen size; screenshots go to the `gamecodex-screens` branch.
 
 ## Building locally
 Open this folder in Android Studio, or run `./gradlew assembleRelease`.

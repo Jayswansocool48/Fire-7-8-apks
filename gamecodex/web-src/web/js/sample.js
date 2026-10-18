@@ -74,6 +74,17 @@ Codex.sampleGame = function (newProject) {
         { id: pull, created: now, name: "Tide pull", category: "Movement", status: "Idea", description: "Tug the tide toward you to slide across gaps on the water's surface.",
           rules: ["Only works when the tide is going out."], controls: [["Shift / B", "Tide pull"]], art: [] },
       ],
+      media: [
+        { id: id(), created: now, name: "First teaser: The Last Flame", type: "Teaser", status: "Storyboard", length: "0:30", posted: ["YouTube", "Steam page"],
+          summary: "Dark, rainy harbor. One warm light appears and the drowned town rises around it.", store: "Yes",
+          script: [
+            { title: "Black screen, rain", text: "Only the sound of rain and a distant bell." },
+            { title: "The lantern lights", text: "Wren's face, lit from below. The title card fades in." },
+            { title: "The town rises", text: "A whole street lifts out of the sea in one long shot." },
+          ],
+          shots: [{ text: "Rain ambience recorded", done: true }, { text: "Street-rising shot", done: false }, { text: "Title card", done: false }],
+          music: "Solo accordion, then strings", features: [{ id: wren }], levels: [{ id: docks }], art: [] },
+      ],
       levels: [
         { id: docks, created: now, name: "Driftwood Docks", order: 1, biome: "Flooded harbor at dusk", objective: "Raise the three dock bells and cross the bay.",
           difficulty: 2, mood: ["Cozy", "Mysterious"], layout: "Start at the lighthouse stairs. Three piers fan out; each bell is under a different pier. The rowboat puzzle teaches lifting.",

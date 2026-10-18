@@ -1,0 +1,64 @@
+name: Game Codex on Android (emulator)
+
+# Boots an Android 14 emulator (same Android as LineageOS 21) at the Fire HD 8's screen size,
+# installs Game Codex, and checks its storage bridge, files, 3D viewer, GitHub access and Back.
+# Screenshots go to the "gamecodex-screens" branch.
+on:
+  push:
+    branches: [main]
+    paths: ["gamecodex/**", ".github/workflows/gamecodex-emulator.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Build Game Codex (release and debug)
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :gamecodex:assembleRelease :gamecodex:assembleDebug
+      - name: Test tools
+        run: npm install --no-save --no-audit --no-fund playwright@1.48.2
+      - name: Run on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            mkdir -p screens; adb shell wm size 1280x800; adb shell wm density 189; adb logcat -c
+            adb install -r gamecodex/build/outputs/apk/release/gamecodex-release.apk
+            adb shell am start -W -n io.github.jayswansocool48.gamecodex/.MainActivity; sleep 12
+            adb exec-out screencap -p > screens/00-release-start.png
+            adb shell pidof io.github.jayswansocool48.gamecodex > /dev/null && echo "release: running" > screens/release.txt || echo "release: NOT RUNNING" > screens/release.txt
+            adb logcat -d | grep -E "FATAL|AndroidRuntime|chromium.*(Uncaught|Error)" | head -40 >> screens/release.txt || true
+            adb install -r gamecodex/build/outputs/apk/debug/gamecodex-debug.apk
+            adb shell am start -W -n io.github.jayswansocool48.gamecodex.debug/io.github.jayswansocool48.gamecodex.MainActivity; sleep 10
+            OUT=screens node gamecodex/tests/smoke.mjs > screens/smoke.log 2>&1 || touch screens/FAILED; cat screens/smoke.log
+            adb logcat -d | grep -E "FATAL|AndroidRuntime|GameCodex" | head -60 > screens/logcat.txt || true
+      - name: Publish screenshots
+        if: always()
+        run: |
+          cat screens/release.txt screens/RESULTS.txt 2>/dev/null || true
+          cd screens && git init -q && git checkout -q -b gamecodex-screens && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Game Codex emulator run ${{ github.sha }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gamecodex-screens
+      - name: Result
+        run: |
+          grep -q "release: running" screens/release.txt || { echo "::error::Release APK didn't stay running"; exit 1; }
+          [ ! -f screens/FAILED ] || { echo "::error::$(tail -5 screens/smoke.log | tr '\n' ' ')"; exit 1; }

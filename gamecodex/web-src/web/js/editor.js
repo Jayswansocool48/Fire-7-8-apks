@@ -1,4 +1,4 @@
-/* The editor for one character, prop, story entry, mechanic or level. */
+/* The editor for one character, prop, story entry, mechanic, level or media item. */
 window.Codex = window.Codex || {};
 
 Codex.Editor = (function () {
@@ -45,18 +45,38 @@ Codex.Editor = (function () {
     if (section.id === "story") return e.kind === "Quest" ? e.questType && e.questType + " quest" : e.kind === "Chapter" && e.order ? "Chapter " + e.order : "";
     if (section.id === "mechanics") return [e.category, e.status].filter(Boolean).join(", ");
     if (section.id === "levels") return [e.order ? "Level " + e.order : "", e.biome].filter(Boolean).join(", ");
+    if (section.id === "media") return [e.type, e.status].filter(Boolean).join(", ");
     return "";
   }
 
-  // ---------- art ----------
+  // ---------- art, video, sound and 3D models ----------
+  const KIND_LABEL = { sketch: "Sketch", image: "Image", video: "Video", audio: "Sound", model: "3D model" };
+  const KIND_ICON = { video: ICONS.video, audio: ICONS.music, model: ICONS.cube };
+
+  // The picture shown for an item: the image itself, a model's rendered poster, or a video frame.
+  function tile(a, alt) {
+    const S = Codex.Store;
+    if (a.kind === "video") {
+      const v = h("video", { src: S.mediaUrl(a.id) + "#t=0.5", muted: true, preload: "metadata", playsinline: true, "aria-label": alt });
+      v.muted = true;
+      return v;
+    }
+    if (a.kind === "audio") return h("span", { class: "art-audio", "aria-label": alt }, icon(ICONS.music));
+    if (a.kind === "model") return a.poster ? h("img", { src: S.mediaUrl(a.poster), alt, loading: "lazy" }) : h("span", { class: "art-audio", "aria-label": alt }, icon(ICONS.cube));
+    return h("img", { src: S.mediaUrl(a.id), alt, loading: "lazy" });
+  }
+
   function artStrip(ctx) {
-    const { entry } = ctx;
+    const { entry, section } = ctx;
     entry.art = entry.art || [];
-    const strip = h("section", { class: "art", "aria-label": "Art" });
+    const strip = h("section", { class: "art", "aria-label": "Art and files" });
     entry.art.forEach((a, i) => {
-      const img = h("img", { src: Codex.Store.mediaUrl(a.id), alt: a.caption || (a.kind === "sketch" ? "Sketch" : "Image") + " of " + (entry.name || "this " + ctx.section.one), loading: "lazy" });
-      strip.appendChild(h("button", { type: "button", class: "art-item" + (i === 0 ? " lead" : ""), title: a.caption || "Open", onclick: () => viewArt(ctx, i) },
-        img, a.caption ? h("span", { class: "art-cap" }, a.caption) : null));
+      const label = KIND_LABEL[a.kind] || "Image";
+      const alt = a.caption || label + " of " + (entry.name || "this " + section.one);
+      strip.appendChild(h("button", { type: "button", class: "art-item" + (i === 0 ? " lead" : ""), title: a.caption || a.name || "Open", onclick: () => viewArt(ctx, i) },
+        tile(a, alt),
+        KIND_ICON[a.kind] ? h("span", { class: "art-kind" }, icon(KIND_ICON[a.kind]), label) : null,
+        a.caption || a.name ? h("span", { class: "art-cap" }, a.caption || a.name) : null));
     });
     const file = h("input", { type: "file", accept: "image/*", multiple: true, hidden: true });
     file.addEventListener("change", async () => {
@@ -69,10 +89,23 @@ Codex.Editor = (function () {
       file.value = "";
       ctx.rerender();
     });
-    const isLevel = ctx.section.id === "levels";
+    const addFiles = async (accept) => {
+      try {
+        const files = await Codex.Store.pickFiles(accept, true);
+        for (const f of files) {
+          const item = ctx.app.addFile(entry, f);
+          if (f.kind === "model") await Codex.Models.makePoster(item).then((poster) => { if (poster) ctx.app.setPoster(entry, item, poster); }).catch(() => {});
+        }
+        if (files.length) ctx.rerender();
+      } catch (err) { Codex.toast(err.message); }
+    };
+    const isLevel = section.id === "levels";
+    const isMedia = section.id === "media";
     strip.appendChild(h("div", { class: "art-add" + (entry.art.length ? "" : " empty") },
-      h("button", { type: "button", class: "art-btn", onclick: () => Codex.Sketch.open({ title: (isLevel ? "Layout of " : "Sketch of ") + (entry.name || "untitled"), onSave: (data) => { ctx.app.addArt(entry, data, "sketch", isLevel ? "Layout" : ""); ctx.rerender(); } }) }, icon(ICONS.pencil), isLevel ? "Sketch the layout" : "New sketch"),
+      isMedia ? h("button", { type: "button", class: "art-btn", onclick: () => addFiles("media") }, icon(ICONS.video), "Add video or sound") : null,
+      h("button", { type: "button", class: "art-btn", onclick: () => Codex.Sketch.open({ title: (isLevel ? "Layout of " : "Sketch of ") + (entry.name || "untitled"), onSave: (data) => { ctx.app.addArt(entry, data, "sketch", isLevel ? "Layout" : ""); ctx.rerender(); } }) }, icon(ICONS.pencil), isLevel ? "Sketch the layout" : isMedia ? "Storyboard sketch" : "New sketch"),
       h("button", { type: "button", class: "art-btn", onclick: () => file.click() }, icon(ICONS.image), "Add images"),
+      isMedia ? null : h("button", { type: "button", class: "art-btn", onclick: () => addFiles("model") }, icon(ICONS.cube), "Add 3D model"),
       file));
     return strip;
   }
@@ -80,28 +113,47 @@ Codex.Editor = (function () {
   function viewArt(ctx, index) {
     const { entry } = ctx;
     const a = entry.art[index];
-    const caption = h("input", { value: a.caption || "", placeholder: "Describe this image (also read out by screen readers)", "aria-label": "Caption" });
+    const label = (KIND_LABEL[a.kind] || "Image").toLowerCase();
+    const caption = h("input", { value: a.caption || "", placeholder: "Describe it (also read out by screen readers)", "aria-label": "Caption" });
     caption.addEventListener("input", () => { a.caption = caption.value; ctx.changed(); });
+    let viewer = null;
+    let media;
+    const url = Codex.Store.mediaUrl(a.id);
+    if (a.kind === "video") media = h("video", { class: "art-full", src: url, controls: true, playsinline: true, preload: "metadata" });
+    else if (a.kind === "audio") media = h("audio", { class: "art-full", src: url, controls: true, preload: "metadata" });
+    else if (a.kind === "model") { viewer = Codex.Models.viewer(a); media = h("div", { style: { height: "58vh" } }, viewer.el); }
+    else media = h("img", { class: "art-full", src: url, alt: a.caption || "" });
+    const canDraw = a.kind === "image" || a.kind === "sketch" || !a.kind;
     const d = Codex.dialog({
-      title: a.caption || (entry.name || "Untitled") + ", " + (a.kind === "sketch" ? "sketch" : "image") + " " + (index + 1),
-      class: "wide",
-      body: [h("img", { class: "art-full", src: Codex.Store.mediaUrl(a.id), alt: a.caption || "" }), h("label", { class: "field wide" }, h("span", null, "Caption"), caption)],
+      title: a.caption || a.name || (entry.name || "Untitled") + ", " + label + " " + (index + 1),
+      class: a.kind === "model" ? "full" : "wide",
+      body: [media, h("label", { class: "field wide", style: { marginTop: "12px" } }, h("span", null, "Caption"), caption),
+        a.name ? h("p", { class: "muted" }, "File: " + a.name + (a.size ? " (" + formatSize(a.size) + ")" : "")) : null],
+      onClose: () => { if (viewer) viewer.dispose(); if (media.pause) media.pause(); },
       actions: [
         h("button", { type: "button", class: "btn ghost danger-text", onclick: async () => {
           d.close();
-          if (await Codex.ask({ title: "Delete this " + (a.kind === "sketch" ? "sketch" : "image") + "?", text: "It's removed from this game for good.", confirm: "Delete", danger: true })) {
+          if (await Codex.ask({ title: "Delete this " + label + "?", text: "It's removed from this game for good.", confirm: "Delete", danger: true })) {
             ctx.app.removeArt(entry, index);
             ctx.rerender();
           }
         } }, "Delete"),
-        index > 0 ? h("button", { type: "button", class: "btn ghost", onclick: () => { entry.art.unshift(entry.art.splice(index, 1)[0]); ctx.changed({ list: true }); d.close(); ctx.rerender(); } }, "Make it the main picture") : null,
-        h("button", { type: "button", class: "btn ghost", onclick: () => {
+        index > 0 ? h("button", { type: "button", class: "btn ghost", onclick: () => { entry.art.unshift(entry.art.splice(index, 1)[0]); ctx.changed({ list: true }); d.close(); ctx.rerender(); } }, "Show it first") : null,
+        a.kind === "model" ? h("button", { type: "button", class: "btn ghost", onclick: async () => {
+          const poster = viewer.snapshot();
+          if (poster) { ctx.app.setPoster(entry, a, poster); Codex.toast("Saved this view as the picture"); }
+        } }, "Use this view as the picture") : null,
+        canDraw ? h("button", { type: "button", class: "btn ghost", onclick: () => {
           d.close();
-          Codex.Sketch.open({ title: "Draw on " + (a.caption || "this picture"), src: Codex.Store.mediaUrl(a.id), onSave: (data) => { ctx.app.replaceArt(entry, index, data); ctx.rerender(); } });
-        } }, "Draw on it"),
+          Codex.Sketch.open({ title: "Draw on " + (a.caption || "this picture"), src: url, onSave: (data) => { ctx.app.replaceArt(entry, index, data); ctx.rerender(); } });
+        } }, "Draw on it") : null,
         h("button", { type: "button", class: "btn primary", onclick: () => { d.close(); ctx.rerender(); } }, "Done"),
       ],
     });
+  }
+
+  function formatSize(n) {
+    return n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
   }
 
   // ---------- fields ----------

@@ -6,9 +6,9 @@
         <item name="android:statusBarColor">@color/light_bar</item>
         <item name="android:navigationBarColor">@color/light_bar</item>
     </style>
-    <color name="light_bg">#EEEDF4</color>
-    <color name="light_bar">#5B4A9E</color>
-    <color name="dark_bg">#15141C</color>
-    <color name="dark_bar">#1C1A26</color>
+    <color name="light_bg">#EEF1F6</color>
+    <color name="light_bar">#3A4FC4</color>
+    <color name="dark_bg">#151C27</color>
+    <color name="dark_bar">#1A2330</color>
     <color name="icon_bg">#2A2140</color>
 </resources>

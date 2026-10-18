@@ -95,6 +95,24 @@ Codex.SECTIONS = [
       { key: "music", label: "Music and sound", type: "text" },
     ],
   },
+  {
+    id: "media", name: "Media", one: "media item", color: "pink",
+    icon: "M4 6h12v12H4zM16 10l4-2v8l-4-2",
+    empty: "Teasers, trailers, screenshots, key art and music. Add your video, image and sound files, plus the script and shot list.",
+    fields: [
+      { key: "type", label: "Type", type: "select", options: ["Teaser", "Trailer", "Gameplay clip", "Screenshot", "Key art", "Logo", "Music", "Sound effect", "Voice line", "Devlog"] },
+      { key: "status", label: "Status", type: "select", options: ["Idea", "Storyboard", "In production", "Done", "Published"] },
+      { key: "length", label: "Length", type: "text", placeholder: "0:45" },
+      { key: "posted", label: "Posted on", type: "tags", placeholder: "YouTube, Steam page, TikTok…" },
+      { key: "summary", label: "What it shows", type: "textarea", rows: 3 },
+      { key: "script", label: "Script and storyboard", type: "beats", itemLabel: "Shot" },
+      { key: "shots", label: "Shot list", type: "checklist" },
+      { key: "music", label: "Music and sound", type: "text" },
+      { key: "store", label: "Use in store kit", type: "select", options: ["Yes", "No"] },
+      { key: "features", label: "Features", type: "links", to: "characters" },
+      { key: "levels", label: "Levels shown", type: "links", to: "levels" },
+    ],
+  },
 ];
 
 Codex.sectionById = (id) => Codex.SECTIONS.find((s) => s.id === id);
