@@ -1,0 +1,14 @@
+ok   the page loads with the Android bridge
+ok   a sample game opens and is saved to the tablet
+ok   a sketch is saved as a file and served back with byte ranges
+ok   the 3D viewer renders a model from the tablet storage
+ok   the network bridge reaches GitHub and nothing else
+ok   the assistant settings are saved on the tablet
+ok   the 3D studio opens and Back closes it
+ok   character sheet, media and library screens
+ok   Back closes a dialog first
+ok   portrait layout
+     update check said: current
+ok   the update check reads the APK repository
+ok   no errors in the console
+12/12 passed
