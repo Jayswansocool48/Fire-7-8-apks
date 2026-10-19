@@ -119,3 +119,19 @@ Codex.sectionById = (id) => Codex.SECTIONS.find((s) => s.id === id);
 
 Codex.GENRES = ["Action", "Adventure", "RPG", "Platformer", "Puzzle", "Shooter", "Strategy", "Simulation", "Survival", "Horror", "Racing", "Sports", "Fighting", "Roguelike", "Metroidvania", "Visual novel", "Sandbox", "Rhythm"];
 Codex.PLATFORMS = ["PC", "Linux", "Steam Deck", "Console", "Mobile", "Web", "VR", "Roblox"];
+
+/* Production: characters, props and levels are also things you build. Each one moves from
+   Planned to Modeled to Complete (saved as entry.prod), with its polycount, Blender file and a task list. */
+Codex.STAGES = [
+  { id: "Planned", hint: "Designed, not built yet" },
+  { id: "Modeled", hint: "The 3D model exists" },
+  { id: "Complete", hint: "Finished and ready for the game" },
+];
+Codex.PRODUCTION_SECTIONS = ["characters", "props", "levels"];
+Codex.PRODUCTION_FIELDS = [
+  { key: "poly", label: "Polycount", type: "text", placeholder: "4,200 tris" },
+  { key: "blender", label: "Blender file", type: "text", placeholder: "~/Art/lantern.blend" },
+  { key: "tasks", label: "Production tasks", type: "checklist", itemLabel: "task" },
+];
+Codex.inProduction = (sectionId) => Codex.PRODUCTION_SECTIONS.includes(sectionId);
+Codex.stageOf = (e) => (Codex.STAGES.some((s) => s.id === e.prod) ? e.prod : "Planned");

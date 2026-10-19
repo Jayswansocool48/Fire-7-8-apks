@@ -68,6 +68,25 @@ await step('the network bridge reaches GitHub and nothing else', async () => {
   if (r[1] !== 0 || !(r[0] === 200 || r[0] === 403)) throw new Error(JSON.stringify(r));
 });
 
+await step('the assistant settings are saved on the tablet', async () => {
+  const r = await page.evaluate(async () => {
+    const a = await Codex.Store.request({ type: 'ai-set', settings: { provider: 'ollama', ollama_url: 'http://192.168.1.20:11434' } });
+    const b = await Codex.Store.request({ type: 'ai-get' });
+    return [a.settings.provider, b.settings.ollama_url, b.settings.ready];
+  });
+  if (r[0] !== 'ollama' || r[1] !== 'http://192.168.1.20:11434' || r[2] !== true) throw new Error(JSON.stringify(r));
+});
+
+await step('the 3D studio opens and Back closes it', async () => {
+  await page.click('.tab[title="Props"]'); await wait(400);
+  await page.click('.card:has-text("Everlantern")'); await wait(600);
+  await page.click('text=Model in 3D'); await wait(5000);
+  shot('09-studio');
+  if (!(await page.evaluate(() => document.body.classList.contains('studio-open')))) throw new Error('studio did not open');
+  adb('shell input keyevent KEYCODE_BACK'); await wait(1000);
+  if (await page.evaluate(() => document.body.classList.contains('studio-open'))) throw new Error('Back did not close it');
+});
+
 await step('character sheet, media and library screens', async () => {
   await page.click('.tab:has-text("Characters")'); await wait(400);
   await page.click('.card:has-text("Wren")'); await wait(800);

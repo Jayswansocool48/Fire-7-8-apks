@@ -42,6 +42,11 @@
     if (document.querySelector(".backdrop")) { escape(document.activeElement || document.body); return true; }
     var sketch = document.querySelector(".sketch:not([hidden])");
     if (sketch) { escape(sketch); return true; }
+    if (document.body.classList.contains("studio-open")) {
+      var closeStudio = document.querySelector('[aria-label="Close the 3D studio"]');
+      if (closeStudio) { closeStudio.click(); return true; }
+    }
+    if (window.Codex && Codex.Assistant && Codex.Assistant.isOpen()) { Codex.Assistant.close(); return true; }
     var back = document.querySelector(".split.has-entry .back-btn");
     if (visible(back)) { back.click(); return true; }
     var tabs = document.querySelectorAll(".tabs .tab");

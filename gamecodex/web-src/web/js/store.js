@@ -110,10 +110,16 @@ Codex.Store = (function () {
 
   // Images made in the app (sketches, resized pictures) arrive as data URLs.
   function saveMedia(dataUrl) {
-    const id = newMediaId(/^data:image\/jpeg/.test(dataUrl) ? "jpg" : "png");
+    return saveFile(dataUrl, /^data:image\/jpeg/.test(dataUrl) ? "jpg" : "png");
+  }
+
+  // Any file the page made (a painted texture, a .glb from the 3D studio), as a data URL. Returns its id.
+  function saveFile(dataUrl, ext) {
+    const id = newMediaId(ext);
+    if (!MEDIA_ID.test(id)) throw new Error("Game Codex can't keep ." + ext + " files.");
     mediaCache[id] = dataUrl;
     if (native) post({ type: "save-media", id, data: dataUrl });
-    else if (!lsSet("media:" + id, dataUrl)) Codex.toast && Codex.toast("Browser storage is full, so this image won't be kept after you close the page.");
+    else if (!lsSet("media:" + id, dataUrl)) Codex.toast && Codex.toast("Browser storage is full, so this file won't be kept after you close the page.");
     return id;
   }
 
@@ -241,9 +247,11 @@ Codex.Store = (function () {
   }
 
   return {
-    native, post, request, on, init, saveProject, flush, deleteProject, saveSettings, saveMedia, pickFiles, mediaUrl, deleteMedia,
+    native, post, request, on, init, saveProject, flush, deleteProject, saveSettings, saveMedia, saveFile, pickFiles, mediaUrl, deleteMedia,
     exportProject, exportMarkdown, exportKit, importProject, deleteAllData, http, kindOf, MEDIA_ID,
     onSave: (fn) => saveHooks.push(fn),
     version: boot.version || "dev", platform: boot.platform || (native ? "desktop" : "browser"),
+    // what the native side can do beyond saving (the tablet app may not have everything yet)
+    can: (feature) => (boot.features || []).includes(feature),
   };
 })();

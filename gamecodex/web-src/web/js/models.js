@@ -1,35 +1,34 @@
-/* 3D model viewer (glb, gltf, obj, stl, fbx) built on three.js r147, which ships with the app
-   in vendor/three and loads only when a model is first opened. */
+/* 3D models: thumbnails, and the full-screen 3D studio (a Blender-style editor) for
+   viewing, texturing, painting, animating and modeling. The studio and three.js r160 are one
+   script, vendor/studio/studio.js, loaded the first time it's needed (built from studio/).
+
+   Files the studio makes (painted textures, uploaded textures and backgrounds, exported .glb
+   models) are saved as this game's media. Its scene settings live on the model's art item
+   (art.v3d) or, for a blank modeling scene, on the entry (entry.studio). Inside those, a saved
+   file is written as "media:<id>", which Codex.app.mediaOf() counts so exports and GitHub sync
+   carry the files along. */
 window.Codex = window.Codex || {};
 
 Codex.Models = (function () {
-  const { h, icon, ICONS } = Codex;
-  const BASE = "vendor/three/";
+  const { h, icon, ICONS, toast } = Codex;
+  const MEDIA_REF = /^media:([A-Za-z0-9_-]{1,64}\.[a-z0-9]+)(\?.*)?$/;
   let ready = null;
-
-  function script(src) {
-    return new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = BASE + src;
-      s.onload = resolve;
-      s.onerror = () => reject(new Error("Couldn't load the 3D viewer."));
-      document.head.appendChild(s);
-    });
-  }
 
   function load() {
     if (!ready) {
-      ready = script("three.min.js")
-        .then(() => script("fflate.min.js"))
-        .then(() => Promise.all(["OrbitControls.js", "GLTFLoader.js", "OBJLoader.js", "STLLoader.js", "NURBSUtils.js"].map(script)))
-        .then(() => script("NURBSCurve.js"))
-        .then(() => script("FBXLoader.js"))
-        .catch((e) => { ready = null; throw e; });
+      ready = new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "vendor/studio/studio.js";
+        s.onload = () => (Codex.Studio ? resolve(Codex.Studio) : reject(new Error("The 3D studio didn't start.")));
+        s.onerror = () => reject(new Error("Couldn't load the 3D studio."));
+        document.head.appendChild(s);
+      }).catch((e) => { ready = null; throw e; });
     }
     return ready;
   }
 
   function ext(id) { return String(id).split(".").pop().toLowerCase(); }
+  function refId(ref) { const m = MEDIA_REF.exec(String(ref || "")); return m ? m[1] : null; }
 
   // XMLHttpRequest rather than fetch(): the desktop window serves the app from local files,
   // and WebKit lets XHR read those but not fetch().
@@ -44,161 +43,156 @@ Codex.Models = (function () {
     });
   }
 
-  function loadModel(url, type) {
-    const T = window.THREE;
-    const fail = (e) => { throw new Error("This model couldn't be opened" + (e && e.message ? " (" + e.message + ")." : ".")); };
-    return bytes(url).then((buf) => new Promise((resolve, reject) => {
-      try {
-        if (type === "glb" || type === "gltf") new T.GLTFLoader().parse(buf, "", (g) => resolve(g.scene), reject);
-        else if (type === "obj") resolve(new T.OBJLoader().parse(new TextDecoder().decode(buf)));
-        else if (type === "fbx") resolve(new T.FBXLoader().parse(buf, ""));
-        else if (type === "stl") {
-          const geo = new T.STLLoader().parse(buf);
-          geo.computeVertexNormals();
-          resolve(new T.Mesh(geo, new T.MeshStandardMaterial({ color: 0xb8c2d6, roughness: 0.55, metalness: 0.1 })));
-        } else reject(new Error("Game Codex can't open ." + type + " models"));
-      } catch (e) { reject(e); }
-    })).then((obj) => {
-      // OBJ files without materials come in flat white; give them a soft clay look.
-      obj.traverse((o) => { if (o.isMesh && o.material && o.material.type === "MeshPhongMaterial" && !o.material.map) o.material = new T.MeshStandardMaterial({ color: 0xb8c2d6, roughness: 0.6 }); });
-      // Show both sides of every face, so models exported with flipped faces don't have holes.
-      obj.traverse((o) => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m) m.side = T.DoubleSide; }); });
-      return obj;
-    }, fail);
+  // A saved file reference ("media:<id>") as a URL the page can load; anything else is passed through.
+  function url(ref) {
+    const id = refId(ref);
+    return id ? Codex.Store.mediaUrl(id) : ref;
   }
 
-  // Lights, a floor shadow-catcher feel, and the camera framed on the model.
-  function stage(canvas, w, hgt) {
-    const T = window.THREE;
-    const renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(w, hgt, false);
-    renderer.outputEncoding = T.sRGBEncoding;
-    const scene = new T.Scene();
-    scene.add(new T.HemisphereLight(0xdfe8ff, 0x2a2f3a, 0.65));
-    const key = new T.DirectionalLight(0xffffff, 0.85);
-    key.position.set(3, 5, 4);
-    scene.add(key);
-    const rim = new T.DirectionalLight(0x9fb8ff, 0.45);
-    rim.position.set(-4, 2, -3);
-    scene.add(rim);
-    const camera = new T.PerspectiveCamera(40, w / hgt, 0.01, 10000);
-    return { renderer, scene, camera };
+  function parseRef(ref) {
+    const id = refId(ref) || String(ref);
+    return Promise.all([load(), bytes(url(ref))]).then(([S, buf]) => S.parse(buf, ext(id)))
+      .catch((e) => { throw new Error("This model couldn't be opened (" + e.message + "). Try exporting it from Blender as .glb."); });
   }
 
-  function frame(object, camera) {
-    const T = window.THREE;
-    const box = new T.Box3().setFromObject(object);
-    const size = box.getSize(new T.Vector3());
-    const center = box.getCenter(new T.Vector3());
-    object.position.sub(center);
-    const radius = Math.max(size.x, size.y, size.z) * 0.5 || 1;
-    const dist = radius / Math.sin((camera.fov * Math.PI) / 360) * 1.15;
-    camera.position.set(dist * 0.65, dist * 0.45, dist * 0.85);
-    camera.near = dist / 100;
-    camera.far = dist * 100;
-    camera.updateProjectionMatrix();
-    camera.lookAt(0, 0, 0);
-    return { radius, dist };
+  // Render a picture of a model so it has a thumbnail. Resolves to a media id.
+  function makePoster(item) {
+    return Promise.all([load(), bytes(Codex.Store.mediaUrl(item.id))]).then(([S, buf]) => S.poster(buf, ext(item.id))).then((d) => Codex.Store.saveMedia(d));
   }
 
-  function setWire(object, on) {
-    object.traverse((o) => {
-      if (!o.material) return;
-      (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m.wireframe = on; });
-    });
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error("Couldn't read the file")); r.readAsDataURL(blob); });
   }
 
-  // An interactive viewer for a dialog. Returns {el, dispose, snapshot}.
-  function viewer(item) {
-    const canvas = h("canvas", { "aria-label": "3D view of " + (item.caption || item.name || "the model") + ". Drag to turn it, pinch or scroll to zoom." });
-    const msg = h("div", { class: "viewer-msg" }, "Loading the model…");
-    const wire = h("button", { type: "button", class: "btn sm", "aria-pressed": "false" }, "Wireframe");
-    const spin = h("button", { type: "button", class: "btn sm", "aria-pressed": "true" }, "Turntable");
-    const reset = h("button", { type: "button", class: "btn sm" }, "Reset view");
-    const el = h("div", { class: "viewer" }, canvas, msg, h("div", { class: "viewer-bar" }, spin, wire, reset));
-    let alive = true, raf = 0, ctx = null, controls = null, model = null, start = null;
+  const IMAGE = /^(png|jpg|webp|gif)$/;
+  function fileExt(blob, name) {
+    const n = String(name || blob.name || "");
+    let e = n.includes(".") ? n.split(".").pop().toLowerCase() : "";
+    if (!e) e = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "model/gltf-binary": "glb" }[blob.type] || "";
+    return e === "jpeg" ? "jpg" : e;
+  }
 
-    load().then(() => loadModel(Codex.Store.mediaUrl(item.id), ext(item.id))).then((obj) => {
-      if (!alive) return;
-      const T = window.THREE;
-      const w = el.clientWidth || 800, hh = el.clientHeight || 500;
-      ctx = stage(canvas, w, hh);
-      model = obj;
-      ctx.scene.add(obj);
-      frame(obj, ctx.camera);
-      start = ctx.camera.position.clone();
-      controls = new T.OrbitControls(ctx.camera, canvas);
-      controls.enableDamping = true;
-      controls.autoRotate = true;
-      controls.autoRotateSpeed = 1.6;
-      msg.remove();
-      const resize = () => {
-        const W = el.clientWidth, H = el.clientHeight;
-        if (!W || !H) return;
-        ctx.renderer.setSize(W, H, false);
-        ctx.camera.aspect = W / H;
-        ctx.camera.updateProjectionMatrix();
-      };
-      resize();
-      window.addEventListener("resize", resize);
-      el._resize = resize;
-      const tick = () => { if (!alive) return; controls.update(); ctx.renderer.render(ctx.scene, ctx.camera); raf = requestAnimationFrame(tick); };
-      tick();
-    }).catch((e) => { msg.textContent = e.message + " Try exporting it from Blender as .glb."; });
+  /* Opens the studio over the whole window.
+     ctx: the editor's context ({project, entry, changed(), rerender(), app}).
+     index: the model's place in entry.art, or null for the entry's blank modeling scene. */
+  function open(ctx, index) {
+    const { project, entry } = ctx;
+    const art = index == null ? null : entry.art[index];
+    const data = art ? (art.v3d = art.v3d || {}) : (entry.studio = entry.studio || {});
+    const title = entry.name || "Untitled";
+    const sub = art ? (art.caption || art.name || "3D model") : "3D modeling scene";
+    const S = Codex.Store;
 
-    spin.addEventListener("click", () => { if (!controls) return; controls.autoRotate = !controls.autoRotate; spin.setAttribute("aria-pressed", String(controls.autoRotate)); });
-    wire.addEventListener("click", () => { if (!model) return; const on = wire.getAttribute("aria-pressed") !== "true"; setWire(model, on); wire.setAttribute("aria-pressed", String(on)); });
-    reset.addEventListener("click", () => { if (!controls) return; ctx.camera.position.copy(start); controls.target.set(0, 0, 0); controls.update(); });
+    const host = h("div", { class: "vh" });
+    const bar = h("header", { class: "studio-bar" });
+    const el = h("div", { class: "studio", role: "dialog", "aria-modal": "true", "aria-label": "3D studio: " + title }, bar, host);
+    let dispose = () => {}, closed = false;
 
-    return {
-      el,
-      snapshot() {
-        if (!ctx) return null;
-        ctx.renderer.render(ctx.scene, ctx.camera);
-        return Codex.Store.saveMedia(squareShot(canvas));
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      dispose();
+      el.remove();
+      document.body.classList.remove("studio-open");
+      ctx.changed({ list: true });
+      Codex.sfx.play("close");
+      // new models made in the studio get their thumbnails now
+      postersFor(ctx).then(() => ctx.rerender());
+      if (Codex.Assistant) Codex.Assistant.refresh();
+    };
+
+    const snap = h("button", { type: "button", class: "btn ghost sm", onclick: () => {
+      const d = Codex.Studio && Codex.Studio.snapshot(host);
+      if (!d) return;
+      ctx.app.setPoster(entry, art, S.saveMedia(d));
+      toast("Saved this view as the model's picture");
+    } }, icon(ICONS.image), "Use this view as the picture");
+    const more = h("button", { type: "button", class: "icon-btn", "aria-label": "More", "aria-haspopup": "menu", onclick: (e) => Codex.menu(e.currentTarget, [
+      { label: "Show it first in the art", icon: ICONS.up, onclick: () => { const i = entry.art.indexOf(art); if (i > 0) { entry.art.unshift(entry.art.splice(i, 1)[0]); ctx.changed({ list: true }); toast("It's first now"); } } },
+      { label: "Delete this model", icon: ICONS.trash, danger: true, onclick: async () => {
+        if (!(await Codex.ask({ title: "Delete this 3D model?", text: "The model, its painted textures and its scene settings are removed from this game for good.", confirm: "Delete", danger: true }))) return;
+        const i = entry.art.indexOf(art);
+        close();
+        if (i >= 0) { ctx.app.removeArt(entry, i); ctx.rerender(); }
+      } },
+    ]) }, icon(ICONS.more));
+    bar.append(...[
+      h("button", { type: "button", class: "icon-btn", "aria-label": "Close the 3D studio", onclick: close }, icon(ICONS.x)),
+      h("div", { class: "studio-title" }, h("strong", null, title), h("small", null, sub)),
+      Codex.Assistant ? h("button", { type: "button", class: "btn ghost sm", title: "Assistant (Ctrl+J)", onclick: () => Codex.Assistant.toggle() }, icon(ICONS.spark), "Assistant") : null,
+      art ? snap : null, art ? more : null,
+      h("button", { type: "button", class: "btn primary sm", onclick: close }, "Done"),
+    ].filter(Boolean)); // append() would print a skipped button as the word "null"
+
+    document.body.appendChild(el);
+    document.body.classList.add("studio-open");
+    if (Codex.Assistant) Codex.Assistant.refresh();
+
+    const key = entry.id + "_" + (art ? art.id.split(".")[0] : "scene");
+    const opts = {
+      data,
+      key,
+      uses: [],
+      save: () => ctx.changed(),
+      url,
+      load: parseRef,
+      fu: (id) => "media:" + id,
+      // other pictures and models in this game, for the Texture and Scene tabs
+      files: async () => {
+        const out = [];
+        Codex.SECTIONS.forEach((s) => (project.entries[s.id] || []).forEach((e) => (e.art || []).forEach((a) => {
+          if (a === art) return;
+          const name = (e.name || "Untitled") + (a.caption ? ": " + a.caption : "");
+          if (a.kind === "image" || a.kind === "sketch") out.push({ path: a.id, name, kind: "Textures" });
+          else if (a.kind === "model") out.push({ path: a.id, name, kind: "Models" });
+        })));
+        return out;
       },
-      dispose() {
-        alive = false;
-        cancelAnimationFrame(raf);
-        if (el._resize) window.removeEventListener("resize", el._resize);
-        if (controls) controls.dispose();
-        if (ctx) { ctx.renderer.dispose(); ctx.renderer.forceContextLoss && ctx.renderer.forceContextLoss(); }
+      // save a file the studio made; returns its reference for the scene data
+      up: async (blob, dir, name) => {
+        const e = fileExt(blob, name);
+        if (dir === "models" ? e !== "glb" : !IMAGE.test(e)) {
+          toast("Game Codex keeps PNG, JPEG, WebP and GIF pictures and .glb models. Convert the file and try again.");
+          throw new Error("unsupported file type");
+        }
+        const id = S.saveFile(await blobToDataUrl(blob), e);
+        project.media.push(id);
+        if (dir === "models") {
+          entry.art.push({ id, kind: "model", name: (entry.name || "model") + ".glb", caption: "Made in the 3D studio" });
+        } else if (name) {
+          // one file per name (a model's painted texture): the old one goes when the new one is saved
+          const named = data.files = data.files || {};
+          const old = refId(named[name]);
+          named[name] = "media:" + id;
+          if (old) ctx.app.forgetMedia([old]);
+        }
+        ctx.changed({ list: dir === "models" });
+        return "media:" + id;
+      },
+      // "Save meshes as the main model": put that model first in the art strip
+      setModel: (ref) => {
+        const id = refId(ref);
+        const i = entry.art.findIndex((a) => a.id === id);
+        if (i > 0) entry.art.unshift(entry.art.splice(i, 1)[0]);
+        ctx.changed({ list: true });
       },
     };
+
+    load().then((Studio) => {
+      if (closed) return;
+      Codex.sfx.play("open");
+      return Studio.mount(host, art ? "media:" + art.id : null, opts).then((d) => { if (closed) d(); else dispose = d; });
+    }).catch((e) => { host.appendChild(h("p", { class: "studio-error" }, e.message)); });
+    return { close };
   }
 
-  // Crop the middle of a render to a square picture for the art strip.
-  function squareShot(canvas) {
-    const s = Math.min(canvas.width, canvas.height);
-    const out = document.createElement("canvas");
-    out.width = out.height = 640;
-    const c = out.getContext("2d");
-    const g = c.createRadialGradient(320, 220, 40, 320, 320, 460);
-    g.addColorStop(0, "#2c3850"); g.addColorStop(1, "#121823");
-    c.fillStyle = g;
-    c.fillRect(0, 0, 640, 640);
-    c.drawImage(canvas, (canvas.width - s) / 2, (canvas.height - s) / 2, s, s, 0, 0, 640, 640);
-    return out.toDataURL("image/jpeg", 0.88);
+  // Thumbnails for models that don't have one yet (new exports, imports).
+  async function postersFor(ctx) {
+    const todo = (ctx.entry.art || []).filter((a) => a.kind === "model" && !a.poster);
+    for (const a of todo) {
+      try { ctx.app.setPoster(ctx.entry, a, await makePoster(a)); } catch (e) { /* the studio still opens it */ }
+    }
   }
 
-  // Render a picture of a newly added model so it has a thumbnail. Resolves to a media id or null.
-  function makePoster(item) {
-    return load().then(() => loadModel(Codex.Store.mediaUrl(item.id), ext(item.id))).then((obj) => {
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 640;
-      const ctx = stage(canvas, 640, 640);
-      ctx.renderer.setPixelRatio(1);
-      ctx.renderer.setSize(640, 640, false);
-      ctx.scene.add(obj);
-      frame(obj, ctx.camera);
-      ctx.renderer.render(ctx.scene, ctx.camera);
-      const id = Codex.Store.saveMedia(squareShot(canvas));
-      ctx.renderer.dispose();
-      ctx.renderer.forceContextLoss && ctx.renderer.forceContextLoss();
-      return id;
-    });
-  }
-
-  return { viewer, makePoster, load };
+  return { load, open, makePoster, postersFor, url, refId, MEDIA_REF };
 })();

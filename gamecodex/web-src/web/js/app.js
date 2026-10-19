@@ -3,7 +3,8 @@
   const { h, icon, ICONS, uid, toast, dialog, ask, menu, Store, SECTIONS, sectionById } = Codex;
 
   const loaded = Store.init();
-  const data = { projects: loaded.projects, settings: Object.assign({ theme: "system", autoUpdate: true, favorites: [], opened: {}, libSort: "opened" }, loaded.settings) };
+  const data = { projects: loaded.projects, settings: Object.assign({ theme: "system", autoUpdate: true, favorites: [], opened: {}, libSort: "opened", sound: { on: true, vol: 0.6 } }, loaded.settings) };
+  Codex.sfx.configure(data.settings.sound || {});
   SECTIONS.forEach((s) => data.projects.forEach((p) => { p.entries = p.entries || {}; p.entries[s.id] = p.entries[s.id] || []; }));
   const view = { page: "library", project: null, section: "overview", entry: null, search: "", filter: "", libSearch: "" };
   let info = { version: Store.version, install: Store.platform };
@@ -40,11 +41,32 @@
 
   function saveSettings() { Store.saveSettings(data.settings); }
 
-  // Every file a game uses: entry art, model posters and the cover.
+  // Files a 3D scene uses (painted textures, uploaded textures and backdrops) are written inside its
+  // settings as "media:<id>" (see models.js). These find and rewrite them.
+  const MEDIA_REF = /^media:([A-Za-z0-9_-]{1,64}\.[a-z0-9]+)(\?.*)?$/;
+  function sceneMedia(obj, ids) {
+    if (typeof obj === "string") { const m = MEDIA_REF.exec(obj); if (m) ids.add(m[1]); }
+    else if (obj && typeof obj === "object") Object.values(obj).forEach((v) => sceneMedia(v, ids));
+    return ids;
+  }
+  function remapScene(obj, fn) {
+    if (typeof obj === "string") { const m = MEDIA_REF.exec(obj); return m ? "media:" + fn(m[1]) + (m[2] || "") : obj; }
+    if (Array.isArray(obj)) return obj.map((v) => remapScene(v, fn));
+    if (obj && typeof obj === "object") { const out = {}; Object.keys(obj).forEach((k) => { out[k] = remapScene(obj[k], fn); }); return out; }
+    return obj;
+  }
+  function entryMedia(e, ids) {
+    ids = ids || new Set();
+    (e.art || []).forEach((a) => { if (a.id) ids.add(a.id); if (a.poster) ids.add(a.poster); if (a.v3d) sceneMedia(a.v3d, ids); });
+    if (e.studio) sceneMedia(e.studio, ids);
+    return ids;
+  }
+
+  // Every file a game uses: entry art, model posters, 3D scene files and the cover.
   function mediaOf(p) {
     const ids = new Set();
     if (p.cover) ids.add(p.cover);
-    SECTIONS.forEach((s) => (p.entries[s.id] || []).forEach((e) => (e.art || []).forEach((a) => { if (a.id) ids.add(a.id); if (a.poster) ids.add(a.poster); })));
+    SECTIONS.forEach((s) => (p.entries[s.id] || []).forEach((e) => entryMedia(e, ids)));
     return [...ids];
   }
 
@@ -79,7 +101,10 @@
       const url = Store.mediaUrl(mid);
       return url.startsWith("data:") ? addMedia(url) : copyMedia(mid);
     };
-    copy.art = (e.art || []).map((a) => Object.assign({}, a, { id: dup(a.id), poster: a.poster ? dup(a.poster) : undefined }));
+    const copied = {};
+    const dupOnce = (mid) => (copied[mid] = copied[mid] || dup(mid));
+    copy.art = (e.art || []).map((a) => Object.assign({}, a, { id: dupOnce(a.id), poster: a.poster ? dupOnce(a.poster) : undefined, v3d: a.v3d ? remapScene(a.v3d, dupOnce) : undefined }));
+    if (e.studio) copy.studio = remapScene(e.studio, dupOnce);
     p.entries[sectionId].splice(p.entries[sectionId].indexOf(e) + 1, 0, copy);
     changed();
     go(sectionId, copy.id);
@@ -92,10 +117,10 @@
     const list = p.entries[sectionId];
     const e = list.find((x) => x.id === id);
     if (!(await ask({ title: "Delete " + (e.name || "this " + s.one) + "?", text: "Its notes and files are removed for good. Links to it from other entries are removed too.", confirm: "Delete", danger: true }))) return;
-    const ids = [];
-    (e.art || []).forEach((a) => { ids.push(a.id); if (a.poster) ids.push(a.poster); });
-    removeMediaIds(ids);
+    const ids = [...entryMedia(e)];
     list.splice(list.indexOf(e), 1);
+    const still = new Set(mediaOf(p));
+    removeMediaIds(ids.filter((m) => !still.has(m)));
     SECTIONS.forEach((sec) => (p.entries[sec.id] || []).forEach((x) => sec.fields.forEach((f) => {
       if (f.type === "links" && f.to === sectionId && x[f.key]) x[f.key] = x[f.key].filter((l) => l.id !== id);
     })));
@@ -147,8 +172,29 @@
   }
   function removeArt(entry, index) {
     const [a] = entry.art.splice(index, 1);
-    removeMediaIds([a.id, a.poster]);
+    const still = new Set(mediaOf(project()));
+    removeMediaIds([a.id, a.poster, ...sceneMedia(a.v3d, new Set())].filter((m) => m && !still.has(m)));
     changed({ list: true });
+  }
+  // A file the 3D studio replaced (an older copy of a painted texture).
+  function forgetMedia(ids) {
+    const still = new Set(mediaOf(project()));
+    removeMediaIds(ids.filter((m) => !still.has(m)));
+  }
+
+  // ---------- production stage ----------
+  function setStage(entry, stage) {
+    if (Codex.stageOf(entry) === stage) return;
+    entry.prod = stage;
+    changed({ list: true });
+    Codex.sfx.play(stage === "Complete" ? "complete" : stage === "Modeled" ? "modeled" : "tick");
+    if (stage === "Complete") toast((entry.name || "It") + " is complete");
+    renderTopbar();
+  }
+  function productionCounts(p) {
+    const c = { Planned: 0, Modeled: 0, Complete: 0, total: 0 };
+    Codex.PRODUCTION_SECTIONS.forEach((id) => (p.entries[id] || []).forEach((e) => { c[Codex.stageOf(e)]++; c.total++; }));
+    return c;
   }
   function replaceArt(entry, index, dataUrl) {
     const old = entry.art[index].id;
@@ -223,9 +269,11 @@
     const pageEl = h("main", { class: "page", id: "main" });
     appEl.appendChild(pageEl);
     renderTopbar();
+    if (Codex.Assistant) Codex.Assistant.refresh();
     if (view.page === "library") { pageEl.append(...library()); return; }
     const p = project();
     if (view.section === "overview") pageEl.appendChild(overview(p));
+    else if (view.section === "production") pageEl.appendChild(Codex.Production.render({ project: p, app: api, go, changed, rerender: render }));
     else {
       const s = sectionById(view.section);
       const split = h("div", { class: "split tone-" + s.color + (view.entry ? " has-entry" : "") },
@@ -262,13 +310,16 @@
         type: "button", class: "tab" + (tone ? " tone-" + tone : ""), "aria-current": view.section === id ? "page" : null, title: label,
         onclick: () => go(id),
       }, icon(d), h("span", null, label), count != null ? h("span", { class: "count" }, count) : null);
+      const pc = productionCounts(p);
       bar.appendChild(h("nav", { class: "tabs", "aria-label": "Sections" },
         tab("overview", "Overview", null, ICONS.home),
+        tab("production", "Production", "fire", ICONS.flame, pc.total ? pc.Complete + "/" + pc.total : null),
         SECTIONS.map((s) => tab(s.id, s.name, s.color, s.icon, p.entries[s.id].length))));
     } else bar.appendChild(h("span", { class: "tb-spacer" }));
     const account = data.settings.account;
     const sync = Codex.Account ? Codex.Account.status() : "off";
     bar.appendChild(h("div", { class: "tb-end" },
+      h("button", { type: "button", class: "icon-btn" + (Codex.Assistant && Codex.Assistant.isOpen() ? " on" : ""), id: "ai-btn", title: "Assistant (Ctrl+J)", "aria-label": "Assistant", "aria-pressed": String(!!(Codex.Assistant && Codex.Assistant.isOpen())), onclick: () => Codex.Assistant.toggle() }, icon(ICONS.spark)),
       h("button", { type: "button", class: "icon-btn", title: "Idea generators", "aria-label": "Idea generators", onclick: () => ideasDialog() }, icon(ICONS.dice)),
       h("button", { type: "button", class: "icon-btn avatar-btn", title: account ? "Signed in as " + account.login : "Sign in to keep your games", "aria-label": "Account", onclick: (e) => Codex.Account.open(e.currentTarget) },
         account && account.avatar ? h("img", { class: "avatar", src: account.avatar, alt: "" }) : icon(ICONS.user),
@@ -285,6 +336,7 @@
       { label: "Export…", icon: ICONS.download, onclick: () => exportDialog(p) },
       { label: "Store kit for Steam or Roblox…", icon: ICONS.store, onclick: () => Codex.StoreKit.open(p, api) },
       { label: "Update from a .gamecodex file…", icon: ICONS.upload, onclick: () => Store.importProject(p.id) },
+      Store.can("kiln") ? { label: "Import assets from Kiln…", icon: ICONS.flame, onclick: () => Codex.Kiln.open(p) } : null,
       "-",
       { label: "Delete this game", icon: ICONS.trash, danger: true, onclick: () => deleteProject(p) },
     ]);
@@ -353,7 +405,8 @@
         h("ul", { class: "rows" }, az.map(row))),
       h("div", { class: "lib-side-foot" },
         h("button", { type: "button", class: "btn ghost sm", onclick: () => newGameDialog() }, icon(ICONS.plus), "New game"),
-        h("button", { type: "button", class: "btn ghost sm", onclick: () => Store.importProject(null) }, icon(ICONS.upload), "Import a .gamecodex file")));
+        h("button", { type: "button", class: "btn ghost sm", onclick: () => Store.importProject(null) }, icon(ICONS.upload), "Import a .gamecodex file"),
+        Store.can("kiln") ? h("button", { type: "button", class: "btn ghost sm", onclick: () => Codex.Kiln.open(null) }, icon(ICONS.flame), "Import from Kiln") : null));
 
     const sort = h("select", { "aria-label": "Sort by" },
       [["opened", "Recently opened"], ["updated", "Recently edited"], ["name", "Name"], ["progress", "% of design planned"], ["size", "Most entries"]].map(([v, l]) => h("option", { value: v }, l)));
@@ -402,6 +455,7 @@
       h("div", { class: "row-btns" },
         h("button", { type: "button", class: "btn ghost", onclick: () => { const p = Codex.sampleGame(newProject); openProject(p.id); } }, "Open a sample game"),
         h("button", { type: "button", class: "btn ghost", onclick: () => Store.importProject(null) }, icon(ICONS.upload), "Import a game"),
+        Store.can("kiln") ? h("button", { type: "button", class: "btn ghost", onclick: () => Codex.Kiln.open(null) }, icon(ICONS.flame), "Import from Kiln") : null,
         signedIn ? null : h("button", { type: "button", class: "btn ghost", onclick: (e) => Codex.Account.open(e.currentTarget) }, icon(ICONS.github), "Sign in to get your games")));
   }
 
@@ -444,7 +498,7 @@
   function matches(e, q) {
     if (!q) return true;
     q = q.toLowerCase();
-    return JSON.stringify([e.name, e.kind, e.role, e.type, e.summary, e.description, e.traits, e.tags, e.notes, e.biome, e.category, e.look, e.backstory]).toLowerCase().includes(q);
+    return JSON.stringify([e.name, e.kind, e.role, e.type, e.summary, e.description, e.traits, e.tags, e.notes, e.biome, e.category, e.look, e.backstory, e.group, e.prod]).toLowerCase().includes(q);
   }
 
   function renderList() {
@@ -504,7 +558,8 @@
           if (ev.key === "ArrowUp") { ev.preventDefault(); (cards[i - 1] || search).focus(); }
         },
       }, entryThumb(s, e), h("span", { class: "card-text" }, h("strong", null, e.name || "Untitled " + s.one), sub ? h("small", null, sub) : null,
-        e.traits && e.traits.length ? h("span", { class: "card-tags" }, e.traits.slice(0, 3).join(", ")) : null))));
+        e.traits && e.traits.length ? h("span", { class: "card-tags" }, e.traits.slice(0, 3).join(", ")) : null),
+        Codex.inProduction(s.id) ? h("span", { class: "stage-dot s-" + Codex.stageOf(e).toLowerCase(), title: Codex.stageOf(e), "aria-label": Codex.stageOf(e) }) : null)));
     });
     el.appendChild(ul);
     ul.scrollTop = scroll;
@@ -549,6 +604,11 @@
       cover(p),
       h("div", { class: "ov-title" }, name, pitch,
         h("div", { class: "progress", title: "Your design checklist below" }, h("strong", null, pct + "%"), h("span", { class: "progress-bar" }, h("i", { style: { width: pct + "%" } })), "planned"),
+        (() => {
+          const c = productionCounts(p), made = c.total ? Math.round((c.Complete / c.total) * 100) : 0;
+          return c.total ? h("button", { type: "button", class: "progress made", title: c.Complete + " of " + c.total + " characters, props and levels complete", onclick: () => go("production") },
+            h("strong", null, made + "%"), h("span", { class: "progress-bar" }, h("i", { style: { width: made + "%" } })), "made") : null;
+        })(),
         h("div", { class: "row-btns" },
           h("button", { type: "button", class: "btn ghost sm", onclick: () => ideasDialog("game") }, icon(ICONS.dice), "Roll a game idea"),
           h("button", { type: "button", class: "btn ghost sm", onclick: () => Codex.StoreKit.open(p, api) }, icon(ICONS.store), "Store kit"))));
@@ -871,12 +931,22 @@
       else updateStatus.textContent = m.text;
     };
     const where = info.install === "android" ? "this tablet" : Store.native ? "this computer" : "this browser";
+    const snd = data.settings.sound = Object.assign({ on: true, vol: 0.6 }, data.settings.sound);
+    const sndOn = h("input", { type: "checkbox", id: "sound-on", checked: snd.on });
+    sndOn.addEventListener("change", () => { snd.on = sndOn.checked; Codex.sfx.configure(snd); saveSettings(); Codex.sfx.play("toggle"); });
+    const sndVol = h("input", { type: "range", min: 0, max: 1, step: 0.05, value: snd.vol, "aria-label": "Sound volume" });
+    sndVol.addEventListener("input", () => { snd.vol = +sndVol.value; Codex.sfx.configure(snd); });
+    sndVol.addEventListener("change", () => { saveSettings(); Codex.sfx.play("complete"); });
 
     const d = dialog({
       title: "Settings",
       class: "wide settings",
       body: [
         h("section", null, h("h3", null, "Look"), theme),
+        h("section", null, h("h3", null, "Sound"),
+          h("label", { class: "switch-row", for: "sound-on" }, sndOn, "Sound effects: clicks in the 3D studio, a kiln chime when something is complete"),
+          h("label", { class: "inline" }, "Volume", sndVol)),
+        h("section", null, h("h3", null, "Assistant"), Codex.Assistant.settingsPanel(() => d.close())),
         h("section", null, h("h3", null, "Account"), Codex.Account.settingsPanel(() => d.close())),
         h("section", null, h("h3", null, "Updates"),
           h("p", null, "Game Codex " + (info.version || "dev") + (info.install === "flatpak" ? " (Flatpak)" : info.install === "android" ? " for Android" : info.install === "browser" ? ", running in a browser" : "")),
@@ -919,10 +989,12 @@
       h("details", null, h("summary", null, "Privacy policy"),
         h("p", null, "Game Codex doesn't collect, send or sell personal data. There are no ads, analytics or tracking. Everything you make is saved in the app's own folder on your device."),
         h("p", null, "If you sign in with GitHub, your games and their files are copied to a private repository called game-codex-saves on your own GitHub account, so you can open them on your other devices. Game Codex talks only to GitHub for this, using a sign-in token kept on your device. Sign out to stop syncing; delete the repository on GitHub to remove the copies there."),
-        h("p", null, "Checking for updates asks GitHub for the newest release. GitHub sees your IP address, as with any website (see GitHub's privacy statement). The app sets no cookies and collects nothing from anyone, so it's safe for any age.")),
+        h("p", null, "Checking for updates asks GitHub for the newest release. GitHub sees your IP address, as with any website (see GitHub's privacy statement). The app sets no cookies and collects nothing from anyone, so it's safe for any age."),
+        h("p", null, "The assistant is off until you choose one. With Ollama it runs on your own computer and nothing leaves it. With Claude or ChatGPT, what you type, and the game details you choose to share, go to Anthropic or OpenAI under their terms, using your own API key; Game Codex keeps that key only on this computer and never sends it anywhere else.")),
       h("details", null, h("summary", null, "Terms of use"),
         h("p", null, "Game Codex is free. What you make in it belongs to you. The app is provided as it is, without warranty; keep backups of important work with Export or by signing in."),
-        h("p", null, "Refunds: there's nothing to buy, so there's nothing to refund. There are no hidden fees or in-app purchases. Store kits help you prepare store pages; publishing on Steam or Roblox follows their own rules and fees.")),
+        h("p", null, "Refunds: there's nothing to buy, so there's nothing to refund. There are no hidden fees or in-app purchases. Store kits help you prepare store pages; publishing on Steam or Roblox follows their own rules and fees."),
+        h("p", null, "The assistant's answers come from an AI model and can be wrong. Check anything important. Using Claude or ChatGPT is billed by Anthropic or OpenAI to your own account, and their own terms (including their minimum age) apply.")),
       h("details", null, h("summary", null, "Deleting your data"),
         h("p", null, "Use Delete all my data above, or Uninstall to remove the app too. If you signed in, also delete the game-codex-saves repository in your GitHub settings.")),
       h("p", { class: "muted" }, "Made by Jayswansocool48. Questions or problems: github.com/Jayswansocool48/game-codex/issues"));
@@ -945,7 +1017,8 @@
 
   // ---------- keyboard ----------
   document.addEventListener("keydown", (e) => {
-    if (document.querySelector(".backdrop, .menu") || document.body.classList.contains("sketching")) return;
+    if (document.querySelector(".backdrop, .menu") || document.body.classList.contains("sketching") || document.body.classList.contains("studio-open")) return;
+    if (e.target.closest && e.target.closest(".assistant")) return;
     const mod = e.ctrlKey || e.metaKey;
     const typing = /INPUT|TEXTAREA|SELECT/.test(e.target.tagName);
     if (view.page !== "game") {
@@ -960,9 +1033,26 @@
   });
   window.addEventListener("beforeunload", () => Store.flush(data.projects));
 
+  // Thumbnails for 3D models that don't have one yet (after an import). One at a time, in the background.
+  async function makePosters(p) {
+    const todo = [];
+    SECTIONS.forEach((s) => (p.entries[s.id] || []).forEach((e) => (e.art || []).forEach((a) => { if (a.kind === "model" && !a.poster) todo.push([e, a]); })));
+    let made = 0;
+    for (const [e, a] of todo) {
+      try {
+        const id = await Codex.Models.makePoster(a);
+        a.poster = id;
+        p.media.push(id);
+        made++;
+      } catch (err) { /* it still opens in the studio */ }
+    }
+    if (made) { Store.saveProject(p); if (view.project === p.id) render(); }
+  }
+
   const api = {
-    createEntry, duplicateEntry, deleteEntry, addArt, addFile, setPoster, removeArt, replaceArt,
-    currentProject: project, render, renderTopbar, putProject, removeProject, mediaOf,
+    createEntry, duplicateEntry, deleteEntry, addArt, addFile, setPoster, removeArt, replaceArt, forgetMedia, setStage, productionCounts,
+    currentProject: project, render, renderTopbar, putProject, removeProject, mediaOf, makePosters, openProject, go, changed,
+    current: () => ({ page: view.page, section: view.section, entry: view.entry }),
     projects: () => data.projects, settings: () => data.settings, saveSettings, isOpen: () => view.page,
   };
   Codex.app = api;

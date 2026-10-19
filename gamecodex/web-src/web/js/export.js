@@ -49,6 +49,11 @@ Codex.toMarkdown = function (p, opts) {
       if (sub || (s.id === "story" && e.kind)) { line("*" + [s.id === "story" ? e.kind : "", sub].filter(Boolean).join(", ") + "*"); line(); }
       if (opts.images) (e.art || []).forEach((a) => line("![" + (a.caption || e.name || "") + "](media/" + a.id + ")"));
       if (opts.images && (e.art || []).length) line();
+      if (Codex.inProduction && Codex.inProduction(s.id) && (e.prod || (e.poly || "").trim() || (e.blender || "").trim() || (e.tasks || []).length)) {
+        const bits = [Codex.stageOf(e), (e.poly || "").trim(), (e.blender || "").trim() ? "`" + e.blender.trim() + "`" : ""].filter(Boolean);
+        line("**Production:** " + bits.join(" · ")); line();
+        if ((e.tasks || []).length) { line("**Production tasks**"); line(); e.tasks.forEach((x) => line("- [" + (x.done ? "x" : " ") + "] " + x.text)); line(); }
+      }
       for (const f of s.fields) {
         if (f.key === "kind" || (f.only && !f.only.includes(e.kind || "Storyline"))) continue;
         const v = e[f.key];

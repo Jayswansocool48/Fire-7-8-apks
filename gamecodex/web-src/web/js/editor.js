@@ -16,7 +16,8 @@ Codex.Editor = (function () {
     const subtitle = subline(section, entry);
     wrap.appendChild(h("header", { class: "sheet-head" },
       h("p", { class: "sheet-kind" }, section.one === "story entry" ? (kind || "Story") : cap(section.one), subtitle ? " · " + subtitle : ""),
-      nameInput));
+      nameInput,
+      Codex.inProduction(section.id) ? stageSwitch(ctx) : null));
 
     wrap.appendChild(artStrip(ctx));
 
@@ -27,6 +28,15 @@ Codex.Editor = (function () {
     }
     grid.appendChild(field(ctx, { key: "notes", label: "Notes", type: "textarea", rows: 4, wide: true, placeholder: "Anything else" }));
     wrap.appendChild(grid);
+
+    if (Codex.inProduction(section.id)) {
+      const prod = h("div", { class: "fields" });
+      Codex.PRODUCTION_FIELDS.forEach((f) => prod.appendChild(field(ctx, f)));
+      wrap.appendChild(h("section", { class: "prod-panel", "aria-labelledby": "prod-h" },
+        h("h2", { id: "prod-h" }, "Production"),
+        h("p", { class: "muted" }, "Building it: where the art is up to, its budget and what's left to do. All of it shows on the Production page."),
+        prod));
+    }
 
     const backlinks = usedBy(ctx);
     if (backlinks) wrap.appendChild(backlinks);
@@ -47,6 +57,20 @@ Codex.Editor = (function () {
     if (section.id === "levels") return [e.order ? "Level " + e.order : "", e.biome].filter(Boolean).join(", ");
     if (section.id === "media") return [e.type, e.status].filter(Boolean).join(", ");
     return "";
+  }
+
+  // ---------- production stage (Planned, Modeled, Complete) ----------
+  function stageSwitch(ctx) {
+    const { entry } = ctx;
+    const group = h("div", { class: "stages", role: "radiogroup", "aria-label": "Production stage" });
+    Codex.STAGES.forEach((st) => {
+      group.appendChild(h("button", {
+        type: "button", role: "radio", class: "stage s-" + st.id.toLowerCase(), title: st.hint,
+        "aria-checked": String(Codex.stageOf(entry) === st.id),
+        onclick: () => { ctx.app.setStage(entry, st.id); group.querySelectorAll(".stage").forEach((b) => b.setAttribute("aria-checked", String(b.textContent === st.id))); },
+      }, st.id));
+    });
+    return h("div", { class: "stage-row" }, h("span", { class: "stage-label" }, "Production"), group);
   }
 
   // ---------- art, video, sound and 3D models ----------
@@ -73,7 +97,7 @@ Codex.Editor = (function () {
     entry.art.forEach((a, i) => {
       const label = KIND_LABEL[a.kind] || "Image";
       const alt = a.caption || label + " of " + (entry.name || "this " + section.one);
-      strip.appendChild(h("button", { type: "button", class: "art-item" + (i === 0 ? " lead" : ""), title: a.caption || a.name || "Open", onclick: () => viewArt(ctx, i) },
+      strip.appendChild(h("button", { type: "button", class: "art-item" + (i === 0 ? " lead" : ""), title: a.kind === "model" ? "Open in the 3D studio" : a.caption || a.name || "Open", onclick: () => (a.kind === "model" ? Codex.Models.open(ctx, i) : viewArt(ctx, i)) },
         tile(a, alt),
         KIND_ICON[a.kind] ? h("span", { class: "art-kind" }, icon(KIND_ICON[a.kind]), label) : null,
         a.caption || a.name ? h("span", { class: "art-cap" }, a.caption || a.name) : null));
@@ -106,6 +130,8 @@ Codex.Editor = (function () {
       h("button", { type: "button", class: "art-btn", onclick: () => Codex.Sketch.open({ title: (isLevel ? "Layout of " : "Sketch of ") + (entry.name || "untitled"), onSave: (data) => { ctx.app.addArt(entry, data, "sketch", isLevel ? "Layout" : ""); ctx.rerender(); } }) }, icon(ICONS.pencil), isLevel ? "Sketch the layout" : isMedia ? "Storyboard sketch" : "New sketch"),
       h("button", { type: "button", class: "art-btn", onclick: () => file.click() }, icon(ICONS.image), "Add images"),
       isMedia ? null : h("button", { type: "button", class: "art-btn", onclick: () => addFiles("model") }, icon(ICONS.cube), "Add 3D model"),
+      Codex.inProduction(section.id) ? h("button", { type: "button", class: "art-btn", title: "Build a model from cubes, cylinders and spheres, Blender-style", onclick: () => Codex.Models.open(ctx, null) },
+        icon(ICONS.mesh), entry.studio && (entry.studio.props || []).length ? "Open 3D scene" : "Model in 3D") : null,
       file));
     return strip;
   }
@@ -116,20 +142,18 @@ Codex.Editor = (function () {
     const label = (KIND_LABEL[a.kind] || "Image").toLowerCase();
     const caption = h("input", { value: a.caption || "", placeholder: "Describe it (also read out by screen readers)", "aria-label": "Caption" });
     caption.addEventListener("input", () => { a.caption = caption.value; ctx.changed(); });
-    let viewer = null;
     let media;
     const url = Codex.Store.mediaUrl(a.id);
     if (a.kind === "video") media = h("video", { class: "art-full", src: url, controls: true, playsinline: true, preload: "metadata" });
     else if (a.kind === "audio") media = h("audio", { class: "art-full", src: url, controls: true, preload: "metadata" });
-    else if (a.kind === "model") { viewer = Codex.Models.viewer(a); media = h("div", { style: { height: "58vh" } }, viewer.el); }
     else media = h("img", { class: "art-full", src: url, alt: a.caption || "" });
     const canDraw = a.kind === "image" || a.kind === "sketch" || !a.kind;
     const d = Codex.dialog({
       title: a.caption || a.name || (entry.name || "Untitled") + ", " + label + " " + (index + 1),
-      class: a.kind === "model" ? "full" : "wide",
+      class: "wide",
       body: [media, h("label", { class: "field wide", style: { marginTop: "12px" } }, h("span", null, "Caption"), caption),
         a.name ? h("p", { class: "muted" }, "File: " + a.name + (a.size ? " (" + formatSize(a.size) + ")" : "")) : null],
-      onClose: () => { if (viewer) viewer.dispose(); if (media.pause) media.pause(); },
+      onClose: () => { if (media.pause) media.pause(); },
       actions: [
         h("button", { type: "button", class: "btn ghost danger-text", onclick: async () => {
           d.close();
@@ -139,10 +163,6 @@ Codex.Editor = (function () {
           }
         } }, "Delete"),
         index > 0 ? h("button", { type: "button", class: "btn ghost", onclick: () => { entry.art.unshift(entry.art.splice(index, 1)[0]); ctx.changed({ list: true }); d.close(); ctx.rerender(); } }, "Show it first") : null,
-        a.kind === "model" ? h("button", { type: "button", class: "btn ghost", onclick: async () => {
-          const poster = viewer.snapshot();
-          if (poster) { ctx.app.setPoster(entry, a, poster); Codex.toast("Saved this view as the picture"); }
-        } }, "Use this view as the picture") : null,
         canDraw ? h("button", { type: "button", class: "btn ghost", onclick: () => {
           d.close();
           Codex.Sketch.open({ title: "Draw on " + (a.caption || "this picture"), src: url, onSave: (data) => { ctx.app.replaceArt(entry, index, data); ctx.rerender(); } });
@@ -192,7 +212,7 @@ Codex.Editor = (function () {
       }
       case "tags": box.appendChild(tags(id, val || [], (v) => set(v, { list: true }), f.placeholder)); break;
       case "list": box.appendChild(list(id, val || [], (v, re) => { set(v); if (re) ctx.rerender(); }, f.placeholder)); break;
-      case "checklist": box.appendChild(checklist(id, val || [], (v, re) => { set(v); if (re) ctx.rerender(); })); break;
+      case "checklist": box.appendChild(checklist(id, val || [], (v, re) => { set(v, { list: f.key === "tasks" }); if (re) ctx.rerender(); }, f.itemLabel)); break;
       case "beats": box.appendChild(beats(id, val || [], (v, re) => { set(v); if (re) ctx.rerender(); }, f.itemLabel)); break;
       case "pairs": box.appendChild(pairs(id, val || [], (v, re) => { set(v); if (re) ctx.rerender(); }, f)); break;
       case "stats": box.appendChild(stats(id, val || (f.defaults || []).map((n) => [n, 0]), (v, re) => { set(v); if (re) ctx.rerender(); })); break;
@@ -262,18 +282,19 @@ Codex.Editor = (function () {
     requestAnimationFrame(() => { const el = document.getElementById(id); if (el) el.focus(); });
   }
 
-  function checklist(id, arr, onChange) {
+  function checklist(id, arr, onChange, itemLabel) {
+    itemLabel = itemLabel || "objective";
     arr = arr.map((x) => ({ ...x }));
     const ul = h("ul", { class: "rows checks" });
     arr.forEach((o, i) => {
       const box = h("input", { type: "checkbox", checked: o.done, "aria-label": "Done: " + o.text });
       box.addEventListener("change", () => { o.done = box.checked; onChange(arr); });
-      const input = h("input", { value: o.text, "aria-label": "Objective " + (i + 1), class: o.done ? "done" : "" });
+      const input = h("input", { value: o.text, "aria-label": itemLabel.charAt(0).toUpperCase() + itemLabel.slice(1) + " " + (i + 1), class: o.done ? "done" : "" });
       input.addEventListener("input", () => { o.text = input.value; onChange(arr); });
       box.addEventListener("change", () => input.classList.toggle("done", box.checked));
-      ul.appendChild(h("li", null, box, input, rowTools(arr, i, onChange, "objective " + (i + 1))));
+      ul.appendChild(h("li", null, box, input, rowTools(arr, i, onChange, itemLabel + " " + (i + 1))));
     });
-    return h("div", null, ul, addInput(id, "Add an objective", (v) => { arr.push({ text: v, done: false }); onChange(arr, true); focusAfter(id); }));
+    return h("div", null, ul, addInput(id, "Add " + (/^[aeiou]/.test(itemLabel) ? "an " : "a ") + itemLabel, (v) => { arr.push({ text: v, done: false }); onChange(arr, true); focusAfter(id); }));
   }
 
   function beats(id, arr, onChange, itemLabel) {

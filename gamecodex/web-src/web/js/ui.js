@@ -75,6 +75,12 @@ window.Codex = window.Codex || {};
     store: "M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9h16M9 20v-6h6v6",
     grid: "M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z",
     more: "M5 12h.01M12 12h.01M19 12h.01",
+    spark: "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z",
+    mesh: "M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9zM12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9",
+    flame: "M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.4 2.6-5.3 3.6-8.3.6 1.7 1.6 2.7 2.7 3.2.3-2.6 1.6-4.9 3.7-6.7-.2 3 1.1 4.6 2.2 6.1 1 1.4 1.8 3 1.8 5.4 0 3.8-2.8 6.5-7.5 6.5zM12 21c-1.6 0-2.8-1.2-2.8-2.8 0-1.7 1.4-2.6 2-4.2 1.4 1.2 3.6 2.4 3.6 4.4 0 1.5-1.2 2.6-2.8 2.6z",
+    send: "M5 12h14M13 6l6 6-6 6",
+    stop: "M7 7h10v10H7z",
+    volume: "M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11",
     github: "M9 19c-4 1.3-4-2-6-2.5m12 4.5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1-.3-3.4 1.3a11.6 11.6 0 0 0-6.2 0C6.6 2.8 5.6 3.1 5.6 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4.2 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21",
   };
 
@@ -162,7 +168,7 @@ window.Codex = window.Codex || {};
   // or a Node to put at the top.
   function menu(anchor, items) {
     const el = h("div", { class: "menu", role: "menu" });
-    items.forEach((it) => {
+    items.filter(Boolean).forEach((it) => {
       if (it === "-") el.appendChild(h("hr"));
       else if (it instanceof Node) el.appendChild(it);
       else el.appendChild(h("button", { type: "button", role: "menuitem", class: it.danger ? "danger-text btn-reset" : "", onclick: () => { close(); it.onclick(); } }, it.icon ? icon(it.icon) : null, it.label));

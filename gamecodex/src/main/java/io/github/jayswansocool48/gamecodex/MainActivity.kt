@@ -43,13 +43,15 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var store: Storage
     private val main = Handler(Looper.getMainLooper())
-    private val work = Executors.newFixedThreadPool(3)
+    private val work = Executors.newFixedThreadPool(4)
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var pendingExport: ((java.io.OutputStream) -> Unit)? = null
     private var pendingExportName = ""
     private var pendingPick: JSONObject? = null
     private var pendingImportTarget: String? = null
     private var update: JSONObject? = null
+    private val ai by lazy { Assistant(File(filesDir, "game-codex-config/assistant.json")) }
+    private val aiStop = java.util.Collections.synchronizedSet(HashSet<String>())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -137,6 +139,7 @@ class MainActivity : Activity() {
         fun boot(): String = store.boot(versionName(), "https://$HOST/media/")
             .put("platform", "android")
             .put("signedIn", token() != null)
+            .put("features", JSONArray().put("assistant"))
             .toString()
 
         @JavascriptInterface
@@ -190,6 +193,7 @@ class MainActivity : Activity() {
             "delete-data" -> {
                 store.deleteAll()
                 auth.edit().clear().apply()
+                ai.forget()
                 send(JSONObject().put("type", "data-deleted"))
             }
             "http" -> background(msg) {
@@ -211,11 +215,37 @@ class MainActivity : Activity() {
                 val r = Net.request(url, headers = mapOf("Accept" to "application/vnd.github.raw+json"), token = token(), toFile = file, timeoutMs = 600_000, userAgent = "GameCodex/" + versionName())
                 JSONObject().put("status", r.status)
             }
+            "ai-get" -> reply(msg, JSONObject().put("settings", ai.public()))
+            "ai-set" -> reply(msg, JSONObject().put("settings", ai.update(msg.optJSONObject("settings"))))
+            "ai-models" -> background(msg) {
+                JSONObject().put("models", ai.models(msg.optString("provider"), msg.optString("key"), msg.optString("url")))
+            }
+            "ai-chat" -> work.execute { aiChat(msg) }
+            "ai-stop" -> aiStop.add(msg.optString("chat"))
+            "kiln-scan", "kiln-pick", "kiln-import" -> replyError(msg, "Importing from another app works in Game Codex on your computer.")
             "check-update" -> work.execute { checkUpdate() }
             "install-update" -> work.execute { downloadUpdate() }
             "restart" -> main.post { web.reload() }
             "uninstall" -> main.post { uninstall() }
             "uninstall-finish" -> main.post { finish() }
+        }
+    }
+
+    private fun aiChat(msg: JSONObject) {
+        val chat = msg.optString("chat")
+        try {
+            ai.chat(msg.optJSONArray("messages"), msg.optJSONObject("context"),
+                emit = { t -> send(JSONObject().put("type", "ai-chunk").put("chat", chat).put("t", t)) },
+                stopped = { aiStop.contains(chat) })
+            reply(msg, JSONObject().put("done", true))
+        } catch (e: Assistant.Stopped) {
+            reply(msg, JSONObject().put("stopped", true))
+        } catch (e: Assistant.AIError) {
+            replyError(msg, e.message ?: "The assistant didn't answer.")
+        } catch (e: Exception) {
+            replyError(msg, "Something went wrong talking to the assistant: " + (e.message ?: e.javaClass.simpleName))
+        } finally {
+            aiStop.remove(chat)
         }
     }
 

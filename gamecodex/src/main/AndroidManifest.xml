@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Only for GitHub: signing in, syncing games to your own private repository, and updates. -->
+    <!-- GitHub (signing in, syncing games to your own private repository, updates) and the assistant. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Settings → Check for updates installs the new APK. -->
@@ -15,6 +15,7 @@
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
         android:label="Game Codex"
+        android:usesCleartextTraffic="true"
         android:theme="@style/GameCodexTheme">
 
         <activity
