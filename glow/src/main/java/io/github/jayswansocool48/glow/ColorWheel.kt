@@ -42,6 +42,7 @@ class ColorWheel(context: Context, val onColor: (color: Int, done: Boolean) -> U
 
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
         val r = min(w, h) / 2f
+        if (r <= 1f) return
         val cx = w / 2f
         val cy = h / 2f
         val sweep = SweepGradient(cx, cy, intArrayOf(Color.RED, Color.YELLOW, Color.GREEN, Color.CYAN, Color.BLUE, Color.MAGENTA, Color.RED), null)
