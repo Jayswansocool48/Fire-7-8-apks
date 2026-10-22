@@ -10,6 +10,7 @@ Every time the code changes, GitHub rebuilds the APKs below automatically.
 | **Game Codex** | [GameCodex.apk](GameCodex.apk) | Game design app: characters, story, levels, trailers and 3D models; syncs with the computer version (**Fire HD 8 only**) |
 | **Deskmate** | [Deskmate.apk](Deskmate.apk) + [desktop program](../../releases/tag/deskmate-desktop) | Turns the tablet into a Stream Deck for your PC, plus a system monitor, media remote, notes/timer and game dev panel |
 | **Kiln** | [Kiln.apk](Kiln.apk) | Game-asset boards, file library, assistant and a Blender-style 3D viewer (**Fire HD 8 only**) |
+| **Glow** | [Glow.apk](Glow.apk) + [PC program](../../releases/tag/glow-desktop) | Controls your 60 ft LEDBLE (Lotus Lantern) strip over Bluetooth and your AITOLED screen-sync light through your PC |
 
 ## Install on the tablet
 1. Open this repo in the tablet's browser and tap the APK you want.
@@ -130,6 +131,33 @@ func _process(_delta: float) -> void:
 ```
 Then in any script: `Tweaks.tweak.connect(func(n, v): if n == "speed": speed = v)`.
 
+## Glow setup
+
+Glow replaces the Lotus Lantern app for the Bluetooth strip and the Windows-only AITOLED app for the screen light.
+
+**1. On the Pop!_OS computer** (the AITOLED's USB cable goes here), download `glow_<version>_amd64.deb` from the
+[glow-desktop release](../../releases/tag/glow-desktop), double-click it and click **Install**. Open **Glow** from your
+app launcher. Its page opens at `http://127.0.0.1:47820` and Glow starts by itself when you log in from then on.
+
+- **Screen light:** plug in the AITOLED. Glow finds it, reads its model and LED counts, and shows it on the page.
+  Press **Start screen sync** and pick your monitor in the window that pops up. Glow remembers your choice, so
+  next time sync starts on its own. Use **Test LED order** if the colors are on the wrong side (change *LED #1 at* or *Runs*).
+- **LED strip:** press **Find my strip** and pick the one marked 💡 (LEDBLE, ELK-BLEDOM or MELK). Close Lotus Lantern on
+  your phone first: the strip only takes one connection at a time. **Follow screen** makes the strip take your screen's main color.
+- **Website:** any phone, tablet or browser on your Wi-Fi can use Glow at the address under *Tablets & phones*
+  (pair it once with the 6-digit code).
+
+If the screen light isn't found:
+- `sudo apt remove brltty` (a braille-display service that grabs this USB chip on Ubuntu/Pop!_OS), then unplug and replug it.
+- If the page says Glow isn't allowed to open the port, reinstall the .deb (it adds a rule), or run `sudo usermod -aG dialout $USER` and log out and back in.
+- Screen sync needs GStreamer, which the .deb pulls in: `sudo apt install gstreamer1.0-tools gstreamer1.0-pipewire`.
+
+**2. On the tablet**, install [Glow.apk](Glow.apk).
+- **LED strip:** tap it, then **Find my strip**. Android asks for Bluetooth permission (on the Fire 7, for Location too,
+  and Location must be on to find Bluetooth devices). If your PC is already connected to the strip, the tablet
+  controls it through the PC instead. **Music** mode listens with the tablet's microphone and changes color on every beat.
+- **Screen light:** tap it, then **Find my PC** and enter the pairing code shown on the PC's Glow page.
+
 ## Repo layout
 | Folder | Contents |
 | --- | --- |
@@ -138,6 +166,8 @@ Then in any script: `Tweaks.tweak.connect(func(n, v): if n == "speed": speed = v
 | `gamecodex/` | Android wrapper for Game Codex; the web app itself is in `gamecodex/web-src/web/` |
 | `deskmate/` | Deskmate tablet app (Kotlin, no libraries) |
 | `deskmate-desktop/` | Deskmate desktop program (Go, no dependencies; Linux and Windows) |
+| `glow/` | Glow tablet app (Kotlin, no libraries) |
+| `glow-desktop/` | Glow PC program (Go; Linux). The AITOLED and strip protocols are documented in `aitoproto.go` and `stripproto.go` |
 | `tools/prepare-web.mjs` | Rewrites Codeling's JavaScript and CSS so it runs on older WebViews (Android 7) |
 
 ## Codeling notes
@@ -161,4 +191,4 @@ Then in any script: `Tweaks.tweak.connect(func(n, v): if n == "speed": speed = v
 ## Building locally
 Open this folder in Android Studio, or run `./gradlew assembleRelease`.
 APKs land in each app's `build/outputs/apk/` folder.
-Desktop program: `cd deskmate-desktop && go build` (Go 1.22+).
+Desktop program: `cd deskmate-desktop && go build` (Go 1.22+). Glow: `cd glow-desktop && go build`.

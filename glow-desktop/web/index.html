@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0b10">
+<title>Glow</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root {
+  --bg: #0b0b10; --card: #15151c; --card2: #1d1d26; --line: #2a2a35;
+  --text: #eceef4; --dim: #9097a8; --accent: #ff8a3d; --accent2: #7a5cff;
+  --ok: #3dd68c; --warn: #f2b84b; --bad: #ff6b7a;
+  --r: 18px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif; }
+body { min-height: 100vh; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.logo { width: 40px; height: 40px; border-radius: 12px; background: conic-gradient(from 200deg, #ff5f6d, #ffc371, #3dd6b5, #5f8bff, #b36bff, #ff5f6d); box-shadow: 0 0 28px #ff8a3d55; }
+h1 { font-size: 24px; margin: 0; letter-spacing: .3px; }
+.sub { color: var(--dim); font-size: 13px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; position: relative; overflow: hidden; }
+.card.glow::before { content: ""; position: absolute; inset: -1px; border-radius: var(--r); pointer-events: none; box-shadow: inset 0 0 0 1px var(--glowc, transparent), 0 0 40px -10px var(--glowc, transparent); opacity: .8; transition: box-shadow .4s; }
+.head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.head h2 { font-size: 18px; margin: 0; flex: 1; }
+.status { color: var(--dim); font-size: 13px; margin-bottom: 14px; min-height: 19px; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--dim); margin-right: 6px; vertical-align: 1px; }
+.dot.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.dot.warn { background: var(--warn); }
+.tabs { display: flex; background: var(--card2); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 14px; }
+.tabs button { flex: 1; border: 0; background: transparent; color: var(--dim); padding: 9px 6px; border-radius: 9px; font: inherit; font-weight: 600; cursor: pointer; }
+.tabs button.on { background: var(--line); color: var(--text); }
+.row { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
+.row label { min-width: 92px; color: var(--dim); font-size: 13px; }
+input[type=range] { flex: 1; accent-color: var(--accent); height: 28px; }
+.val { width: 40px; text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; font-size: 13px; }
+.sw { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin: 8px 0 4px; }
+.sw button { aspect-ratio: 1; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.sw button.on { border-color: #fff; }
+.sw .pick { position: relative; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+.sw .pick input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; max-height: 220px; overflow: auto; }
+.chips button { border: 1px solid var(--line); background: var(--card2); color: var(--text); padding: 8px 12px; border-radius: 999px; font: inherit; font-size: 13px; cursor: pointer; }
+.chips button.on { background: var(--accent); border-color: var(--accent); color: #1a0d00; font-weight: 600; }
+.btn { border: 0; background: var(--card2); color: var(--text); padding: 11px 16px; border-radius: 12px; font: inherit; font-weight: 600; cursor: pointer; border: 1px solid var(--line); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #1a0d00; }
+.btn.small { padding: 7px 11px; font-size: 13px; border-radius: 10px; }
+.btn:disabled { opacity: .5; cursor: default; }
+.toggle { position: relative; width: 52px; height: 30px; border-radius: 99px; background: var(--line); border: 0; cursor: pointer; transition: background .2s; flex: none; }
+.toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.toggle.on { background: var(--ok); }
+.toggle.on::after { transform: translateX(22px); }
+.note { background: var(--card2); border-radius: 12px; padding: 10px 12px; color: var(--dim); font-size: 13px; margin: 10px 0; }
+.note.warn { color: var(--warn); }
+.big { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+details { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+summary { cursor: pointer; color: var(--dim); font-weight: 600; padding: 4px 0; }
+.monitor { width: 100%; aspect-ratio: 16/9.6; margin: 10px 0; }
+.nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.nums div { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dim); }
+input[type=number], select, input[type=text] { background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; width: 100%; }
+.list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.list button { display: flex; justify-content: space-between; text-align: left; }
+.code { font-size: 34px; font-weight: 700; letter-spacing: 6px; font-variant-numeric: tabular-nums; }
+.muted { color: var(--dim); font-size: 13px; }
+.pair { max-width: 380px; margin: 12vh auto; text-align: center; }
+.pair input { font-size: 28px; text-align: center; letter-spacing: 8px; margin: 16px 0; }
+.hidden { display: none !important; }
+@media (max-width: 420px) { .sw { grid-template-columns: repeat(6, 1fr); } .row label { min-width: 74px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"></div>
+    <div style="flex:1"><h1>Glow</h1><div class="sub" id="host">Connecting…</div></div>
+  </header>
+
+  <div id="pairView" class="card pair hidden">
+    <h2 style="margin-top:0">Pair this device</h2>
+    <p class="muted">Enter the 6-digit code shown on Glow's page on your PC.</p>
+    <input id="pairCode" inputmode="numeric" maxlength="6" placeholder="000000" type="text">
+    <button class="btn primary" id="pairBtn" style="width:100%">Pair</button>
+    <p class="muted" id="pairMsg"></p>
+  </div>
+
+  <div id="main" class="hidden">
+    <div class="grid">
+      <!-- AITOLED -->
+      <section class="card glow" id="aitoCard">
+        <div class="head"><h2>Screen light</h2><button class="toggle" id="aitoOn" aria-label="Power"></button></div>
+        <div class="status" id="aitoStatus"></div>
+        <div class="tabs" id="aitoTabs">
+          <button data-mode="screen">Screen sync</button><button data-mode="color">Color</button><button data-mode="effect">Effect</button>
+        </div>
+        <div data-panel="screen">
+          <div class="big">
+            <button class="btn primary" id="capBtn">Start screen sync</button>
+            <span class="muted" id="capMsg"></span>
+          </div>
+          <div class="note hidden" id="capNote"></div>
+          <div class="row"><label>Smoothing</label><input type="range" min="0" max="95" id="aitoSmooth"><span class="val" id="aitoSmoothV"></span></div>
+          <div class="row"><label>Color boost</label><input type="range" min="50" max="200" id="aitoSat"><span class="val" id="aitoSatV"></span></div>
+          <div class="row"><label>Edge depth</label><input type="range" min="3" max="40" id="aitoDepth"><span class="val" id="aitoDepthV"></span></div>
+          <p class="muted hidden" id="tabSyncRow">No GStreamer? <a href="#" id="tabSync" style="color:var(--accent)">Sync from this browser tab instead</a> (keep the tab visible).</p>
+        </div>
+        <div data-panel="color"><div class="sw" id="aitoSw"></div></div>
+        <div data-panel="effect">
+          <div class="chips" id="aitoFx"></div>
+          <div class="row"><label>Speed</label><input type="range" min="0" max="100" id="aitoSpeed"><span class="val" id="aitoSpeedV"></span></div>
+          <div class="row"><label>Color</label><div class="sw" id="aitoSw2" style="flex:1;margin:0"></div></div>
+        </div>
+        <div class="row"><label>Brightness</label><input type="range" min="0" max="100" id="aitoBri"><span class="val" id="aitoBriV"></span></div>
+
+        <details id="layoutBox">
+          <summary>Where the LEDs are on your monitor</summary>
+          <svg class="monitor" id="mon" viewBox="0 0 320 192"></svg>
+          <div class="nums">
+            <div>Left<input type="number" min="0" max="300" id="lLeft"></div>
+            <div>Top<input type="number" min="0" max="300" id="lTop"></div>
+            <div>Right<input type="number" min="0" max="300" id="lRight"></div>
+            <div>Bottom<input type="number" min="0" max="300" id="lBottom"></div>
+          </div>
+          <div class="row"><label>LED #1 at</label>
+            <select id="lStart"><option value="bottom-left">Bottom left</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="bottom-right">Bottom right</option></select></div>
+          <div class="row"><label>Runs</label>
+            <select id="lDir"><option value="1">Clockwise</option><option value="0">Counter-clockwise</option></select></div>
+          <div class="row"><label>Skip first</label><input type="number" min="0" max="100" id="lOffset" style="max-width:90px"><span class="muted">LEDs (gap before the first side)</span></div>
+          <div class="big">
+            <button class="btn small" id="testBtn">Test LED order</button>
+            <button class="btn small" id="devLayoutBtn">Use the light's own counts</button>
+          </div>
+          <p class="muted">Test: LED #1 turns <b style="color:#f44">red</b>, then orange and yellow; the first LED of each side turns <b style="color:#4f4">green</b>; the last LED is <b style="color:#58f">blue</b>. If red isn't where the picture shows, change "LED #1 at" or "Runs".</p>
+        </details>
+      </section>
+
+      <!-- Strip -->
+      <section class="card glow" id="stripCard">
+        <div class="head"><h2>LED strip</h2><button class="toggle" id="stripOn" aria-label="Power"></button></div>
+        <div class="status" id="stripStatus"></div>
+        <div id="stripSetup" class="hidden">
+          <p class="muted">Plug in the strip, close Lotus Lantern on your phone (only one thing can connect at a time), then search.</p>
+          <button class="btn primary" id="scanBtn">Find my strip</button>
+          <div class="list" id="scanList"></div>
+        </div>
+        <div id="stripCtl">
+          <div class="tabs" id="stripTabs">
+            <button data-mode="color">Color</button><button data-mode="effect">Effect</button><button data-mode="screen">Follow screen</button>
+          </div>
+          <div data-panel="color"><div class="sw" id="stripSw"></div></div>
+          <div data-panel="effect">
+            <div class="chips" id="stripFx"></div>
+            <div class="row"><label>Speed</label><input type="range" min="0" max="100" id="stripSpeed"><span class="val" id="stripSpeedV"></span></div>
+          </div>
+          <div data-panel="screen"><p class="note">The strip takes the main color of your screen. Start screen sync on the Screen light card.</p></div>
+          <div class="row"><label>Brightness</label><input type="range" min="0" max="100" id="stripBri"><span class="val" id="stripBriV"></span></div>
+          <details><summary>Strip connection</summary>
+            <p class="muted" id="stripWho"></p>
+            <button class="btn small" id="rescanBtn">Connect a different strip</button>
+            <button class="btn small" id="forgetBtn">Forget this strip</button>
+          </details>
+        </div>
+      </section>
+
+      <!-- Tablets (this PC only) -->
+      <section class="card hidden" id="tabletsCard">
+        <div class="head"><h2>Tablets &amp; phones</h2></div>
+        <p class="muted">Open Glow on your Fire tablet, or go to one of these addresses in any browser on your Wi-Fi:</p>
+        <div id="ips" style="font-weight:600;margin:6px 0 12px"></div>
+        <div class="muted">Pairing code</div>
+        <div class="big"><span class="code" id="code"></span><button class="btn small" id="newCode">New code</button></div>
+        <div class="list" id="devices"></div>
+        <div class="row" style="margin-top:18px"><button class="toggle" id="auto"></button><span>Start Glow when I log in</span></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+var token = "";
+try { token = localStorage.getItem("glowToken") || ""; } catch (e) {}
+var S = null;            // last state from the PC
+var busyUntil = 0;       // don't redraw controls while the user drags
+var SW = ["#ffffff", "#ffd6a0", "#ff8a3d", "#ff3b30", "#ff2d95", "#b36bff", "#5f6bff", "#1e9bff", "#32d0ff", "#3dd6b5", "#34c759", "#a8e000", "#ffd60a", "#ff9f0a", "#8e8e93"];
+
+function $(id) { return document.getElementById(id); }
+function api(path, body, method) {
+  var o = { method: method || (body === undefined ? "GET" : "POST"), headers: {} };
+  if (token) o.headers.Authorization = "Bearer " + token;
+  if (body !== undefined) { o.headers["Content-Type"] = "application/json"; o.body = JSON.stringify(body); }
+  return fetch(path, o).then(function (r) {
+    if (r.status === 401) { showPair(); throw new Error("pair"); }
+    return r.json();
+  });
+}
+function showPair() { $("main").classList.add("hidden"); $("pairView").classList.remove("hidden"); }
+
+$("pairBtn").onclick = function () {
+  var code = $("pairCode").value.trim();
+  fetch("/api/pair", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: code, name: navigator.userAgent.indexOf("Android") >= 0 ? "Android browser" : "Browser" }) })
+    .then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.ok) { $("pairMsg").textContent = j.error; return; }
+      token = j.token; try { localStorage.setItem("glowToken", token); } catch (e) {}
+      $("pairView").classList.add("hidden"); poll();
+    });
+};
+
+var timers = {};
+function send(light, patch, wait) {
+  busyUntil = Date.now() + 1200;
+  if (S) Object.assign(light === "aito" ? S.aito.config : S.strip.config, patch);
+  var key = light + JSON.stringify(Object.keys(patch));
+  clearTimeout(timers[key]);
+  timers[key] = setTimeout(function () { api("/api/" + light, patch).then(render).catch(function () {}); }, wait || 0);
+  render(S, true);
+}
+
+function swatches(el, light, cur) {
+  if (!el.dataset.built) {
+    el.dataset.built = 1;
+    SW.forEach(function (c) {
+      var b = document.createElement("button");
+      b.style.background = c; b.dataset.c = c; b.title = c;
+      b.onclick = function () { send(light, { color: c }); };
+      el.appendChild(b);
+    });
+    var p = document.createElement("button"); p.className = "pick"; p.title = "Any color";
+    var inp = document.createElement("input"); inp.type = "color";
+    inp.oninput = function () { send(light, { color: inp.value }, 60); };
+    p.appendChild(inp); el.appendChild(p);
+  }
+  var found = false;
+  el.querySelectorAll("button[data-c]").forEach(function (b) {
+    var on = b.dataset.c.toLowerCase() === String(cur).toLowerCase();
+    b.classList.toggle("on", on); found = found || on;
+  });
+  var pk = el.querySelector(".pick"); pk.classList.toggle("on", !found);
+  if (!found) pk.style.boxShadow = "inset 0 0 0 6px " + cur;
+}
+
+function slider(id, light, key, fmt) {
+  var el = $(id);
+  el.oninput = function () {
+    var v = +el.value; $(id + "V").textContent = fmt ? fmt(v) : v;
+    var p = {}; p[key] = v; send(light, p, 50);
+  };
+}
+function layoutSlider(id, key) {
+  var el = $(id);
+  el.oninput = function () {
+    $(id + "V").textContent = el.value + "%";
+    var p = { layout: {} }; p.layout[key] = +el.value; send("aito", p, 80);
+  };
+}
+function setVal(id, v, suffix) { var el = $(id); if (document.activeElement !== el) el.value = v; if ($(id + "V")) $(id + "V").textContent = v + (suffix || ""); }
+function tabs(id, light) {
+  $(id).querySelectorAll("button").forEach(function (b) { b.onclick = function () { send(light, { mode: b.dataset.mode, on: true }); }; });
+}
+function showMode(card, tabsId, mode) {
+  $(tabsId).querySelectorAll("button").forEach(function (b) { b.classList.toggle("on", b.dataset.mode === mode); });
+  $(card).querySelectorAll("[data-panel]").forEach(function (p) { p.classList.toggle("hidden", p.dataset.panel !== mode); });
+}
+
+slider("aitoBri", "aito", "brightness"); slider("aitoSpeed", "aito", "speed"); slider("aitoSmooth", "aito", "smoothing", function (v) { return v + "%"; });
+slider("aitoSat", "aito", "saturation", function (v) { return v + "%"; }); layoutSlider("aitoDepth", "depth");
+slider("stripBri", "strip", "brightness"); slider("stripSpeed", "strip", "speed");
+tabs("aitoTabs", "aito"); tabs("stripTabs", "strip");
+$("aitoOn").onclick = function () { send("aito", { on: !S.aito.config.on }); };
+$("stripOn").onclick = function () { send("strip", { on: !S.strip.config.on }); };
+["lLeft", "lTop", "lRight", "lBottom", "lOffset"].forEach(function (id) {
+  $(id).onchange = function () {
+    var k = { lLeft: "left", lTop: "top", lRight: "right", lBottom: "bottom", lOffset: "offset" }[id];
+    var p = { layout: {} }; p.layout[k] = Math.max(0, parseInt($(id).value || "0", 10)); send("aito", p);
+  };
+});
+$("lStart").onchange = function () { send("aito", { layout: { start: $("lStart").value } }); };
+$("lDir").onchange = function () { send("aito", { layout: { clockwise: $("lDir").value === "1" } }); };
+$("testBtn").onclick = function () { api("/api/aito/test", {}).then(render); };
+$("devLayoutBtn").onclick = function () { api("/api/aito/use-device-layout", {}).then(function (j) { if (j.ok === false) alert(j.error); else render(j); }); };
+
+$("capBtn").onclick = function () {
+  var c = S.screen.capture, on = c.state === "on" || c.state === "starting";
+  $("capBtn").disabled = true;
+  api("/api/capture?on=" + (on ? 0 : 1), {}).then(function (j) {
+    $("capBtn").disabled = false; if (j.ok === false) { $("capMsg").textContent = j.error; } else render(j);
+  }).catch(function () { $("capBtn").disabled = false; });
+};
+
+function scan() {
+  $("scanBtn").disabled = true; $("scanBtn").textContent = "Searching…"; $("scanList").innerHTML = "";
+  $("stripSetup").classList.remove("hidden");
+  api("/api/strip/scan", {}).then(function (j) {
+    $("scanBtn").disabled = false; $("scanBtn").textContent = "Search again";
+    if (j.ok === false) { $("scanList").innerHTML = '<div class="note warn"></div>'; $("scanList").firstChild.textContent = j.error; return; }
+    if (!j.devices.length) { $("scanList").innerHTML = '<div class="note">Nothing found. Is the strip plugged in and not connected to your phone?</div>'; return; }
+    j.devices.forEach(function (d) {
+      var b = document.createElement("button"); b.className = "btn";
+      b.innerHTML = "<span></span><span class='muted'></span>";
+      b.firstChild.textContent = (d.likely ? "💡 " : "") + d.name;
+      b.lastChild.textContent = d.rssi > -999 ? (d.rssi > -65 ? "close" : d.rssi > -80 ? "nearby" : "far") : "";
+      b.onclick = function () {
+        b.disabled = true; b.lastChild.textContent = "Connecting…";
+        api("/api/strip/connect", { address: d.address, name: d.name }).then(function (r) {
+          if (r.ok === false) { b.disabled = false; b.lastChild.textContent = r.error; return; }
+          $("stripSetup").classList.add("hidden"); render(r);
+        });
+      };
+      $("scanList").appendChild(b);
+    });
+  }).catch(function () { $("scanBtn").disabled = false; });
+}
+$("scanBtn").onclick = scan;
+$("rescanBtn").onclick = scan;
+$("forgetBtn").onclick = function () { api("/api/strip/forget", {}).then(render); };
+$("newCode").onclick = function () { api("/api/newcode", {}).then(render); };
+$("auto").onclick = function () { var on = !$("auto").classList.contains("on"); api("/api/autostart?on=" + (on ? 1 : 0), {}).then(function (j) { $("auto").classList.toggle("on", j.on); }); };
+
+function drawMonitor(a) {
+  var l = a.config.layout, z = a.zones, svg = $("mon");
+  var X0 = 30, Y0 = 18, W = 260, H = 150;
+  var h = '<rect x="' + X0 + '" y="' + Y0 + '" width="' + W + '" height="' + H + '" rx="8" fill="#0f0f15" stroke="#2a2a35"/>' +
+    '<rect x="150" y="' + (Y0 + H) + '" width="20" height="14" fill="#2a2a35"/><rect x="120" y="' + (Y0 + H + 14) + '" width="80" height="5" rx="2" fill="#2a2a35"/>';
+  var n = z.length;
+  z.forEach(function (q, i) {
+    var x, y, g = 9;
+    if (q.side === "top") { x = X0 + q.pos * W; y = Y0 - g; }
+    else if (q.side === "bottom") { x = X0 + q.pos * W; y = Y0 + H + g; }
+    else if (q.side === "left") { x = X0 - g; y = Y0 + q.pos * H; }
+    else { x = X0 + W + g; y = Y0 + q.pos * H; }
+    var col = i === 0 ? "#ff3b30" : i === n - 1 ? "#3b6bff" : "hsl(" + Math.round(i / n * 300) + ",90%,60%)";
+    h += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (i === 0 || i === n - 1 ? 4 : 2.2) + '" fill="' + col + '"/>';
+  });
+  if (n) {
+    h += '<text x="160" y="' + (Y0 + H / 2) + '" fill="#9097a8" font-size="12" text-anchor="middle">' + n + ' LEDs · red = #1, blue = last</text>';
+  } else {
+    h += '<text x="160" y="' + (Y0 + H / 2) + '" fill="#9097a8" font-size="12" text-anchor="middle">Connect the light to read its LED counts</text>';
+  }
+  svg.innerHTML = h;
+}
+
+function render(st, local) {
+  if (!st || st.ok === false) return;
+  if (st.aito) S = st;
+  var s = S; if (!s) return;
+  var dragging = Date.now() < busyUntil && !local;
+  $("main").classList.remove("hidden");
+  $("host").textContent = s.host + (s.local ? " · this PC" : "");
+  var a = s.aito, ac = a.config, t = s.strip, tc = t.config;
+
+  // AITOLED
+  $("aitoStatus").innerHTML = '<span class="dot ' + (a.connected ? "ok" : "warn") + '"></span>';
+  $("aitoStatus").appendChild(document.createTextNode(a.connected ? ("AITOLED " + a.model + " · " + a.ledCount + " LEDs · " + a.fps + " fps") : a.status));
+  $("aitoOn").classList.toggle("on", ac.on);
+  showMode("aitoCard", "aitoTabs", ac.mode);
+  swatches($("aitoSw"), "aito", ac.color); swatches($("aitoSw2"), "aito", ac.color);
+  var fx = $("aitoFx");
+  if (!fx.dataset.built) {
+    fx.dataset.built = 1;
+    a.effects.forEach(function (e) { var b = document.createElement("button"); b.textContent = e.name; b.dataset.id = e.id; b.onclick = function () { send("aito", { effect: e.id }); }; fx.appendChild(b); });
+  }
+  fx.querySelectorAll("button").forEach(function (b) { b.classList.toggle("on", b.dataset.id === ac.effect); });
+  if (!dragging) {
+    setVal("aitoBri", ac.brightness); setVal("aitoSpeed", ac.speed); setVal("aitoSmooth", ac.smoothing, "%"); setVal("aitoSat", ac.saturation, "%");
+    setVal("aitoDepth", ac.layout.depth, "%");
+    setVal("lLeft", ac.layout.left); setVal("lTop", ac.layout.top); setVal("lRight", ac.layout.right); setVal("lBottom", ac.layout.bottom); setVal("lOffset", ac.layout.offset);
+    $("lStart").value = ac.layout.start || "bottom-left"; $("lDir").value = ac.layout.clockwise ? "1" : "0";
+  }
+  drawMonitor(a);
+  var cap = s.screen.capture || {};
+  var running = cap.state === "on" || cap.state === "starting";
+  $("capBtn").textContent = cap.state === "starting" ? "Waiting for you to pick a screen…" : running ? "Stop screen sync" : "Start screen sync";
+  $("capBtn").classList.toggle("primary", !running);
+  $("capMsg").textContent = cap.state === "on" ? (s.screen.active ? "Syncing" : "Starting…") : (tabSync ? "Syncing from this tab" : "");
+  var note = cap.state === "error" ? cap.message : (cap.state === "starting" ? cap.message : (cap.available === false ? "Screen sync needs GStreamer: sudo apt install gstreamer1.0-tools gstreamer1.0-pipewire" : ""));
+  $("capNote").textContent = note; $("capNote").classList.toggle("hidden", !note); $("capNote").classList.toggle("warn", cap.state === "error");
+  $("tabSyncRow").classList.toggle("hidden", !s.local || cap.available !== false);
+  $("aitoCard").style.setProperty("--glowc", ac.on && a.connected ? (ac.mode === "color" ? ac.color : ac.mode === "screen" ? "#5f8bff" : "#ff8a3d") : "transparent");
+
+  // Strip
+  var setUp = !!tc.address || !!tc.name;
+  $("stripStatus").innerHTML = '<span class="dot ' + (t.connected ? "ok" : "warn") + '"></span>';
+  $("stripStatus").appendChild(document.createTextNode(t.busy || (t.connected ? (tc.name || "Strip") + " · connected" : t.status)));
+  $("stripCtl").classList.toggle("hidden", !setUp);
+  if (!setUp) $("stripSetup").classList.remove("hidden");
+  $("stripOn").classList.toggle("on", tc.on);
+  showMode("stripCard", "stripTabs", tc.mode === "music" ? "color" : tc.mode);
+  swatches($("stripSw"), "strip", tc.color);
+  var sfx = $("stripFx");
+  if (sfx.dataset.proto !== t.proto) {
+    sfx.dataset.proto = t.proto; sfx.innerHTML = "";
+    t.effects.forEach(function (e) { var b = document.createElement("button"); b.textContent = e.name; b.dataset.id = String(e.id); b.onclick = function () { send("strip", { effect: String(e.id) }); }; sfx.appendChild(b); });
+  }
+  sfx.querySelectorAll("button").forEach(function (b) { b.classList.toggle("on", b.dataset.id === tc.effect); });
+  if (!dragging) { setVal("stripBri", tc.brightness); setVal("stripSpeed", tc.speed); }
+  $("stripWho").textContent = tc.name ? (tc.name + " (" + tc.address + ")") : "";
+  $("stripCard").style.setProperty("--glowc", tc.on && t.connected ? (tc.mode === "color" ? tc.color : "#b36bff") : "transparent");
+
+  // Tablets
+  $("tabletsCard").classList.toggle("hidden", !s.local);
+  if (s.local) {
+    $("code").textContent = s.pairCode;
+    $("ips").innerHTML = "";
+    (s.ips || []).forEach(function (ip) { var d = document.createElement("div"); d.textContent = "http://" + ip + ":" + location.port; $("ips").appendChild(d); });
+    var dv = $("devices"); dv.innerHTML = "";
+    (s.devices || []).forEach(function (d) {
+      var row = document.createElement("div"); row.className = "row";
+      row.innerHTML = '<span style="flex:1"></span><button class="btn small">Remove</button>';
+      row.firstChild.textContent = d.name + " · paired " + d.added;
+      row.lastChild.onclick = function () { api("/api/devices/revoke?id=" + d.id, {}).then(poll); };
+      dv.appendChild(row);
+    });
+  }
+}
+
+var pollTimer;
+function poll() {
+  clearTimeout(pollTimer);
+  api("/api/state").then(function (j) { render(j); }).catch(function () {}).then(function () { pollTimer = setTimeout(poll, 1500); });
+  if (S && S.local && !autoChecked) { autoChecked = true; api("/api/autostart").then(function (j) { $("auto").classList.toggle("on", j.on); }); }
+}
+var autoChecked = false;
+
+// Fallback: capture the screen in this browser tab (works only while the tab is visible).
+var tabSync = null;
+$("tabSync").onclick = function (e) {
+  e.preventDefault();
+  if (tabSync) { tabSync.stop(); return; }
+  navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false }).then(function (stream) {
+    var v = document.createElement("video"); v.muted = true; v.srcObject = stream; v.play();
+    var c = document.createElement("canvas"); c.width = 64; c.height = 36; var g = c.getContext("2d", { willReadFrequently: true });
+    var iv = setInterval(function () {
+      if (!S || v.readyState < 2) return;
+      g.drawImage(v, 0, 0, 64, 36);
+      var px = g.getImageData(0, 0, 64, 36).data, l = S.aito.config.layout, out = [];
+      var cnt = { left: l.left, right: l.right, top: l.top, bottom: l.bottom }, d = l.depth / 100;
+      S.aito.zones.forEach(function (z) {
+        var n = Math.max(1, cnt[z.side]), a = z.pos - 0.5 / n, b = z.pos + 0.5 / n, r;
+        if (z.side === "top") r = [a, 0, b, d]; else if (z.side === "bottom") r = [a, 1 - d, b, 1];
+        else if (z.side === "left") r = [0, a, d * 36 / 64, b]; else r = [1 - d * 36 / 64, a, 1, b];
+        var x0 = Math.floor(r[0] * 64), x1 = Math.max(x0 + 1, Math.ceil(r[2] * 64)), y0 = Math.floor(r[1] * 36), y1 = Math.max(y0 + 1, Math.ceil(r[3] * 36));
+        var R = 0, G = 0, B = 0, k = 0;
+        for (var y = y0; y < Math.min(36, y1); y++) for (var x = x0; x < Math.min(64, x1); x++) { var o = (y * 64 + x) * 4; R += px[o]; G += px[o + 1]; B += px[o + 2]; k++; }
+        out.push(k ? R / k | 0 : 0, k ? G / k | 0 : 0, k ? B / k | 0 : 0);
+      });
+      var R = 0, G = 0, B = 0, W = 0;
+      for (var o = 0; o < px.length; o += 4) { var mx = Math.max(px[o], px[o + 1], px[o + 2]), mn = Math.min(px[o], px[o + 1], px[o + 2]), w = 1 + (mx - mn) / 16; R += px[o] * w; G += px[o + 1] * w; B += px[o + 2] * w; W += w; }
+      api("/api/screen", { leds: out, avg: [R / W | 0, G / W | 0, B / W | 0] }).catch(function () {});
+    }, 40);
+    tabSync = { stop: function () { clearInterval(iv); stream.getTracks().forEach(function (t) { t.stop(); }); tabSync = null; } };
+    stream.getVideoTracks()[0].onended = function () { if (tabSync) tabSync.stop(); };
+    if (S.aito.config.mode !== "screen") send("aito", { mode: "screen", on: true });
+  }).catch(function () {});
+};
+
+poll();
+</script>
+</body>
+</html>
