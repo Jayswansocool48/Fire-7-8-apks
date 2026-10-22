@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Glow
+GenericName=LED light control
+Comment=Screen sync for your AITOLED light and control for your Bluetooth LED strip
+Exec=glow
+Icon=glow
+Terminal=false
+Categories=Utility;
+Keywords=led;lights;rgb;ambilight;screen;sync;bluetooth;strip;
+StartupNotify=false

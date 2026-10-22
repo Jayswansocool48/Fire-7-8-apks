@@ -1,0 +1,4 @@
+# AITOLED screen-sync lights use a CH340 USB-serial chip.
+# Let the person logged in at this computer open it without joining the dialout group.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", TAG+="uaccess"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4", TAG+="uaccess"
