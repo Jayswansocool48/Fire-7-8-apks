@@ -1,6 +1,7 @@
 == keys the TV received
 POST /keypress/Right
 POST /keypress/Right
+POST /keypress/Right
 POST /keypress/Select
 == app
 connect: running
@@ -9,8 +10,8 @@ channels: running
 browser: running
 send: running
 hub: running
-10-25 04:14:47.236  4827  4827 D AndroidRuntime: Shutting down VM
-10-25 04:14:49.468  4842  4842 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
-10-25 04:14:49.469  4842  4842 D AndroidRuntime: CheckJNI is OFF
-10-25 04:14:49.505  4842  4842 D AndroidRuntime: Calling main entry com.android.commands.am.Am
-10-25 04:14:49.511  4842  4842 D AndroidRuntime: Shutting down VM
+10-25 04:21:02.847  4856  4856 D AndroidRuntime: Shutting down VM
+10-25 04:21:04.985  4871  4871 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-25 04:21:04.986  4871  4871 D AndroidRuntime: CheckJNI is OFF
+10-25 04:21:05.012  4871  4871 D AndroidRuntime: Calling main entry com.android.commands.am.Am
+10-25 04:21:05.019  4871  4871 D AndroidRuntime: Shutting down VM
