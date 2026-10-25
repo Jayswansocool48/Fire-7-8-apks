@@ -37,6 +37,8 @@ class AppTile(
     /** Drawn on top of the art: the white focus ring, or the accent ring while moving. */
     private val overlay = View(ctx)
     private var art: View? = null
+    /** Only banner cards need the name underneath; icon cards already show it inside. */
+    private var showName = true
     private var wiggle: ObjectAnimator? = null
 
     init {
@@ -72,8 +74,11 @@ class AppTile(
 
         setOnFocusChangeListener { _, has ->
             bounce(this, has, 1.1f)
+            // Shadow comes from the rounded card, not the whole tile (which would cast a square one).
+            elevation = 0f
+            card.elevation = if (has) context.dp(12f) else 0f
             if (wiggle == null) showRing(if (has) ring else null)
-            name.animate().alpha(if (has) 1f else 0f).setDuration(if (has) 200 else 120).start()
+            name.animate().alpha(if (has && showName) 1f else 0f).setDuration(if (has) 200 else 120).start()
             if (dimmed) alpha = if (has) 1f else 0.45f
         }
     }
@@ -112,6 +117,8 @@ class AppTile(
             }
         }
         art = view
+        showName = banner != null
+        if (!showName) name.alpha = 0f
         card.addView(view, 0)
     }
 
