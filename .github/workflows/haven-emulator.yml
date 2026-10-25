@@ -1,0 +1,68 @@
+name: Haven on Android (emulator)
+
+# Screenshots Haven on a 720p TV-sized screen (like the 24" Insignia Fire TV) and Haven Remote
+# on a Samsung-sized phone. Screenshots go to the "haven-screens" branch.
+on:
+  push:
+    branches: [main]
+    paths: ["haven/**", "havenremote/**", ".github/workflows/haven-emulator.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: tv-720p
+            mode: tv
+            api: 30
+            skin: 1280x720
+            size: 1280x720
+            density: 213
+          - name: phone
+            mode: phone
+            api: 34
+            skin: 1080x2340
+            size: 1080x2340
+            density: 420
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Build Haven and Haven Remote
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :haven:assembleRelease :havenremote:assembleRelease
+      - name: Run on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: false
+          emulator-options: -skin ${{ matrix.skin }} -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: OUT=screens/${{ matrix.name }} bash haven/tests/emulator.sh ${{ matrix.mode }} haven/build/outputs/apk/release/haven-release.apk ${{ matrix.mode == 'phone' && 'havenremote/build/outputs/apk/release/havenremote-release.apk' || '' }} ${{ matrix.size }} ${{ matrix.density }}
+      - name: Publish screenshots
+        if: always()
+        run: |
+          mkdir -p screens/${{ matrix.name }}
+          mkdir -p pub && cd pub && git init -q && git checkout -q -b haven-screens
+          git pull -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" haven-screens 2>/dev/null || true
+          rm -rf ${{ matrix.name }} && cp -r ../screens/${{ matrix.name }} . && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Haven emulator run ${{ matrix.name }} ${{ github.sha }}" || true
+          for i in 1 2 3; do git push -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" haven-screens && break; git pull -q --rebase "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" haven-screens || true; done
+      - name: Result
+        run: |
+          S=screens/${{ matrix.name }}
+          cat $S/results.txt $S/crashes.txt 2>/dev/null || true
+          ! grep -q "NOT RUNNING" $S/results.txt || { echo "::error::Haven crashed: $(head -5 $S/crashes.txt | tr '\n' ' ')"; exit 1; }
