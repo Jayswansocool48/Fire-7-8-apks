@@ -123,7 +123,7 @@ class LauncherActivity : Activity() {
     }
 
     /** Home pressed while Haven is already open: tidy up and go back to the top. */
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         closePanel()
         stopMoving()

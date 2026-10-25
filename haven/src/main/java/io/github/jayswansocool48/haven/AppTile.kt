@@ -30,6 +30,9 @@ class AppTile(
     private val image = ImageView(ctx)
     private val name = ctx.text(app.label, 15f, t.dim)
     private val ring = rounded(0, radius, 0xFFFFFFFF.toInt(), ctx.dpi(4f))
+    private val moveRing = rounded(0, radius, t.accent, ctx.dpi(5f))
+    /** Drawn on top of the art: the white focus ring, or the accent ring while moving. */
+    private val overlay = View(ctx)
     private var wiggle: ObjectAnimator? = null
 
     init {
@@ -50,6 +53,8 @@ class AppTile(
         }
         card.clipToOutline = true
         card.elevation = ctx.dp(2f)
+        overlay.visibility = View.INVISIBLE
+        card.addView(overlay, FrameLayout.LayoutParams(MATCH, MATCH))
         addView(card, LayoutParams(cardW, cardH))
 
         name.gravity = Gravity.CENTER
@@ -63,7 +68,7 @@ class AppTile(
 
         setOnFocusChangeListener { _, has ->
             bounce(this, has, 1.12f)
-            card.foreground = if (has) ring else null
+            if (wiggle == null) showRing(if (has) ring else null)
             name.setTextColor(if (has) t.text else t.dim)
             name.typeface = if (has) Fonts.bold(ctx) else Fonts.medium(ctx)
             if (dimmed) alpha = if (has) 1f else 0.5f
@@ -72,16 +77,16 @@ class AppTile(
 
     /** Shows the art once it's been loaded off the main thread. */
     fun setArt(banner: Drawable?, icon: Drawable) {
-        card.removeAllViews()
+        card.removeView(image)
         if (banner != null) {
             image.setImageDrawable(banner)
             image.scaleType = ImageView.ScaleType.CENTER_CROP
-            card.addView(image, FrameLayout.LayoutParams(MATCH, MATCH))
+            card.addView(image, 0, FrameLayout.LayoutParams(MATCH, MATCH))
         } else {
             image.setImageDrawable(icon)
             image.scaleType = ImageView.ScaleType.FIT_CENTER
             val s = context.dpi(56f)
-            card.addView(image, FrameLayout.LayoutParams(s, s, Gravity.CENTER))
+            card.addView(image, 0, FrameLayout.LayoutParams(s, s, Gravity.CENTER))
         }
     }
 
@@ -91,15 +96,20 @@ class AppTile(
         wiggle = null
         rotation = 0f
         if (on) {
-            card.foreground = rounded(0, radius, t.accent, context.dpi(5f))
+            showRing(moveRing)
             wiggle = ObjectAnimator.ofFloat(this, View.ROTATION, -2.5f, 2.5f).apply {
                 duration = 140
                 repeatMode = ValueAnimator.REVERSE
                 repeatCount = ValueAnimator.INFINITE
                 start()
             }
-        } else if (hasFocus()) {
-            card.foreground = ring
+        } else {
+            showRing(if (hasFocus()) ring else null)
         }
+    }
+
+    private fun showRing(d: android.graphics.drawable.Drawable?) {
+        overlay.background = d
+        overlay.visibility = if (d == null) View.INVISIBLE else View.VISIBLE
     }
 }

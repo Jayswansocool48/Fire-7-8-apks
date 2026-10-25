@@ -88,22 +88,24 @@ class AdbKey private constructor(private val priv: PrivateKey, private val pub: 
             val privFile = File(ctx.filesDir, "adbkey")
             val pubFile = File(ctx.filesDir, "adbkey.pub")
             val kf = KeyFactory.getInstance("RSA")
-            val key = try {
-                if (privFile.exists() && pubFile.exists()) {
-                    AdbKey(
+            var key: AdbKey? = null
+            if (privFile.exists() && pubFile.exists()) {
+                try {
+                    key = AdbKey(
                         kf.generatePrivate(PKCS8EncodedKeySpec(privFile.readBytes())),
                         kf.generatePublic(X509EncodedKeySpec(pubFile.readBytes())) as RSAPublicKey,
                     )
-                } else null
-            } catch (e: Exception) {
-                null
-            } ?: run {
+                } catch (e: Exception) {
+                    key = null
+                }
+            }
+            if (key == null) {
                 val gen = KeyPairGenerator.getInstance("RSA")
                 gen.initialize(KEY_BITS)
                 val pair = gen.genKeyPair()
                 privFile.writeBytes(pair.private.encoded)
                 pubFile.writeBytes(pair.public.encoded)
-                AdbKey(pair.private, pair.public as RSAPublicKey)
+                key = AdbKey(pair.private, pair.public as RSAPublicKey)
             }
             cached = key
             return key
