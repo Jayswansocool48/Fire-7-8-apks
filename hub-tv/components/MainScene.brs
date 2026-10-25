@@ -130,33 +130,55 @@ sub onState(msg as Object)
     onClock()
     renderChips()
     buildRows()
+    ' the server was unreachable when Hub opened: fetch the channels now
+    if m.channels.count() = 0 then loadChannels()
 end sub
 
+' Roku OS 12+ blocks a channel from using the TV's control port (8060) on its own
+' device, so the channel list, icons and launches go through the Hub server, which
+' reaches the TV from outside. Without a server we try the TV directly (older OS).
 sub loadChannels()
-    if m.tvIp = "" then return
-    startRequest("http://" + m.tvIp + ":8060/query/apps", "GET", "", "onApps")
+    if m.server <> ""
+        startRequest(serverUrl(m.server) + "/api/tv/apps", "GET", "", "onApps")
+    else if m.tvIp <> ""
+        startRequest("http://" + m.tvIp + ":8060/query/apps", "GET", "", "onApps")
+    end if
+end sub
+
+function channelIcon(id as String) as String
+    if m.server <> "" then return serverUrl(m.server) + "/api/tv/icon/" + urlEncode(id, false)
+    return "http://" + m.tvIp + ":8060/query/icon/" + id
+end function
+
+sub noteChannel(id as String, name as String)
+    m.channels.push({ id: id, name: name })
+    lname = LCase(name)
+    if lname = "youtube" then m.ytAppId = id
+    if Instr(1, lname, "crunchyroll") > 0 then m.crAppId = id
 end sub
 
 sub onApps(msg as Object)
     releaseTask(msg.getRoSGNode())
     r = msg.getData()
-    xml = CreateObject("roXMLElement")
     m.channels = []
     m.channelError = false
-    m.channelError = false
-    if not r.ok or not xml.parse(r.body)
-        m.channelError = true
-    else
-        for each app in xml.getNamedElements("app")
-            attrs = app.getAttributes()
-            if attrs["type"] = "appl" and attrs["id"] <> "dev"
-                name = app.getText()
-                m.channels.push({ id: attrs["id"], name: name })
-                lname = LCase(name)
-                if Instr(1, lname, "youtube") = 1 and lname.len() = 7 then m.ytAppId = attrs["id"]
-                if Instr(1, lname, "crunchyroll") > 0 then m.crAppId = attrs["id"]
-            end if
+    data = invalid
+    if r.ok then data = ParseJson(r.body)
+    if data <> invalid and data.apps <> invalid
+        ' from the Hub server: {apps: [{id, name, fav}]}
+        for each a in data.apps
+            noteChannel(a.id, a.name)
         end for
+    else
+        xml = CreateObject("roXMLElement")
+        if r.ok and xml.parse(r.body)
+            for each app in xml.getNamedElements("app")
+                attrs = app.getAttributes()
+                if attrs["type"] = "appl" and attrs["id"] <> "dev" then noteChannel(attrs["id"], app.getText())
+            end for
+        else
+            m.channelError = true
+        end if
     end if
     sortChannels()
     buildRows()
@@ -627,7 +649,13 @@ function channelsRow() as Object
     if m.channels.count() = 0
         card = makeCard(row, 720, 159, "0x0B1022C8")
         text = "Loading your channels..."
-        if m.channelError = true then text = "Can't list channels. On the TV: Settings > System > Advanced system settings > Control by mobile apps > Network access > Permissive. Then press OK here."
+        if m.channelError = true
+            if m.server = ""
+                text = "Set your Hub server in Settings to see your channels here. (Roku doesn't let a channel list them by itself.)"
+            else
+                text = "Can't get your channels from the Hub server. Check that it's running and that its TV address is right (Hub tab in the remote app). Press OK to try again."
+            end if
+        end if
         msg = addLabel(card, text, 28, 0, 664, m.fBody, "0xFFFFFFC8")
         msg.height = 159
         msg.vertAlign = "center"
@@ -638,7 +666,7 @@ function channelsRow() as Object
     end if
     for each c in m.channels
         card = makeCard(row, 212, 159, "0xFFFFFF1A")
-        addArt(card, "http://" + m.tvIp + ":8060/query/icon/" + c.id, "pkg:/images/iconmask.png", 212, 159, false)
+        addArt(card, channelIcon(c.id), "pkg:/images/iconmask.png", 212, 159, false)
         addCard(row, card, 212, c.name)
     end for
     return row
@@ -778,13 +806,13 @@ sub activate()
         if m.channels.count() = 0
             loadChannels()
         else
-            ecpLaunch(m.channels[col].id, "", "Opening " + m.channels[col].name)
+            ecpLaunch(m.channels[col].id, invalid, "Opening " + m.channels[col].name)
         end if
     else if row.id = "youtube"
         v = m.widgetData.youtube[col]
-        ecpLaunch(m.ytAppId, "?contentId=" + v.id + "&mediaType=movie", "Playing on YouTube")
+        ecpLaunch(m.ytAppId, { "contentId": v.id, "mediaType": "movie" }, "Playing on YouTube")
     else if row.id = "anime"
-        ecpLaunch(m.crAppId, "", "Opening Crunchyroll")
+        ecpLaunch(m.crAppId, invalid, "Opening Crunchyroll")
     else if row.id = "widgets"
         isNotes = false
         if col < row.kinds.count() then isNotes = row.kinds[col] = "notes"
@@ -798,14 +826,31 @@ sub activate()
     end if
 end sub
 
-sub ecpLaunch(appId as String, query as String, message as String)
+sub ecpLaunch(appId as String, params as Dynamic, message as String)
     showToast(message)
-    startRequest("http://" + m.tvIp + ":8060/launch/" + appId + query, "POST", "", "onLaunched")
+    if m.server <> ""
+        body = { "id": appId }
+        if params <> invalid then body["params"] = params
+        startRequest(serverUrl(m.server) + "/api/tv/launch", "POST", FormatJson(body), "onLaunched")
+    else
+        query = ""
+        if params <> invalid
+            for each k in params
+                if query = ""
+                    query = "?"
+                else
+                    query = query + "&"
+                end if
+                query = query + k + "=" + urlEncode(params[k], false)
+            end for
+        end if
+        startRequest("http://" + m.tvIp + ":8060/launch/" + appId + query, "POST", "", "onLaunched")
+    end if
 end sub
 
 sub onLaunched(msg as Object)
     releaseTask(msg.getRoSGNode())
-    if not msg.getData().ok then showToast("The TV blocked that. Set Control by mobile apps to Permissive.")
+    if not msg.getData().ok then showToast("Couldn't open that. Check the Hub server is running.")
 end sub
 
 ' =====================================================================  apps
@@ -987,6 +1032,7 @@ sub onDialogButton()
         m.events.server = text
         m.serverOk = false
         loadState()
+        loadChannels()
         renderChips()
     end if
 end sub
