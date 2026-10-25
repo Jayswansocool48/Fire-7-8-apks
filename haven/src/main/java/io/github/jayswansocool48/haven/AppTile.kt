@@ -64,7 +64,7 @@ class AppTile(
         name.maxLines = 1
         name.ellipsize = TextUtils.TruncateAt.END
         name.alpha = 0f
-        val nlp = LayoutParams(cardW + ctx.dpi(30f), WRAP)
+        val nlp = LayoutParams(cardW, WRAP)
         nlp.topMargin = ctx.dpi(10f)
         addView(name, nlp)
 
