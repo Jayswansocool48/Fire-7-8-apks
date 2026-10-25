@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Photo screensaver: slow pan-and-zoom slideshow with the clock and weather. Any key wakes Hub. -->
+<component name="AmbientApp" extends="Group">
+  <interface>
+    <field id="done" type="boolean" alwaysNotify="true" />
+    <field id="server" type="string" />
+    <field id="params" type="assocarray" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/common.brs" />
+  <script type="text/brightscript" uri="pkg:/components/AmbientApp.brs" />
+  <children>
+    <Rectangle width="1280" height="720" color="0x000000FF" />
+    <Poster id="slideA" width="1280" height="720" loadDisplayMode="scaleToFill" scaleRotateCenter="[640,360]" opacity="0" />
+    <Poster id="slideB" width="1280" height="720" loadDisplayMode="scaleToFill" scaleRotateCenter="[640,360]" opacity="0" />
+    <Poster uri="pkg:/images/scrim.png" width="1280" height="720" opacity="0.8" />
+    <Group id="info" translation="[80,520]">
+      <Label id="clock" color="0xFFFFFFFF" />
+      <Label id="date" translation="[4,96]" color="0xFFFFFFC0" />
+      <Poster id="wIcon" width="44" height="44" translation="[4,128]" />
+      <Label id="weather" translation="[58,134]" color="0xFFFFFFE0" />
+    </Group>
+    <Animation id="xfade" duration="1.6" easeFunction="inOutCubic">
+      <FloatFieldInterpolator id="xIn" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="slideA.opacity" />
+      <FloatFieldInterpolator id="xOut" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="slideB.opacity" />
+    </Animation>
+    <Animation id="kenburns" duration="14" easeFunction="linear">
+      <Vector2DFieldInterpolator id="kbScale" key="[0.0, 1.0]" keyValue="[[1.0,1.0],[1.12,1.12]]" fieldToInterp="slideA.scale" />
+      <Vector2DFieldInterpolator id="kbMove" key="[0.0, 1.0]" keyValue="[[0,0],[-30,-16]]" fieldToInterp="slideA.translation" />
+    </Animation>
+    <Timer id="nextTimer" duration="12" repeat="true" />
+    <Timer id="clockTimer" duration="1" repeat="true" />
+  </children>
+</component>

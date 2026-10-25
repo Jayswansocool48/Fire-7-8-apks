@@ -1,0 +1,50 @@
+# Hub server 3 for CasaOS.
+# 1. Put hub_server.py, hub_control.html and start.sh in /DATA/AppData/hub-server/ (CasaOS Files app).
+# 2. CasaOS dashboard > App Store "+" > Install a customized app > Import > paste this file.
+# If anything goes wrong, open /DATA/AppData/hub-server/hub-server.log in Files.
+name: hub-server
+services:
+  hub-server:
+    image: mcr.microsoft.com/playwright/python:v1.63.0-noble
+    container_name: hub-server
+    restart: unless-stopped
+    network_mode: host
+    shm_size: 1gb
+    working_dir: /data
+    environment:
+      PYTHONUNBUFFERED: "1"
+      TZ: America/Detroit
+    volumes:
+      - type: bind
+        source: /DATA/AppData/hub-server
+        target: /data
+      # Your CasaOS media (Media, Gallery, Downloads...) for the TV's Library, read-only.
+      - type: bind
+        source: /DATA
+        target: /media
+        read_only: true
+    command: ["bash", "/data/start.sh"]
+    x-casaos:
+      volumes:
+        - container: /data
+          description:
+            en_us: Hub files, settings, wallpapers and hub-server.log
+        - container: /media
+          description:
+            en_us: Your media folders, shown in the TV's Library
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: hub-server
+  author: you
+  category: Utilities
+  description:
+    en_us: Companion server for the Hub Roku channel - TV browser with ad blocking, widgets, wallpapers, media library, send to TV and remote control.
+  tagline:
+    en_us: Roku Hub companion server
+  title:
+    en_us: Hub Server
+  index: /
+  port_map: "8765"

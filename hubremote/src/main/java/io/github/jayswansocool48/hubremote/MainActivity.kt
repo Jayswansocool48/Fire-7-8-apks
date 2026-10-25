@@ -42,12 +42,16 @@ class MainActivity : Activity() {
         Hub.init(this)
         Hub.onError = { toast(it) }
         build()
-        if (Hub.server.isEmpty()) show("connect") else show("remote")
+        intent?.getStringExtra("server")?.let { if (it.isNotBlank()) Hub.setServer(it) }
+        if (Hub.server.isEmpty()) show("connect") else show(intent?.getStringExtra("tab") ?: "remote")
         handleShare(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // "server" and "tab" extras let a link (or the emulator test) connect and open a tab
+        intent.getStringExtra("server")?.let { if (it.isNotBlank()) Hub.setServer(it) }
+        intent.getStringExtra("tab")?.let { show(it) }
         handleShare(intent)
     }
 

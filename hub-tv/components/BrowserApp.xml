@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Remote web browser: the Hub server renders pages (headless Chromium with ad blocking)
+     and streams a new frame whenever the page changes. -->
+<component name="BrowserApp" extends="Group">
+  <interface>
+    <field id="done" type="boolean" alwaysNotify="true" />
+    <field id="server" type="string" />
+    <field id="params" type="assocarray" />
+    <field id="refreshNow" type="boolean" alwaysNotify="true" />
+    <!-- trackpad events from the phone: {type: pointer|click|scroll, dx, dy} -->
+    <field id="remote" type="assocarray" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/common.brs" />
+  <script type="text/brightscript" uri="pkg:/components/BrowserApp.brs" />
+  <children>
+    <Rectangle width="1280" height="720" color="0x090C16FF" />
+    <Poster id="pageA" width="1280" height="720" loadDisplayMode="scaleToFit" />
+    <Poster id="pageB" width="1280" height="720" loadDisplayMode="scaleToFit" visible="false" />
+    <Poster id="cursor" uri="pkg:/images/cursor.png" width="28" height="40" />
+    <Group id="statusBar" translation="[160,650]">
+      <Poster uri="pkg:/images/pill.9.png" width="960" height="48" blendColor="0x0B0F1EE8" />
+      <Label id="status" translation="[28,0]" width="904" height="48" vertAlign="center" horizAlign="center" color="0xF3F4FFFF" />
+    </Group>
+    <Animation id="statusAnim" duration="0.3" easeFunction="outCubic">
+      <FloatFieldInterpolator id="statusFade" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="statusBar.opacity" />
+    </Animation>
+    <Timer id="startTimer" duration="0.05" />
+    <Timer id="repeatTimer" duration="0.05" repeat="true" />
+    <Timer id="statusTimer" duration="4" />
+    <Timer id="retryTimer" duration="1.5" />
+  </children>
+</component>

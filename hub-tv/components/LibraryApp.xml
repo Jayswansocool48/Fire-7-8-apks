@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Browse and play the videos, music and photos on your CasaOS server. -->
+<component name="LibraryApp" extends="Group">
+  <interface>
+    <field id="done" type="boolean" alwaysNotify="true" />
+    <field id="server" type="string" />
+    <field id="params" type="assocarray" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/common.brs" />
+  <script type="text/brightscript" uri="pkg:/components/LibraryApp.brs" />
+  <children>
+    <Rectangle width="1280" height="720" color="0x090C16FF" />
+    <Poster uri="pkg:/images/blob.png" width="900" height="900" translation="[-300,-420]" blendColor="0x10956FFF" opacity="0.35" />
+    <Label id="title" text="Library" translation="[80,48]" color="0xFFFFFFFF" />
+    <Label id="crumb" translation="[82,104]" width="1100" color="0xFFFFFF99" />
+    <LabelList id="list" translation="[80,160]" itemSize="[620,56]" numRows="9" vertFocusAnimationStyle="floatingFocus"
+      color="0xE6E8F5FF" focusedColor="0x090C16FF" focusBitmapBlendColor="0xFFFFFFFF" />
+    <Group id="preview" translation="[760,160]">
+      <Poster id="previewBg" uri="pkg:/images/card.9.png" width="440" height="248" blendColor="0xFFFFFF14" />
+      <Poster id="previewImg" width="440" height="248" loadDisplayMode="scaleToFit" />
+      <Poster id="previewIcon" width="112" height="112" translation="[164,68]" />
+      <Label id="previewName" translation="[0,272]" width="440" wrap="true" maxLines="2" color="0xFFFFFFFF" />
+      <Label id="previewInfo" translation="[0,340]" width="440" color="0xFFFFFF99" />
+    </Group>
+    <Label id="empty" translation="[80,170]" width="620" wrap="true" color="0xFFFFFFB0" visible="false" />
+    <Label id="hint" translation="[80,668]" color="0xFFFFFF80" text="OK opens   Back goes up a folder" />
+  </children>
+</component>

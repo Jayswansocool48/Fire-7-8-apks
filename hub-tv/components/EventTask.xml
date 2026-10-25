@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-polls the Hub server for events (pointer moves, settings changes, notes...). -->
+<component name="EventTask" extends="Task">
+  <interface>
+    <field id="server" type="string" />
+    <field id="event" type="assocarray" alwaysNotify="true" />
+    <field id="connected" type="boolean" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/EventTask.brs" />
+</component>

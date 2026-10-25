@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0E1024">
+<title>Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --night:#0E1024; --deep:#171A36; --deeper:#12142c; --raise:#21254a; --line:#2c315c;
+  --mist:#A9B0D6; --dim:#7880aa; --snow:#F3F4FF; --coral:#FF6B6B; --ok:#4BD6A0;
+  --accent:#4F7CFF; --accent-soft:color-mix(in srgb,var(--accent) 22%,transparent);
+  --r-lg:22px; --r-md:14px; --r-sm:10px;
+  --font:"Sora",ui-sans-serif,system-ui,sans-serif;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--night);color:var(--snow);font:400 15px/1.5 var(--font);font-variant-numeric:tabular-nums;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- shell ---------- */
+.app{display:grid;height:100dvh;grid-template-rows:auto 1fr auto}
+.top{display:flex;align-items:center;gap:12px;padding:14px 18px 10px;padding-top:max(14px,env(safe-area-inset-top))}
+.mark{width:30px;height:30px;display:grid;grid-template-columns:1fr 1fr;gap:3px;flex:none}
+.mark i{border-radius:6px;background:var(--accent)}
+.mark i:nth-child(2){opacity:.72}.mark i:nth-child(3){opacity:.5}.mark i:nth-child(4){opacity:.3}
+.now{min-width:0;flex:1}
+.now b{display:block;font-weight:600;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.now span{color:var(--dim);font-size:13px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dim);margin-right:6px;vertical-align:1px}
+.dot.on{background:var(--ok);box-shadow:0 0 0 4px color-mix(in srgb,var(--ok) 20%,transparent)}
+.dot.off{background:var(--coral)}
+.iconbtn{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--deep);border:1px solid var(--line);flex:none;transition:background .15s,transform .1s}
+.iconbtn:active{transform:scale(.92)}
+.iconbtn svg{width:20px;height:20px}
+.iconbtn.power{color:var(--coral)}
+.iconbtn.lit{background:var(--accent-soft);border-color:var(--accent);color:var(--snow)}
+
+main{grid-row:2;position:relative;overflow:hidden}
+.view{position:absolute;inset:0;overflow-y:auto;padding:4px 18px 28px;opacity:0;visibility:hidden;transform:translateY(8px);transition:opacity .22s,transform .22s,visibility 0s .22s;scrollbar-width:thin}
+.view.show{opacity:1;visibility:visible;transform:none;transition:opacity .22s,transform .22s}
+.tabs{grid-row:3;user-select:none;display:flex;justify-content:space-around;padding:8px 6px calc(8px + var(--safe-b));background:color-mix(in srgb,var(--deeper) 92%,transparent);border-top:1px solid var(--line);backdrop-filter:blur(14px)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 10px;border-radius:12px;color:var(--dim);font-size:11.5px;font-weight:500;min-width:60px;transition:color .15s}
+.tab svg{width:22px;height:22px}
+.tab[aria-selected=true]{color:var(--snow)}
+.tab[aria-selected=true] svg{color:var(--accent)}
+
+@media (min-width:980px){
+  .app{grid-template-columns:96px 1fr 420px;grid-template-rows:auto 1fr}
+  .top{grid-column:1/-1}
+  .tabs{grid-row:2;grid-column:1;flex-direction:column;justify-content:flex-start;gap:6px;border-top:0;border-right:1px solid var(--line);padding:12px 8px}
+  main{grid-row:2;grid-column:2}
+  .dock{grid-row:2;grid-column:3;border-left:1px solid var(--line);overflow-y:auto;padding:4px 22px 24px}
+  .tab[data-view=remote]{display:none}
+  .view{padding:4px 34px 40px}
+  .view[data-name=remote]{display:none}
+}
+@media (max-width:979px){.dock{display:none}}
+
+h2{font-size:22px;font-weight:600;letter-spacing:-.01em;margin:10px 0 4px}
+h3{font-size:16px;font-weight:600;margin:26px 0 10px}
+.lede{color:var(--mist);margin:0 0 14px;max-width:60ch}
+.small{font-size:13px;color:var(--dim)}
+
+/* ---------- remote ---------- */
+.remote{display:flex;flex-direction:column;gap:14px;max-width:440px;margin:0 auto;min-height:100%;padding-top:4px}
+.modes{display:flex;background:var(--deep);border:1px solid var(--line);border-radius:99px;padding:4px;align-self:center}
+.modes button{padding:7px 16px;border-radius:99px;color:var(--mist);font-size:13.5px;font-weight:500;transition:background .2s,color .2s}
+.modes button[aria-pressed=true]{background:var(--accent);color:#fff}
+.pad{position:relative;flex:1;min-height:290px;max-height:520px;border-radius:28px;overflow:hidden;touch-action:none;user-select:none;
+  background:radial-gradient(120% 90% at 50% 0%,color-mix(in srgb,var(--accent) 16%,var(--deep)),var(--deeper) 70%);
+  border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));box-shadow:inset 0 1px 0 #ffffff14,0 30px 60px -30px color-mix(in srgb,var(--accent) 45%,transparent)}
+.pad canvas{position:absolute;inset:0;width:100%;height:100%}
+.pad .hint{position:absolute;left:24px;right:24px;top:50%;transform:translateY(-50%);text-align:center;color:var(--dim);font-size:12.5px;pointer-events:none;transition:opacity .4s}
+.pad.touched .hint{opacity:0}
+.chev{position:absolute;width:44px;height:44px;color:var(--snow);opacity:.14;pointer-events:none;transition:opacity .35s,transform .35s}
+.chev.flash{opacity:.95;transition:none}
+.chev.up{top:12px;left:calc(50% - 22px)}.chev.down{bottom:12px;left:calc(50% - 22px);transform:rotate(180deg)}
+.chev.left{left:12px;top:calc(50% - 22px);transform:rotate(-90deg)}.chev.right{right:12px;top:calc(50% - 22px);transform:rotate(90deg)}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.key{height:52px;border-radius:var(--r-md);background:var(--deep);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:8px;font-weight:500;font-size:14px;transition:background .12s,transform .08s}
+.key:active,.key.down{background:var(--raise);transform:scale(.96)}
+.key svg{width:20px;height:20px}
+.row2{display:flex;gap:10px}
+.rocker{display:flex;flex:1;background:var(--deep);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.rocker button{flex:1;height:48px;display:grid;place-items:center}
+.rocker button:active{background:var(--raise)}
+.rocker button+button{border-left:1px solid var(--line)}
+.rocker svg{width:20px;height:20px}
+
+/* ---------- sheets ---------- */
+.sheet-back{position:fixed;inset:0;background:#05061299;opacity:0;visibility:hidden;transition:opacity .2s,visibility 0s .2s;z-index:20}
+.sheet-back.show{opacity:1;visibility:visible;transition:opacity .2s}
+.sheet{position:fixed;left:50%;bottom:0;width:min(560px,100%);transform:translate(-50%,104%);background:var(--deep);border:1px solid var(--line);border-bottom:0;border-radius:24px 24px 0 0;padding:10px 20px calc(22px + var(--safe-b));z-index:21;transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+.sheet.show{transform:translate(-50%,0)}
+.sheet .grab{width:40px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:9px 15px;border-radius:99px;background:var(--raise);border:1px solid var(--line);font-size:14px;transition:background .15s}
+.chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ---------- forms ---------- */
+.field{display:flex;gap:8px}
+.field input,.input{flex:1;min-width:0;background:var(--deeper);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 13px;outline:none;transition:border-color .15s}
+.field input:focus,.input:focus{border-color:var(--accent)}
+.btn{padding:11px 16px;border-radius:var(--r-sm);background:var(--raise);border:1px solid var(--line);font-weight:500;white-space:nowrap;transition:background .15s}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.danger{color:var(--coral)}
+.list{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--deep)}
+.item{display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:54px}
+.item+.item{border-top:1px solid var(--line)}
+.item .grow{flex:1;min-width:0}
+.item .grow b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .grow span{font-size:13px;color:var(--dim)}
+.item img{width:44px;height:44px;border-radius:9px;object-fit:cover;flex:none;background:var(--raise)}
+.switch{appearance:none;width:46px;height:28px;border-radius:99px;background:var(--line);position:relative;flex:none;cursor:pointer;transition:background .2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s}
+.switch:checked{background:var(--accent)}.switch:checked::after{transform:translateX(18px)}
+.handle{color:var(--dim);cursor:grab;touch-action:none;padding:6px;margin:-6px}
+.item.dragging{background:var(--raise);box-shadow:0 12px 30px -10px #000a;position:relative;z-index:2}
+
+/* ---------- channels ---------- */
+.search{margin:6px 0 16px}
+.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:14px}
+.app-tile{position:relative;text-align:left;border-radius:var(--r-md);overflow:hidden;background:var(--deep);border:1px solid var(--line);transition:transform .15s,border-color .15s}
+.app-tile:active{transform:scale(.96)}
+.app-tile img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--raise)}
+.app-tile span{display:block;padding:8px 10px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.star{position:absolute;top:6px;right:6px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#0009;color:#fff;backdrop-filter:blur(6px)}
+.star svg{width:16px;height:16px;display:block}
+.star[aria-pressed=true]{color:#FFD166}
+
+/* ---------- browser ---------- */
+.screen{position:relative;border-radius:var(--r-md);overflow:hidden;background:#000;aspect-ratio:16/9;margin:12px 0;border:1px solid var(--line);touch-action:none}
+.screen img{display:block;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none}
+.ripple{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:2px solid var(--accent);pointer-events:none;animation:ripple .5s ease-out forwards}
+@keyframes ripple{from{transform:scale(.4);opacity:1}to{transform:scale(1.6);opacity:0}}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---------- send ---------- */
+.drop{display:block;cursor:pointer;border:1.5px dashed color-mix(in srgb,var(--accent) 55%,var(--line));border-radius:var(--r-lg);padding:28px 18px;text-align:center;background:color-mix(in srgb,var(--accent) 7%,transparent);transition:background .2s}
+.drop.over{background:var(--accent-soft)}
+.drop b{display:block;font-size:17px;font-weight:600;margin-bottom:4px}
+.progress{height:4px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:14px;display:none}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:14px;margin-bottom:10px;color:var(--mist)}
+.crumbs button{color:var(--accent);padding:2px 4px}
+
+/* ---------- customize ---------- */
+.walls{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x mandatory}
+.wall{flex:none;width:144px;aspect-ratio:16/9;border-radius:12px;position:relative;border:2px solid transparent;overflow:hidden;scroll-snap-align:start;background-size:cover;background-position:center}
+.wall[aria-pressed=true]{border-color:var(--snow);box-shadow:0 0 0 3px var(--accent)}
+.wall span{position:absolute;left:8px;bottom:6px;font-size:12px;font-weight:500;text-shadow:0 1px 6px #000}
+.wall.add{display:grid;place-items:center;background:var(--deep);border:1.5px dashed var(--line);color:var(--mist);font-size:13px}
+.wall .x{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;background:#000a;display:grid;place-items:center;font-size:14px}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.swatch{width:38px;height:38px;border-radius:50%;border:3px solid transparent;transition:transform .15s}
+.swatch[aria-pressed=true]{border-color:var(--snow);transform:scale(1.08)}
+.note{border-radius:12px;padding:12px 14px;color:#1d1a10;font-weight:500;position:relative;min-height:70px}
+.notes{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px}
+.note button{position:absolute;top:6px;right:8px;color:#0007;font-size:16px}
+.cover{width:44px!important;height:62px!important;border-radius:8px!important}
+
+#toast{position:fixed;left:50%;bottom:calc(86px + var(--safe-b));transform:translate(-50%,16px);background:var(--raise);border:1px solid var(--line);padding:11px 18px;border-radius:14px;opacity:0;pointer-events:none;transition:.22s;z-index:40;max-width:90vw;box-shadow:0 20px 40px -20px #000}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.bad{border-color:var(--coral)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-remote" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="7" y="2.5" width="10" height="19" rx="4"/><circle cx="12" cy="8" r="2"/><path d="M10 13h4M10 16h4"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 12 20 4l-5 16-3.5-6.5L4 12Z"/><path d="m11.5 13.5 3.5-3.5"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7 4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-2"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M4 11 12 4l8 7v8.5a.5.5 0 0 1-.5.5H15v-6H9v6H4.5a.5.5 0 0 1-.5-.5V11Z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8L12 3Z"/></symbol>
+  <symbol id="i-rew" viewBox="0 0 24 24" fill="currentColor"><path d="M11 6v12l-8-6 8-6Zm10 0v12l-8-6 8-6Z"/></symbol>
+  <symbol id="i-ff" viewBox="0 0 24 24" fill="currentColor"><path d="M13 6v12l8-6-8-6ZM3 6v12l8-6-8-6Z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M5 5v14l8-7-8-7Z"/><path d="M15 5h2.5v14H15zM19.5 5H22v14h-2.5z"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></symbol>
+  <symbol id="i-kbd" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M8 14h8"/></symbol>
+  <symbol id="i-vdown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M4 9h3l5-4v14l-5-4H4V9Z"/><path d="M16 12h5" stroke-linecap="round"/></symbol>
+  <symbol id="i-vup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M4 9h3l5-4v14l-5-4H4V9Z"/><path d="M16 12h5M18.5 9.5v5" stroke-linecap="round"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M4 9h3l5-4v14l-5-4H4V9Z"/><path d="m16 9.5 5 5m0-5-5 5" stroke-linecap="round"/></symbol>
+  <symbol id="i-handle" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></symbol>
+</svg>
+
+<div class="app">
+  <header class="top">
+    <div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="now"><b id="nowapp">Connecting to your TV…</b><span><span class="dot" id="tvdot"></span><span id="tvline">Checking</span></span></div>
+    <button class="iconbtn" id="sleepbtn" title="Sleep timer" aria-label="Sleep timer"><svg><use href="#i-moon"/></svg></button>
+    <button class="iconbtn power" data-key="PowerOff" title="Turn TV off" aria-label="Turn TV off"><svg><use href="#i-power"/></svg></button>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-view="remote" aria-selected="true"><svg><use href="#i-remote"/></svg>Remote</button>
+    <button class="tab" role="tab" data-view="channels" aria-selected="false"><svg><use href="#i-grid"/></svg>Channels</button>
+    <button class="tab" role="tab" data-view="browser" aria-selected="false"><svg><use href="#i-globe"/></svg>Browser</button>
+    <button class="tab" role="tab" data-view="send" aria-selected="false"><svg><use href="#i-send"/></svg>Send</button>
+    <button class="tab" role="tab" data-view="hub" aria-selected="false"><svg><use href="#i-sliders"/></svg>Hub</button>
+  </nav>
+
+  <main>
+    <!-- Remote (phones; on wide screens it lives in the dock) -->
+    <section class="view show" data-name="remote"><div id="remote-home"></div></section>
+
+    <!-- Channels -->
+    <section class="view" data-name="channels">
+      <h2>Channels</h2>
+      <p class="lede">Tap to open on the TV. Star the ones you use most and they lead the row on Hub too.</p>
+      <input class="input search" id="appsearch" type="search" placeholder="Find a channel" autocomplete="off" style="width:100%">
+      <div class="apps" id="apps"></div>
+    </section>
+
+    <!-- Browser -->
+    <section class="view" data-name="browser">
+      <h2>TV browser</h2>
+      <p class="lede">What Hub's browser shows on the TV, live. Tap to click, drag to scroll.</p>
+      <form class="field" id="urlform"><input id="url" type="text" inputmode="url" placeholder="Search or type a web address" autocomplete="off"><button class="btn primary" type="submit">Go</button></form>
+      <div class="screen" id="screen"><img id="shot" alt="The TV browser"></div>
+      <div class="toolbar">
+        <button class="btn" data-act="back">Back</button><button class="btn" data-act="forward">Forward</button>
+        <button class="btn" data-act="reload">Reload</button><button class="btn" data-act="home">Home</button>
+        <button class="btn primary" id="showtv">Show on TV</button>
+      </div>
+      <form class="field" id="typeform" style="margin-top:12px"><input id="typetext" type="text" placeholder="Type into the page (tap a text box first)" autocomplete="off"><button class="btn" type="submit">Type + Enter</button></form>
+      <p class="small" id="pagetitle"></p>
+    </section>
+
+    <!-- Send -->
+    <section class="view" data-name="send">
+      <h2>Send to TV</h2>
+      <p class="lede">Photos and videos open full screen on Hub. YouTube links open in the YouTube app; other links open in Hub's browser.</p>
+      <label class="drop" id="drop">
+        <b>Drop photos or videos here</b>
+        <span class="small">or tap to choose from this device</span>
+        <input type="file" id="files" accept="image/*,video/*,audio/*" multiple class="sr">
+        <div class="progress" id="prog"><i></i></div>
+      </label>
+      <h3>Send a link</h3>
+      <form class="field" id="linkform"><input id="link" type="text" inputmode="url" placeholder="Paste a link"><button class="btn primary" type="submit">Show on TV</button></form>
+      <h3>From your server</h3>
+      <div class="crumbs" id="crumbs"></div>
+      <div class="list" id="lib"></div>
+    </section>
+
+    <!-- Hub customization -->
+    <section class="view" data-name="hub">
+      <h2>Your Hub</h2>
+      <p class="lede">Changes show up on the TV within a second or two.</p>
+
+      <h3>Wallpaper</h3>
+      <div class="walls" id="walls"></div>
+      <input type="file" id="wallfile" accept="image/*" class="sr">
+
+      <h3>Accent color</h3>
+      <div class="swatches" id="swatches"></div>
+
+      <h3>Home screen rows</h3>
+      <p class="small">Drag to reorder. Switch off what you don't want.</p>
+      <div class="list" id="rows"></div>
+
+      <h3>Widgets</h3>
+      <div class="list" id="widgets"></div>
+
+      <h3>Clock and weather</h3>
+      <div class="list">
+        <div class="item"><div class="grow"><b>24-hour clock</b></div><input type="checkbox" class="switch" id="clock24"></div>
+        <div class="item"><div class="grow"><b>Celsius</b><span>Off shows Fahrenheit</span></div><input type="checkbox" class="switch" id="celsius"></div>
+        <div class="item"><div class="grow"><b>Your name</b><span>For the greeting on Hub</span></div><input class="input" id="name" style="max-width:150px" placeholder="Name"></div>
+      </div>
+      <form class="field" id="placeform" style="margin-top:10px"><input id="place" placeholder="Weather location, e.g. Detroit, Michigan"><button class="btn" type="submit">Save</button></form>
+      <p class="small" id="placeinfo"></p>
+
+      <h3>Screensaver</h3>
+      <div class="list">
+        <div class="item"><div class="grow"><b>Start after</b></div>
+          <select class="input" id="ssmin" style="max-width:130px"><option value="0">Never</option><option>2</option><option>5</option><option>10</option><option>20</option><option>30</option></select></div>
+        <div class="item"><div class="grow"><b>Show</b></div>
+          <select class="input" id="sssrc" style="max-width:170px"><option value="gallery">Gallery photos</option><option value="wallpapers">My wallpapers</option><option value="bing">Bing photo</option></select></div>
+      </div>
+
+      <h3>YouTube</h3>
+      <p class="small">Latest uploads from these channels show on Hub. Picking one plays it in the YouTube app.</p>
+      <form class="field" id="ytform"><input id="yt" placeholder="@channel or channel link"><button class="btn" type="submit">Add</button></form>
+      <div class="list" id="ytlist" style="margin-top:10px"></div>
+
+      <h3>Anime</h3>
+      <p class="small">Follow shows to see when the next episode airs. With none followed, Hub shows today's popular episodes. Picking one opens Crunchyroll.</p>
+      <form class="field" id="aniform"><input id="ani" placeholder="Search a show"><button class="btn" type="submit">Search</button></form>
+      <div class="list" id="anires" style="margin-top:10px;display:none"></div>
+      <div class="list" id="anilist" style="margin-top:10px"></div>
+
+      <h3>Calendar</h3>
+      <p class="small">Paste your calendar's secret iCal link (Google Calendar: Settings → your calendar → Secret address in iCal format).</p>
+      <form class="field" id="calform"><input id="cal" placeholder="https://calendar.google.com/…/basic.ics"><button class="btn" type="submit">Save</button></form>
+      <form class="field" id="evform" style="margin-top:10px"><input id="evtitle" placeholder="Quick event"><input id="evwhen" type="datetime-local" class="input" style="max-width:210px"><button class="btn" type="submit">Add</button></form>
+      <div class="list" id="evlist" style="margin-top:10px"></div>
+
+      <h3>Notes</h3>
+      <form class="field" id="noteform"><input id="notetext" placeholder="Leave a note on the TV"><button class="btn primary" type="submit">Post</button></form>
+      <div class="notes" id="notes"></div>
+
+      <h3>Server</h3>
+      <div class="list">
+        <div class="item"><div class="grow"><b>Ad blocker</b><span id="adstats">In Hub's browser</span></div><input type="checkbox" class="switch" data-set="adblock"></div>
+        <div class="item"><div class="grow"><b>Open Hub when the TV turns on</b></div><input type="checkbox" class="switch" data-set="autolaunch"></div>
+        <div class="item"><div class="grow"><b>Keep Hub open</b><span>Return to Hub after 45 s on the Roku home screen</span></div><input type="checkbox" class="switch" data-set="kiosk"></div>
+      </div>
+      <form class="field" id="tvipform" style="margin-top:10px"><input id="tvip" placeholder="TV address"><button class="btn" type="submit">Save</button></form>
+      <p class="small" id="ver"></p>
+    </section>
+  </main>
+
+  <aside class="dock"><div id="remote-dock"></div></aside>
+</div>
+
+<!-- Remote markup, moved into the phone view or the desktop dock -->
+<template id="remote-tpl">
+  <div class="remote">
+    <div class="modes" role="group" aria-label="Pad mode">
+      <button aria-pressed="true" data-mode="nav">Navigate</button>
+      <button aria-pressed="false" data-mode="pointer">Pointer</button>
+    </div>
+    <div class="pad" id="pad" aria-label="Touch pad: swipe to move, tap to select, press and hold for options">
+      <canvas></canvas>
+      <svg class="chev up"><use href="#i-chev"/></svg><svg class="chev down"><use href="#i-chev"/></svg>
+      <svg class="chev left"><use href="#i-chev"/></svg><svg class="chev right"><use href="#i-chev"/></svg>
+      <div class="hint" id="padhint">Swipe to move, tap to select, hold for options</div>
+    </div>
+    <div class="keys">
+      <button class="key" data-key="Back"><svg><use href="#i-back"/></svg>Back</button>
+      <button class="key" data-key="Home"><svg><use href="#i-home"/></svg>Home</button>
+      <button class="key" data-key="Info">✱ Options</button>
+      <button class="key" data-key="Rev" aria-label="Rewind"><svg><use href="#i-rew"/></svg></button>
+      <button class="key" data-key="Play" aria-label="Play or pause"><svg><use href="#i-play"/></svg></button>
+      <button class="key" data-key="Fwd" aria-label="Fast forward"><svg><use href="#i-ff"/></svg></button>
+    </div>
+    <div class="row2">
+      <div class="rocker">
+        <button data-key="VolumeDown" aria-label="Volume down"><svg><use href="#i-vdown"/></svg></button>
+        <button data-key="VolumeMute" aria-label="Mute"><svg><use href="#i-mute"/></svg></button>
+        <button data-key="VolumeUp" aria-label="Volume up"><svg><use href="#i-vup"/></svg></button>
+      </div>
+      <button class="key" id="kbdbtn" style="width:64px" aria-label="Type on the TV"><svg><use href="#i-kbd"/></svg></button>
+      <button class="key" data-hub style="padding:0 16px">Hub</button>
+    </div>
+  </div>
+</template>
+
+<div class="sheet-back" id="sheetback"></div>
+<div class="sheet" id="sleepsheet" role="dialog" aria-label="Sleep timer">
+  <div class="grab"></div>
+  <h3 style="margin-top:4px">Sleep timer</h3>
+  <p class="small" id="sleepline">The TV turns itself off when the timer ends.</p>
+  <div class="chips" id="sleepchips">
+    <button class="chip" data-min="15">15 min</button><button class="chip" data-min="30">30 min</button>
+    <button class="chip" data-min="45">45 min</button><button class="chip" data-min="60">1 hour</button>
+    <button class="chip" data-min="90">1.5 hours</button><button class="chip" data-min="120">2 hours</button>
+    <button class="chip" data-min="0">Off</button>
+  </div>
+</div>
+<div class="sheet" id="kbdsheet" role="dialog" aria-label="Type on the TV">
+  <div class="grab"></div>
+  <h3 style="margin-top:4px">Type on the TV</h3>
+  <p class="small">Goes into whatever text box is open on the TV, like a search screen.</p>
+  <form class="field" id="tvtype"><input id="tvtext" placeholder="Text to send" autocomplete="off"><button class="btn primary" type="submit">Send</button></form>
+  <div class="chips" style="margin-top:10px"><button class="chip" data-key="Backspace">Delete</button><button class="chip" data-key="Enter">Enter</button><button class="chip" data-key="Search">Search</button></div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const h = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e[k] = v; else if (k.startsWith("aria-")) e.setAttribute(k, String(!!v === v ? v : v)); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); }
+  for (const c of kids.flat()) if (c != null) e.append(c.nodeType ? c : document.createTextNode(c)); return e; };
+let toastT;
+function toast(msg, bad) { const t = $("#toast"); t.textContent = msg; t.classList.toggle("bad", !!bad); t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2400); }
+async function api(path, body) {
+  const opt = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  const r = await fetch(path, opt); let j = {}; try { j = await r.json(); } catch (e) {}
+  if (!r.ok || j.ok === false) throw new Error(j.error || "Request failed (" + r.status + ")"); return j; }
+const buzz = (ms = 8) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+const key = k => api("/api/tv/key", { key: k }).catch(e => toast(e.message, true));
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------------- tabs ---------------- */
+const wide = matchMedia("(min-width: 980px)");
+function placeRemote() { const r = $(".remote") || $("#remote-tpl").content.firstElementChild.cloneNode(true);
+  (wide.matches ? $("#remote-dock") : $("#remote-home")).append(r); if (!r.dataset.ready) { r.dataset.ready = 1; setupRemote(r); } resizePad(); }
+wide.addEventListener("change", () => { placeRemote(); if (wide.matches && current === "remote") show("channels"); });
+let current = "remote";
+function show(name) { current = name;
+  $$(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.view === name));
+  $$(".view").forEach(v => v.classList.toggle("show", v.dataset.name === name));
+  if (name === "channels") loadApps(); if (name === "send") loadLib(libPath); if (name === "hub") loadHub(); }
+$$(".tab").forEach(t => t.onclick = () => show(t.dataset.view));
+document.addEventListener("click", e => { const k = e.target.closest("[data-key]"); if (k && !k.closest(".pad")) { buzz(); key(k.dataset.key); }
+  if (e.target.closest("[data-hub]")) { buzz(); api("/api/tv/hub", {}).then(() => toast("Opening Hub")).catch(er => toast(er.message, true)); } });
+
+/* ---------------- the pad ---------------- */
+let mode = "nav", padCanvas, ctx, dots = [], glow = null, trail = [], raf = 0;
+function setupRemote(root) {
+  $$(".modes button", root).forEach(b => b.onclick = () => { mode = b.dataset.mode; $$(".modes button", root).forEach(x => x.setAttribute("aria-pressed", x === b));
+    $("#padhint").textContent = mode === "nav" ? "Swipe to move, tap to select, hold for options" : "Drag to move the pointer, tap to click, two fingers to scroll"; });
+  $("#kbdbtn", root).onclick = () => openSheet("kbdsheet");
+  const pad = $("#pad", root); padCanvas = $("canvas", pad); ctx = padCanvas.getContext("2d");
+  const ptrs = new Map(); let start = null, lastStep = 0, held = null, holdT = 0, repeatT = 0, moved = false, acc = { x: 0, y: 0 }, sendT = 0, scrollAcc = 0;
+  const STEP = 46;
+  const local = e => { const r = pad.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  function flash(dir) { const c = $(".chev." + dir, pad); c.classList.add("flash"); requestAnimationFrame(() => requestAnimationFrame(() => c.classList.remove("flash"))); }
+  function step(dir) { const k = { up: "Up", down: "Down", left: "Left", right: "Right" }[dir]; flash(dir); buzz(10); key(k); }
+  function flushPointer() { sendT = 0; if (!acc.x && !acc.y) return; const b = { type: "pointer", dx: Math.round(acc.x * 1.7), dy: Math.round(acc.y * 1.7) }; acc = { x: 0, y: 0 }; api("/api/remote", b).catch(() => {}); }
+  pad.addEventListener("pointerdown", e => { pad.setPointerCapture(e.pointerId); pad.classList.add("touched"); const p = local(e); ptrs.set(e.pointerId, p);
+    if (ptrs.size === 1) { start = { ...p, t: performance.now() }; moved = false; held = null;
+      clearTimeout(holdT); holdT = setTimeout(() => { if (!moved && ptrs.size === 1) { buzz(25); if (mode === "nav") key("Info"); start = null; } }, 560); }
+    glow = { ...p, a: 1 }; trail = [p]; kick(); });
+  pad.addEventListener("pointermove", e => { if (!ptrs.has(e.pointerId)) return; const p = local(e), prev = ptrs.get(e.pointerId); ptrs.set(e.pointerId, p);
+    glow = { ...p, a: 1 }; trail.push(p); if (trail.length > 18) trail.shift();
+    if (!start) return;
+    if (ptrs.size >= 2) { moved = true; scrollAcc += p.y - prev.y; if (Math.abs(scrollAcc) > 24) { api("/api/remote", { type: "scroll", dy: Math.round(-scrollAcc * 6) }).catch(() => {}); scrollAcc = 0; } return; }
+    if (mode === "pointer") { const dx = p.x - prev.x, dy = p.y - prev.y; if (Math.abs(dx) + Math.abs(dy) > 0.5) moved = moved || Math.hypot(p.x - start.x, p.y - start.y) > 6;
+      acc.x += dx; acc.y += dy; if (!sendT) sendT = setTimeout(flushPointer, 40); return; }
+    const dx = p.x - start.x, dy = p.y - start.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) >= STEP) { const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+      moved = true; step(dir); start = { ...p, t: start.t }; lastStep = performance.now();
+      // keep holding after a swipe to keep moving
+      held = dir; clearInterval(repeatT); repeatT = setInterval(() => { if (held && performance.now() - lastStep > 420) step(held); }, 170); }
+    else if (held && Math.hypot(dx, dy) > 14) { held = null; clearInterval(repeatT); } });
+  const end = e => { if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId); clearTimeout(holdT); clearInterval(repeatT); held = null;
+    if (ptrs.size === 0) { if (start && !moved && performance.now() - start.t < 450) { buzz(14); pulse(); if (mode === "nav") key("Select"); else api("/api/remote", { type: "click" }).catch(() => {}); }
+      if (sendT) { clearTimeout(sendT); flushPointer(); } start = null; } };
+  pad.addEventListener("pointerup", end); pad.addEventListener("pointercancel", end);
+  new ResizeObserver(resizePad).observe(pad);
+}
+let pulseR = 0;
+function pulse() { pulseR = 1; kick(); }
+function resizePad() { if (!padCanvas) return; const r = padCanvas.getBoundingClientRect(), d = devicePixelRatio || 1;
+  padCanvas.width = r.width * d; padCanvas.height = r.height * d; ctx.setTransform(d, 0, 0, d, 0, 0);
+  dots = []; const gap = 26; for (let y = gap / 2; y < r.height; y += gap) for (let x = gap / 2; x < r.width; x += gap) dots.push([x, y]); draw(); }
+function kick() { if (!raf && !reduce) raf = requestAnimationFrame(frame); else if (reduce) draw(); }
+function frame() { raf = 0; draw(); if (glow) { glow.a *= 0.94; if (glow.a < 0.02) glow = null; }
+  if (pulseR) pulseR = pulseR > 0.02 ? pulseR * 0.9 : 0; if (trail.length && !glow) trail = [];
+  if (glow || pulseR) raf = requestAnimationFrame(frame); }
+function draw() { if (!ctx) return; const r = padCanvas.getBoundingClientRect(); ctx.clearRect(0, 0, r.width, r.height);
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#4F7CFF";
+  for (const [x, y] of dots) { let a = 0.13, s = 1.2;
+    if (glow) { const d = Math.hypot(x - glow.x, y - glow.y); const k = Math.max(0, 1 - d / 120) * glow.a; a += k * 0.8; s += k * 2.2; }
+    ctx.fillStyle = `rgba(243,244,255,${a})`; ctx.beginPath(); ctx.arc(x, y, s, 0, 7); ctx.fill(); }
+  if (trail.length > 1 && glow) { ctx.strokeStyle = accent; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    for (let i = 1; i < trail.length; i++) { ctx.globalAlpha = (i / trail.length) * glow.a * 0.85; ctx.lineWidth = 2 + (i / trail.length) * 7;
+      ctx.beginPath(); ctx.moveTo(trail[i - 1].x, trail[i - 1].y); ctx.lineTo(trail[i].x, trail[i].y); ctx.stroke(); } ctx.globalAlpha = 1; }
+  if (glow) { const g = ctx.createRadialGradient(glow.x, glow.y, 0, glow.x, glow.y, 90); g.addColorStop(0, accent + "88"); g.addColorStop(1, accent + "00");
+    ctx.globalAlpha = glow.a; ctx.fillStyle = g; ctx.fillRect(0, 0, r.width, r.height); ctx.globalAlpha = 1; }
+  if (pulseR && glow) { ctx.strokeStyle = accent; ctx.globalAlpha = pulseR; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(glow.x, glow.y, 24 + (1 - pulseR) * 60, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; } }
+
+/* keyboard as remote on PCs */
+const keymap = { ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right", Enter: "Select", Backspace: "Back", Escape: "Back", h: "Home", " ": "Play" };
+document.addEventListener("keydown", e => { if (e.target.matches("input,select,textarea")) return; const k = keymap[e.key]; if (k) { e.preventDefault(); key(k); } });
+
+/* ---------------- sheets ---------------- */
+function openSheet(id) { $("#sheetback").classList.add("show"); $("#" + id).classList.add("show"); const i = $("#" + id + " input"); if (i) setTimeout(() => i.focus(), 250); }
+function closeSheets() { $("#sheetback").classList.remove("show"); $$(".sheet").forEach(s => s.classList.remove("show")); }
+$("#sheetback").onclick = closeSheets;
+$("#sleepbtn").onclick = () => openSheet("sleepsheet");
+$$("#sleepchips .chip").forEach(c => c.onclick = () => api("/api/sleep", { minutes: +c.dataset.min }).then(j => { closeSheets(); toast(j.remaining ? "TV turns off in " + c.textContent : "Sleep timer off"); status(); }).catch(e => toast(e.message, true)));
+$("#tvtype").onsubmit = e => { e.preventDefault(); const t = $("#tvtext").value; if (!t) return; api("/api/tv/text", { text: t }).then(() => { $("#tvtext").value = ""; toast("Sent to the TV"); }).catch(er => toast(er.message, true)); };
+
+/* ---------------- status ---------------- */
+let hub = null;
+function fmtLeft(s) { const m = Math.ceil(s / 60); return m >= 60 ? Math.floor(m / 60) + " h " + (m % 60) + " min" : m + " min"; }
+async function status() {
+  try { const s = await api("/api/status"); hub = s.hub; applyAccent(s.hub.accent);
+    $("#adstats").textContent = s.adblock.blocked.toLocaleString() + " ads blocked so far, " + s.adblock.domains.toLocaleString() + " sites on the list";
+    $("#sleepbtn").classList.toggle("lit", !!s.sleep); $("#sleepline").textContent = s.sleep ? "The TV turns off in " + fmtLeft(s.sleep) + "." : "The TV turns itself off when the timer ends.";
+    $("#ver").textContent = "Hub server " + s.version; window.__status = s;
+    $$("[data-set]").forEach(c => c.checked = !!s.settings[c.dataset.set]); if (document.activeElement !== $("#tvip")) $("#tvip").value = s.settings.tv_ip || "";
+  } catch (e) {}
+  try { const a = await api("/api/tv/active"); const name = a.app.id === "dev" ? "Hub" : a.app.name;
+    $("#nowapp").textContent = name === "Roku" || name === "Home" ? "Roku home" : name; $("#tvdot").className = "dot on";
+    $("#tvline").textContent = window.__status && window.__status.sleep ? "Sleeping in " + fmtLeft(window.__status.sleep) : "TV connected";
+  } catch (e) { $("#nowapp").textContent = "Can't reach the TV"; $("#tvdot").className = "dot off"; $("#tvline").textContent = "Check the TV address in Hub settings"; }
+}
+function applyAccent(c) { if (c) document.documentElement.style.setProperty("--accent", c); }
+
+/* ---------------- channels ---------------- */
+let apps = [];
+async function loadApps() {
+  const box = $("#apps"); if (!apps.length) box.replaceChildren(h("p", { class: "small" }, "Loading channels…"));
+  try { apps = (await api("/api/tv/apps")).apps; renderApps(); }
+  catch (e) { box.replaceChildren(h("p", { class: "small" }, e.message + ". Make sure the TV address is right (Hub tab → Server) and that the TV allows control: Settings → System → Advanced system settings → Control by mobile apps → Permissive.")); } }
+function renderApps() { const q = $("#appsearch").value.trim().toLowerCase();
+  $("#apps").replaceChildren(...apps.filter(a => a.name.toLowerCase().includes(q)).map(a => {
+    const star = h("span", { class: "star", role: "button", "aria-label": "Favorite " + a.name, "aria-pressed": a.fav }, svgUse("i-star"));
+    star.onclick = ev => { ev.stopPropagation(); a.fav = !a.fav; api("/api/tv/favorite", { id: a.id, fav: a.fav }).then(() => { apps.sort((x, y) => (y.fav - x.fav)); renderApps(); }).catch(er => toast(er.message, true)); };
+    const tile = h("button", { class: "app-tile" }, h("img", { src: "/api/tv/icon/" + encodeURIComponent(a.id), alt: "", loading: "lazy" }), h("span", {}, a.name), star);
+    tile.onclick = () => { buzz(); api("/api/tv/launch", { id: a.id }).then(() => toast("Opening " + a.name)).catch(er => toast(er.message, true)); };
+    return tile; })); }
+$("#appsearch").oninput = renderApps;
+function svgUse(id) { const s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); const u = document.createElementNS("http://www.w3.org/2000/svg", "use"); u.setAttribute("href", "#" + id); s.append(u); return s; }
+
+/* ---------------- browser ---------------- */
+const cid = "web" + Math.random().toString(36).slice(2, 7); let streaming = false;
+function stream() { if (streaming) return; streaming = true; const img = $("#shot");
+  const next = () => { if (current !== "browser" || document.hidden) { streaming = false; return; }
+    const i = new Image(); i.onload = () => { img.src = i.src; setTimeout(next, 30); }; i.onerror = () => setTimeout(next, 1500); i.src = "/frame.jpg?wait=1&c=" + cid + "&n=" + Date.now(); };
+  const first = new Image(); first.onload = () => { img.src = first.src; next(); }; first.onerror = () => setTimeout(() => { streaming = false; stream(); }, 2000); first.src = "/frame.jpg?c=" + cid + "&n=" + Date.now(); }
+document.addEventListener("visibilitychange", () => { if (!document.hidden && current === "browser") stream(); });
+const tabsObserver = new MutationObserver(() => { if (current === "browser") stream(); }); tabsObserver.observe($("[data-name=browser]"), { attributes: true });
+function act(a) { return api("/action", a).then(j => { $("#pagetitle").textContent = j.title || ""; }).catch(e => toast(e.message, true)); }
+(function () { const scr = $("#screen"); let down = null;
+  const pos = e => { const r = $("#shot").getBoundingClientRect(); return { x: Math.round((e.clientX - r.left) / r.width * 1280), y: Math.round((e.clientY - r.top) / r.height * 720), cx: e.clientX - r.left, cy: e.clientY - r.top }; };
+  scr.addEventListener("pointerdown", e => { scr.setPointerCapture(e.pointerId); down = { ...pos(e), y0: e.clientY, last: e.clientY, moved: false }; });
+  scr.addEventListener("pointermove", e => { if (!down) return; const dy = e.clientY - down.last; if (Math.abs(e.clientY - down.y0) > 8) down.moved = true;
+    if (down.moved && Math.abs(dy) > 18) { act({ type: "scroll", dy: Math.round(-dy * 3), x: down.x, y: down.y }); down.last = e.clientY; } });
+  scr.addEventListener("pointerup", e => { if (down && !down.moved) { const p = pos(e); const rip = h("span", { class: "ripple", style: `left:${p.cx}px;top:${p.cy}px` }); scr.append(rip); setTimeout(() => rip.remove(), 600); buzz(); act({ type: "click", x: p.x, y: p.y }); } down = null; });
+  scr.addEventListener("wheel", e => { e.preventDefault(); const p = pos(e); act({ type: "scroll", dy: e.deltaY > 0 ? 420 : -420, x: p.x, y: p.y }); }, { passive: false }); })();
+$$("[data-act]").forEach(b => b.onclick = () => act({ type: b.dataset.act }));
+$("#urlform").onsubmit = e => { e.preventDefault(); const u = $("#url").value.trim(); if (u) act({ type: "goto", url: u }); };
+$("#showtv").onclick = () => { const u = $("#url").value.trim(); api("/api/tv/hub", { app: "browser", url: u || undefined }).then(() => toast("Showing on the TV")).catch(e => toast(e.message, true)); };
+$("#typeform").onsubmit = e => { e.preventDefault(); const t = $("#typetext").value; if (t) { act({ type: "type", text: t, enter: true }); $("#typetext").value = ""; } };
+
+/* ---------------- send ---------------- */
+function upload(file, url, done) { const xhr = new XMLHttpRequest(); const bar = $("#prog"); bar.style.display = "block";
+  xhr.upload.onprogress = e => { if (e.lengthComputable) $("#prog i").style.width = (e.loaded / e.total * 100) + "%"; };
+  xhr.onload = () => { bar.style.display = "none"; $("#prog i").style.width = 0; let j = {}; try { j = JSON.parse(xhr.responseText); } catch (e) {}
+    if (xhr.status < 300 && j.ok !== false) done(j); else toast(j.error || "Upload failed", true); };
+  xhr.onerror = () => { bar.style.display = "none"; toast("Upload failed - is the server reachable?", true); };
+  xhr.open("POST", url); xhr.setRequestHeader("X-Filename", encodeURIComponent(file.name)); xhr.send(file); }
+function sendFiles(list) { const files = [...list]; let i = 0;
+  const next = () => { if (i >= files.length) return; const f = files[i++]; toast("Sending " + f.name + "…"); upload(f, "/api/send/file", () => { toast("On the TV: " + f.name); next(); }); }; next(); }
+$("#files").onchange = e => sendFiles(e.target.files);
+const drop = $("#drop");
+["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => sendFiles(e.dataTransfer.files));
+$("#linkform").onsubmit = e => { e.preventDefault(); const u = $("#link").value.trim(); if (!u) return;
+  api("/api/send/link", { url: u }).then(j => { $("#link").value = ""; toast({ youtube: "Playing in YouTube", crunchyroll: "Opening Crunchyroll", player: "Playing on the TV", browser: "Opened in Hub's browser" }[j.opened] || "Sent"); }).catch(er => toast(er.message, true)); };
+let libPath = "";
+async function loadLib(path) { libPath = path;
+  const crumbs = $("#crumbs"); const parts = path ? path.split("/") : [];
+  crumbs.replaceChildren(h("button", { onclick: () => loadLib("") }, "Server"), ...parts.flatMap((p, i) => ["›", h("button", { onclick: () => loadLib(parts.slice(0, i + 1).join("/")) }, p)]));
+  try { const j = await api("/api/library?path=" + encodeURIComponent(path)); const items = [];
+    for (const d of j.dirs) items.push(h("button", { class: "item", style: "width:100%;text-align:left", onclick: () => loadLib(d.path) }, h("div", { class: "grow" }, h("b", {}, d.name), h("span", {}, "Folder"))));
+    for (const f of j.files) { const img = f.kind === "photo" ? h("img", { src: "/api/img?w=120&h=120&fit=cover&src=" + encodeURIComponent(f.path), loading: "lazy", alt: "" }) : null;
+      items.push(h("button", { class: "item", style: "width:100%;text-align:left", onclick: () => api("/api/tv/play", { path: f.path }).then(() => toast("Playing on the TV")).catch(er => toast(er.message, true)) },
+        img, h("div", { class: "grow" }, h("b", {}, f.name), h("span", {}, { video: "Video", audio: "Music", photo: "Photo" }[f.kind] + ", " + (f.size / 1048576).toFixed(1) + " MB")))); }
+    $("#lib").replaceChildren(...(items.length ? items : [h("div", { class: "item" }, h("span", { class: "small" }, path ? "Nothing playable in this folder." : "No media folders found. Add /DATA as a volume in the CasaOS app (see the setup notes)."))]));
+  } catch (e) { $("#lib").replaceChildren(h("div", { class: "item" }, h("span", { class: "small" }, e.message))); } }
+
+/* ---------------- hub customization ---------------- */
+const ACCENTS = ["#4F7CFF", "#7C5CFF", "#E85DBA", "#FF6B6B", "#FF9F43", "#F5C542", "#4BD6A0", "#2EC4E6"];
+const ROWNAMES = { widgets: "Widgets", youtube: "YouTube", anime: "Anime episodes", apps: "Hub apps", channels: "Channels" };
+const WNAMES = { weather: "Weather", agenda: "Up next (calendar)", notes: "Notes" };
+async function saveHub(patch, msg) { try { const j = await api("/api/hub/config", patch); hub = j.hub; if (patch.accent) applyAccent(patch.accent); if (msg) toast(msg); } catch (e) { toast(e.message, true); } }
+async function loadHub() { await status(); const s = window.__status; if (!s) return; hub = s.hub;
+  renderWalls(); renderSwatches(); renderRows(); renderWidgets();
+  $("#clock24").checked = !!hub.clock24; $("#celsius").checked = hub.units === "C"; $("#name").value = hub.name || "";
+  $("#place").value = hub.location || ""; $("#placeinfo").textContent = s.place ? "Showing weather for " + s.place.name + (s.place.region ? ", " + s.place.region : "") : "";
+  $("#ssmin").value = String(hub.screensaver?.minutes ?? 5); $("#sssrc").value = hub.screensaver?.source || "gallery";
+  $("#cal").value = s.settings.calendar_url || ""; renderYT(s.youtube); renderAnime(s.anime); renderEvents(s.events); renderNotes(s.notes); }
+async function renderWalls() { const [p, w] = await Promise.all([api("/api/presets"), api("/api/wallpapers")]); const cur = hub.wallpaper || {};
+  const tile = (style, label, sel, onclick, del) => { const t = h("button", { class: "wall", style, "aria-pressed": sel, "aria-label": "Wallpaper " + label, onclick }, h("span", {}, label));
+    if (del) { const x = h("span", { class: "x", role: "button", "aria-label": "Delete" }, "×"); x.onclick = ev => { ev.stopPropagation(); api("/api/wallpapers/delete", { name: del }).then(renderWalls); }; t.append(x); } return t; };
+  const pick = (wall, msg) => saveHub({ wallpaper: wall }, msg).then(renderWalls);
+  const add = h("button", { class: "wall add", onclick: () => $("#wallfile").click() }, "Add a photo");
+  $("#walls").replaceChildren(add,
+    ...w.wallpapers.map(n => tile(`background-image:url('/api/wallpapers/${encodeURIComponent(n)}')`, "Photo", cur.type === "custom" && cur.value === n, () => pick({ type: "custom", value: n }, "Wallpaper set"), n)),
+    tile("background:linear-gradient(135deg,#1c3f75,#d88d5b)", "Bing daily", cur.type === "bing", () => pick({ type: "bing" }, "A new photo every day")),
+    ...p.presets.map(x => tile("background:" + x.css, x.name[0].toUpperCase() + x.name.slice(1), cur.type === "preset" && cur.value === x.name, () => pick({ type: "preset", value: x.name }, "Wallpaper set")))); }
+$("#wallfile").onchange = e => { const f = e.target.files[0]; if (f) upload(f, "/api/wallpapers/upload", () => { toast("Wallpaper set"); status().then(renderWalls); }); e.target.value = ""; };
+function renderSwatches() { $("#swatches").replaceChildren(...ACCENTS.map(c => h("button", { class: "swatch", style: "background:" + c, "aria-label": "Accent " + c, "aria-pressed": (hub.accent || "").toUpperCase() === c,
+  onclick: () => saveHub({ accent: c }).then(renderSwatches) }))); }
+function sortable(list, items, render, save) {
+  list.replaceChildren(...items.map((it, i) => { const sw = h("input", { type: "checkbox", class: "switch", "aria-label": "Show " + render(it) }); sw.checked = it.on;
+    sw.onchange = () => { it.on = sw.checked; save(items); };
+    const handle = h("span", { class: "handle", "aria-label": "Drag to reorder" }, svgUse("i-handle")); handle.firstChild.style.cssText = "width:20px;height:20px";
+    const row = h("div", { class: "item" }, handle, h("div", { class: "grow" }, h("b", {}, render(it))), sw);
+    handle.addEventListener("pointerdown", e => { e.preventDefault(); handle.setPointerCapture(e.pointerId); row.classList.add("dragging"); const y0 = e.clientY, hgt = row.offsetHeight; let idx = i;
+      const move = ev => { const off = ev.clientY - y0; row.style.transform = `translateY(${off}px)`; const ni = Math.max(0, Math.min(items.length - 1, i + Math.round(off / hgt)));
+        if (ni !== idx) { idx = ni; buzz(5); } };
+      const up = () => { handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); row.classList.remove("dragging"); row.style.transform = "";
+        if (idx !== i) { const [m] = items.splice(i, 1); items.splice(idx, 0, m); save(items); } sortable(list, items, render, save); };
+      handle.addEventListener("pointermove", move); handle.addEventListener("pointerup", up); });
+    return row; })); }
+function renderRows() { sortable($("#rows"), hub.rows.map(r => ({ ...r })), r => ROWNAMES[r.id] || r.id, items => saveHub({ rows: items }, "Saved")); }
+function renderWidgets() { sortable($("#widgets"), hub.widgets.map(r => ({ ...r })), r => WNAMES[r.id] || r.id, items => saveHub({ widgets: items }, "Saved")); }
+$("#clock24").onchange = e => saveHub({ clock24: e.target.checked }, "Saved");
+$("#celsius").onchange = e => saveHub({ units: e.target.checked ? "C" : "F" }, "Saved");
+$("#name").onchange = e => saveHub({ name: e.target.value.trim() }, "Saved");
+$("#ssmin").onchange = () => saveHub({ screensaver: { ...hub.screensaver, minutes: +$("#ssmin").value } }, "Saved");
+$("#sssrc").onchange = () => saveHub({ screensaver: { ...hub.screensaver, source: $("#sssrc").value } }, "Saved");
+$("#placeform").onsubmit = e => { e.preventDefault(); api("/api/weather/location", { location: $("#place").value }).then(j => { $("#placeinfo").textContent = j.place ? "Showing weather for " + j.place.name + (j.place.region ? ", " + j.place.region : "") : "Weather off"; toast("Saved"); }).catch(er => toast(er.message, true)); };
+function renderYT(list) { $("#ytlist").replaceChildren(...(list.length ? list.map(c => h("div", { class: "item" }, h("div", { class: "grow" }, h("b", {}, c.name)),
+  h("button", { class: "btn danger", onclick: () => api("/api/youtube/delete", { id: c.id }).then(j => renderYT(j.channels)) }, "Remove"))) : [h("div", { class: "item" }, h("span", { class: "small" }, "No channels yet."))])); }
+$("#ytform").onsubmit = e => { e.preventDefault(); const v = $("#yt").value.trim(); if (!v) return; toast("Looking up " + v + "…");
+  api("/api/youtube/add", { channel: v }).then(j => { $("#yt").value = ""; renderYT(j.channels); toast("Added " + j.channel.name); }).catch(er => toast(er.message, true)); };
+function aniRow(a, btn) { const when = a.airingAt ? "Episode " + a.episode + ", " + new Date(a.airingAt * 1000).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : (a.status || "").toLowerCase().replace("_", " ");
+  return h("div", { class: "item" }, a.cover ? h("img", { src: a.cover, class: "cover", alt: "" }) : null, h("div", { class: "grow" }, h("b", {}, a.title), h("span", {}, when)), btn); }
+function renderAnime(list) { $("#anilist").replaceChildren(...(list.length ? list.map(a => aniRow(a, h("button", { class: "btn danger", onclick: () => api("/api/anime/delete", { id: a.id }).then(j => renderAnime(j.anime)) }, "Unfollow")))
+  : [h("div", { class: "item" }, h("span", { class: "small" }, "Not following any shows."))])); }
+$("#aniform").onsubmit = async e => { e.preventDefault(); const q = $("#ani").value.trim(); if (!q) return; const box = $("#anires");
+  try { const j = await api("/api/anime/search?q=" + encodeURIComponent(q)); box.style.display = "";
+    box.replaceChildren(...j.results.map(a => aniRow(a, h("button", { class: "btn primary", onclick: () => api("/api/anime/add", { id: a.id, title: a.title }).then(k => { renderAnime(k.anime); box.style.display = "none"; toast("Following " + a.title); }) }, "Follow"))));
+  } catch (er) { toast(er.message, true); } };
+$("#calform").onsubmit = e => { e.preventDefault(); api("/api/calendar", { url: $("#cal").value }).then(() => toast("Calendar saved")).catch(er => toast(er.message, true)); };
+function renderEvents(list) { $("#evlist").replaceChildren(...list.map(ev => h("div", { class: "item" }, h("div", { class: "grow" }, h("b", {}, ev.title), h("span", {}, new Date(ev.start * 1000).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))),
+  h("button", { class: "btn danger", onclick: () => api("/api/events/delete", { id: ev.id }).then(() => { status().then(() => renderEvents(window.__status.events)); }) }, "Delete")))); }
+$("#evform").onsubmit = e => { e.preventDefault(); const t = $("#evtitle").value.trim(), w = $("#evwhen").value; if (!t || !w) return toast("Add a title and a time", true);
+  api("/api/events/add", { title: t, start: new Date(w).getTime() / 1000 }).then(() => { $("#evtitle").value = ""; status().then(() => renderEvents(window.__status.events)); toast("Added"); }).catch(er => toast(er.message, true)); };
+const NOTECOLORS = ["#FFD166", "#A0E7E5", "#FFAEBC", "#B4F8C8", "#C9B6FF"];
+function renderNotes(list) { $("#notes").replaceChildren(...list.map(n => { const x = h("button", { "aria-label": "Delete note" }, "×");
+  x.onclick = () => api("/api/notes/delete", { id: n.id }).then(() => status().then(() => renderNotes(window.__status.notes)));
+  return h("div", { class: "note", style: "background:" + n.color }, n.text, x); })); }
+$("#noteform").onsubmit = e => { e.preventDefault(); const t = $("#notetext").value.trim(); if (!t) return;
+  api("/api/notes/add", { text: t, color: NOTECOLORS[Math.floor(Math.random() * NOTECOLORS.length)] }).then(() => { $("#notetext").value = ""; toast("Posted to the TV"); status().then(() => renderNotes(window.__status.notes)); }).catch(er => toast(er.message, true)); };
+$$("[data-set]").forEach(c => c.onchange = () => api("/api/settings", { [c.dataset.set]: c.checked }).then(() => toast("Saved")).catch(e => toast(e.message, true)));
+$("#tvipform").onsubmit = e => { e.preventDefault(); api("/api/settings", { tv_ip: $("#tvip").value.trim() }).then(() => { toast("Saved"); apps = []; status(); }).catch(er => toast(er.message, true)); };
+
+/* ---------------- start ---------------- */
+placeRemote(); if (wide.matches) show("channels");
+status(); setInterval(status, 5000);
+</script>
+</body>
+</html>

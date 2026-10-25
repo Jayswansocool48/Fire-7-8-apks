@@ -178,6 +178,8 @@ Hub Remote controls the **Hub** launcher on the Roku TV through the Hub Server a
 | `deskmate-desktop/` | Deskmate desktop program (Go, no dependencies; Linux and Windows) |
 | `glow/` | Glow tablet app (Kotlin, no libraries) |
 | `hubremote/` | Hub Remote tablet app for the Roku Hub launcher (Kotlin, no libraries) |
+| `hub-server/` | Hub server for CasaOS: TV browser, ad blocker, widgets, media library, control page (Python + Playwright) |
+| `hub-tv/` | Hub, the Roku TV launcher channel (BrightScript). Zip this folder's contents and sideload it |
 | `glow-desktop/` | Glow PC program (Go; Linux). The AITOLED and strip protocols are documented in `aitoproto.go` and `stripproto.go` |
 | `tools/prepare-web.mjs` | Rewrites Codeling's JavaScript and CSS so it runs on older WebViews (Android 7) |
 

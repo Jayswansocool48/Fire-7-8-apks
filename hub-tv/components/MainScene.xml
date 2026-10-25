@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="MainScene" extends="Scene">
+  <interface>
+    <!-- Launch/deep-link params from main.brs, e.g. {app: "browser"} or {app: "player", kind, src, title}. -->
+    <field id="launchParams" type="assocarray" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/common.brs" />
+  <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
+  <children>
+    <Poster id="wallA" uri="pkg:/images/bg.jpg" width="1280" height="720" loadDisplayMode="scaleToFill" />
+    <Poster id="wallB" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" />
+    <Poster id="scrim" uri="pkg:/images/scrim.png" width="1280" height="720" />
+
+    <Group id="home" opacity="0">
+      <Group id="header">
+        <Label id="time" translation="[78,30]" color="0xFFFFFFFF" />
+        <Label id="greet" translation="[82,118]" color="0xFFFFFFFF" />
+        <Label id="date" translation="[82,148]" color="0xFFFFFFA8" />
+        <Group id="chips" translation="[1200,50]" />
+      </Group>
+      <Group id="railClip" clippingRect="[0,168,1280,560]">
+        <Group id="rail" />
+      </Group>
+    </Group>
+
+    <Group id="appLayer" />
+
+    <Group id="toast" translation="[640,28]" opacity="0">
+      <Poster id="toastBg" uri="pkg:/images/pill.9.png" height="50" blendColor="0x0B0F1EF0" />
+      <Label id="toastText" height="50" vertAlign="center" horizAlign="center" color="0xFFFFFFFF" />
+    </Group>
+    <Group id="dummy" />
+
+    <Animation id="introAnim" duration="1.2" easeFunction="linear">
+      <FloatFieldInterpolator key="[0.0, 0.2, 1.0]" keyValue="[0.0, 1.0, 1.0]" fieldToInterp="home.opacity" />
+      <Vector2DFieldInterpolator key="[0.0, 0.45, 1.0]" keyValue="[[0,-20],[0,0],[0,0]]" fieldToInterp="header.translation" />
+      <Vector2DFieldInterpolator key="[0.0, 0.2, 0.75, 1.0]" keyValue="[[0,60],[0,60],[0,0],[0,0]]" fieldToInterp="railClip.translation" />
+      <FloatFieldInterpolator key="[0.0, 0.2, 0.75, 1.0]" keyValue="[0.0, 0.0, 1.0, 1.0]" fieldToInterp="railClip.opacity" />
+    </Animation>
+
+    <Animation id="focusAnim" duration="0.22" easeFunction="outCubic">
+      <Vector2DFieldInterpolator id="growInterp" key="[0.0, 1.0]" keyValue="[[1.0, 1.0], [1.08, 1.08]]" fieldToInterp="dummy.scale" />
+      <Vector2DFieldInterpolator id="shrinkInterp" key="[0.0, 1.0]" keyValue="[[1.08, 1.08], [1.0, 1.0]]" fieldToInterp="dummy.scale" />
+      <FloatFieldInterpolator id="glowIn" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="dummy.opacity" />
+      <FloatFieldInterpolator id="glowOut" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="dummy.opacity" />
+      <FloatFieldInterpolator id="ringIn" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="dummy.opacity" />
+    </Animation>
+    <Animation id="pressAnim" duration="0.2" easeFunction="linear">
+      <Vector2DFieldInterpolator id="pressInterp" key="[0.0, 0.4, 1.0]" keyValue="[[1.08,1.08],[0.96,0.96],[1.08,1.08]]" fieldToInterp="dummy.scale" />
+    </Animation>
+    <Animation id="scrollAnim" duration="0.28" easeFunction="outCubic">
+      <Vector2DFieldInterpolator id="scrollInterp" key="[0.0, 1.0]" keyValue="[[0,0],[0,0]]" fieldToInterp="dummy.translation" />
+    </Animation>
+    <Animation id="railAnim" duration="0.34" easeFunction="outCubic">
+      <Vector2DFieldInterpolator id="railInterp" key="[0.0, 1.0]" keyValue="[[0,0],[0,0]]" fieldToInterp="rail.translation" />
+    </Animation>
+    <Animation id="captionAnim" duration="0.25" easeFunction="outCubic">
+      <FloatFieldInterpolator id="captionInterp" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="dummy.opacity" />
+    </Animation>
+    <Animation id="wallAnim" duration="0.8" easeFunction="inOutCubic">
+      <FloatFieldInterpolator id="wallIn" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="wallB.opacity" />
+    </Animation>
+    <Animation id="openAnim" duration="0.3" easeFunction="outCubic">
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="home.opacity" />
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="appLayer.opacity" />
+    </Animation>
+    <Animation id="closeAnim" duration="0.32" easeFunction="outCubic">
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="home.opacity" />
+      <Vector2DFieldInterpolator key="[0.0, 1.0]" keyValue="[[0,18],[0,0]]" fieldToInterp="home.translation" />
+    </Animation>
+    <Animation id="toastAnim" duration="4.2" easeFunction="linear">
+      <FloatFieldInterpolator key="[0.0, 0.06, 0.9, 1.0]" keyValue="[0.0, 1.0, 1.0, 0.0]" fieldToInterp="toast.opacity" />
+      <Vector2DFieldInterpolator id="toastSlide" key="[0.0, 0.06, 1.0]" keyValue="[[640,8],[640,28],[640,28]]" fieldToInterp="toast.translation" />
+    </Animation>
+
+    <Timer id="clockTimer" duration="1" repeat="true" />
+    <Timer id="stateTimer" duration="90" repeat="true" />
+    <Timer id="idleTimer" duration="30" repeat="true" />
+  </children>
+</component>
