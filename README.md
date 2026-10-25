@@ -11,6 +11,7 @@ Every time the code changes, GitHub rebuilds the APKs below automatically.
 | **Deskmate** | [Deskmate.apk](Deskmate.apk) + [desktop program](../../releases/tag/deskmate-desktop) | Turns the tablet into a Stream Deck for your PC, plus a system monitor, media remote, notes/timer and game dev panel |
 | **Kiln** | [Kiln.apk](Kiln.apk) | Game-asset boards, file library, assistant and a Blender-style 3D viewer (**Fire HD 8 only**) |
 | **Glow** | [Glow.apk](Glow.apk) + [PC program](../../releases/tag/glow-desktop) | Controls your 60 ft LEDBLE (Lotus Lantern) strip over Bluetooth and your AITOLED screen-sync light through your PC |
+| **Hub Remote** | [HubRemote.apk](HubRemote.apk) + Hub server on CasaOS | Swipe remote for the Roku TV, channel launcher, TV browser, Send to TV, and Hub customization (wallpapers, widgets, YouTube, anime, notes, sleep timer) |
 
 ## Install on the tablet
 1. Open this repo in the tablet's browser and tap the APK you want.
@@ -158,6 +159,15 @@ If the screen light isn't found:
   controls it through the PC instead. **Music** mode listens with the tablet's microphone and changes color on every beat.
 - **Screen light:** tap it, then **Find my PC** and enter the pairing code shown on the PC's Glow page.
 
+## Hub Remote setup
+Hub Remote controls the **Hub** launcher on the Roku TV through the Hub Server app on CasaOS.
+1. Make sure the Hub Server app is running in CasaOS and the tablet is on the same Wi-Fi.
+2. Open Hub Remote and tap **Find my server** (or type the server's IP, like `10.0.0.134`).
+- **Remote:** swipe on the pad to move, keep holding after a swipe to keep moving, tap for OK, press and hold for Options.
+  Switch to **Pointer** to drive Hub's web browser like a trackpad (drag, tap to click, two fingers to scroll).
+- **Send to TV:** in any app, tap **Share › Hub Remote** to show a photo, video or link on the TV.
+- **Hub tab:** wallpapers, accent color, which rows and widgets show, weather location, YouTube channels, anime, calendar, notes and the screensaver.
+
 ## Repo layout
 | Folder | Contents |
 | --- | --- |
@@ -167,6 +177,7 @@ If the screen light isn't found:
 | `deskmate/` | Deskmate tablet app (Kotlin, no libraries) |
 | `deskmate-desktop/` | Deskmate desktop program (Go, no dependencies; Linux and Windows) |
 | `glow/` | Glow tablet app (Kotlin, no libraries) |
+| `hubremote/` | Hub Remote tablet app for the Roku Hub launcher (Kotlin, no libraries) |
 | `glow-desktop/` | Glow PC program (Go; Linux). The AITOLED and strip protocols are documented in `aitoproto.go` and `stripproto.go` |
 | `tools/prepare-web.mjs` | Rewrites Codeling's JavaScript and CSS so it runs on older WebViews (Android 7) |
 
