@@ -139,7 +139,7 @@ class MainActivity : Activity() {
         s.alpha = 0f
         s.translationY = dp(10f)
         s.animate().alpha(1f).translationY(0f).setDuration(200).start()
-        for ((k, t) in tabs) t.selected = k == key
+        for ((k, t) in tabs) t.active = k == key
         s.onShow()
     }
 
@@ -327,7 +327,7 @@ class IconButton(context: android.content.Context, private val icon: Int, onClic
 
 /** A tab in the bottom bar / side rail, with a small drawn icon. */
 class NavItem(context: android.content.Context, private val key: String, private val name: String, onClick: () -> Unit) : View(context) {
-    var selected = false
+    var active = false
         set(v) { field = v; invalidate() }
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
 
@@ -343,7 +343,7 @@ class NavItem(context: android.content.Context, private val key: String, private
         p.style = Paint.Style.STROKE
         p.strokeWidth = context.dp(1.8f)
         p.strokeCap = Paint.Cap.ROUND
-        p.color = if (selected) Theme.accent else Theme.DIM
+        p.color = if (active) Theme.accent else Theme.DIM
         when (key) {
             "remote" -> { c.drawRoundRect(cx - s * 0.5f, cy - s, cx + s * 0.5f, cy + s, s * 0.4f, s * 0.4f, p); c.drawCircle(cx, cy - s * 0.4f, s * 0.2f, p) }
             "channels" -> for (i in 0..3) {
@@ -359,8 +359,8 @@ class NavItem(context: android.content.Context, private val key: String, private
         p.style = Paint.Style.FILL
         p.textAlign = Paint.Align.CENTER
         p.textSize = context.dp(11.5f)
-        p.color = if (selected) Theme.SNOW else Theme.DIM
-        p.isFakeBoldText = selected
+        p.color = if (active) Theme.SNOW else Theme.DIM
+        p.isFakeBoldText = active
         c.drawText(name, cx, height / 2f + context.dp(20f), p)
     }
 }
