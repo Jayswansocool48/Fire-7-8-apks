@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_watcher_description">Opens Haven instead of the Fire TV home screen when you press Home. Haven doesn\'t read what\'s on your screen.</string>
+</resources>

@@ -12,6 +12,8 @@ Every time the code changes, GitHub rebuilds the APKs below automatically.
 | **Kiln** | [Kiln.apk](Kiln.apk) | Game-asset boards, file library, assistant and a Blender-style 3D viewer (**Fire HD 8 only**) |
 | **Glow** | [Glow.apk](Glow.apk) + [PC program](../../releases/tag/glow-desktop) | Controls your 60 ft LEDBLE (Lotus Lantern) strip over Bluetooth and your AITOLED screen-sync light through your PC |
 | **Hub Remote** | [HubRemote.apk](HubRemote.apk) + Hub server on CasaOS | Swipe remote for the Roku TV, channel launcher, TV browser, Send to TV, and Hub customization (wallpapers, widgets, YouTube, anime, notes, sleep timer) |
+| **Haven** | [Haven.apk](Haven.apk) | Pastel home screen for the Insignia Fire TV: favorites row, every installed app, hide apps, five looks, clock, and takes over the Home button (**install on the TV**) |
+| **Haven Remote** | [HavenRemote.apk](HavenRemote.apk) | Phone remote for the Fire TV running Haven: d-pad or swipe pad, media, volume (phone buttons too), typing, and opening any TV app. No server needed (**install on the phone**) |
 
 ## Install on the tablet
 1. Open this repo in the tablet's browser and tap the APK you want.
@@ -168,6 +170,23 @@ Hub Remote controls the **Hub** launcher on the Roku TV through the Hub Server a
 - **Send to TV:** in any app, tap **Share › Hub Remote** to show a photo, video or link on the TV.
 - **Hub tab:** wallpapers, accent color, which rows and widgets show, weather location, YouTube channels, anime, calendar, notes and the screensaver.
 
+## Haven setup (Fire TV + phone)
+**On the TV.** Install with the Downloader app (go to the raw link of `Haven.apk`) or `adb connect <tv-ip> && adb install -r Haven.apk`, then open Haven.
+- **Favorites:** hold OK (or press ☰) on any app ▸ **Pin to Favorites**. Pick **Move** on a favorite and use ◀ ▶ to reorder it.
+- **Hide apps:** hold OK ▸ **Hide from All apps**. Bring them back in **⚙ Haven ▸ Hidden apps**.
+- **Looks:** **⚙ Haven ▸ Look**. You get a live preview as you move: Lavender Dream, Mint Soda, Peach Fizz, Cotton Candy, Starry Night.
+- **Home button:** Fire TV can't switch home screens. Haven's "Haven home button" accessibility service reopens Haven whenever Amazon's home screen shows up.
+  Turn it on from Haven Remote (**Setup ▸ Make Haven the home screen**) or with
+  `adb shell settings put secure enabled_accessibility_services io.github.jayswansocool48.haven/io.github.jayswansocool48.haven.HomeWatcher`.
+  If you already use an auto-launcher app, you can point it at Haven instead.
+
+**On the phone.** Install `HavenRemote.apk`.
+1. On the TV: **Settings ▸ My Fire TV ▸ About**, press OK on the TV name 7 times. Then **Developer options ▸ ADB debugging** on.
+2. In Haven Remote: **Setup ▸ Find my TV** (or type the TV's IP) ▸ **Connect**.
+3. On the TV, tick **Always allow from this computer** and press OK. This only happens once.
+
+The remote presses buttons over ADB on port 5555. Haven runs a small app-list server on port 8765 inside the TV app, so there's no separate server.
+
 ## Repo layout
 | Folder | Contents |
 | --- | --- |
@@ -180,6 +199,8 @@ Hub Remote controls the **Hub** launcher on the Roku TV through the Hub Server a
 | `hubremote/` | Hub Remote tablet app for the Roku Hub launcher (Kotlin, no libraries) |
 | `hub-server/` | Hub server for CasaOS: TV browser, ad blocker, widgets, media library, control page (Python + Playwright) |
 | `hub-tv/` | Hub, the Roku TV launcher channel (BrightScript). Zip this folder's contents and sideload it |
+| `haven/` | Haven Fire TV launcher (Kotlin, no libraries) |
+| `havenremote/` | Haven Remote phone app; speaks the adb protocol itself in `Adb.kt` (Kotlin, no libraries) |
 | `glow-desktop/` | Glow PC program (Go; Linux). The AITOLED and strip protocols are documented in `aitoproto.go` and `stripproto.go` |
 | `tools/prepare-web.mjs` | Rewrites Codeling's JavaScript and CSS so it runs on older WebViews (Android 7) |
 
