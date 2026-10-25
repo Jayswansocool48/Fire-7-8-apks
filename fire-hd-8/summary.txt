@@ -1,5 +1,4 @@
 == keys the TV received
-POST /keypress/Right
 POST /keypress/Select
 == app
 connect: running
