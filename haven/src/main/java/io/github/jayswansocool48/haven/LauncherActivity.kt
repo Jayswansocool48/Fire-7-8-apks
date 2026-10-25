@@ -19,7 +19,8 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.OvershootInterpolator
+import android.view.animation.DecelerateInterpolator
+import android.graphics.drawable.GradientDrawable
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -64,6 +65,7 @@ class LauncherActivity : Activity() {
     private var cardW = 0
     private var cardH = 0
     private var columns = 5
+    private var gapPx = 0
 
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
@@ -148,14 +150,15 @@ class LauncherActivity : Activity() {
 
     private fun buildUi() {
         val m = resources.displayMetrics
-        val side = dpi(56f)
-        val gap = dpi(26f)
-        cardW = dpi(170f)
-        cardH = dpi(96f)
+        val side = dpi(52f)
+        val gap = dpi(22f)
+        cardW = dpi(120f)
+        cardH = dpi(68f)
         columns = Math.max(3, (m.widthPixels - side * 2 + gap) / (cardW + gap))
         // Stretch the cards a little so the grid fills the width exactly.
         cardW = (m.widthPixels - side * 2 - gap * (columns - 1)) / columns
         cardH = cardW * 9 / 16
+        gapPx = gap
 
         root = FrameLayout(this)
         bg = BlobBackground(this)
@@ -173,28 +176,32 @@ class LauncherActivity : Activity() {
         page = vbox().apply {
             clipChildren = false
             clipToPadding = false
-            setPadding(side, dpi(36f), side, dpi(48f))
+            setPadding(side, dpi(30f), side, dpi(56f))
         }
         scroll.addView(page, FrameLayout.LayoutParams(MATCH, WRAP))
         root.addView(scroll, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        // Header: greeting, big clock and date on the left; two pills on the right.
-        val header = hbox().apply { clipChildren = false }
+        // Header: big clock with the date and greeting under it; two round buttons on the right.
+        val header = hbox().apply { clipChildren = false; clipToPadding = false }
         val left = vbox()
-        greeting = text("", 20f, theme.dim)
-        clock = text("", 66f, theme.text, bold = true)
-        date = text("", 19f, theme.dim)
-        left.addView(greeting)
-        left.addView(clock, lp(WRAP, WRAP).apply { topMargin = dpi(4f) })
+        clock = text("", 50f, theme.text, bold = true)
+        date = text("", 16f, theme.dim)
+        greeting = date
+        left.addView(clock)
         left.addView(date, lp(WRAP, WRAP).apply { topMargin = dpi(2f) })
         header.addView(left, lp(0, WRAP, 1f))
-        val pills = hbox().apply { clipChildren = false }
-        pills.addView(pill("⚙  Haven", theme) { showSettings(0) })
-        pills.addView(pill("📺  Fire TV settings", theme) { openFireSettings() }, lp(WRAP, WRAP).apply { leftMargin = dpi(14f) })
-        header.addView(pills)
+        val hint = text("", 15f, theme.dim)
+        header.addView(hint, lp(WRAP, WRAP).apply { rightMargin = dpi(18f) })
+        fun hintFor(label: String): (Boolean) -> Unit = { has ->
+            if (has) hint.text = label else if (hint.text == label) hint.text = ""
+        }
+        header.addView(roundButton(R.drawable.ic_settings, theme, hintFor("Haven settings")) { showSettings(0) })
+        header.addView(roundButton(R.drawable.ic_tv, theme, hintFor("Fire TV settings")) { openFireSettings() }.apply {
+            (layoutParams as LinearLayout.LayoutParams).leftMargin = dpi(14f)
+        })
         page.addView(header)
 
-        page.addView(sectionTitle("Favorites", "✦"), lp(MATCH, WRAP).apply { topMargin = dpi(30f) })
+        page.addView(sectionTitle("Favorites"), lp(MATCH, WRAP).apply { topMargin = dpi(24f) })
         favScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             clipChildren = false
@@ -203,33 +210,29 @@ class LauncherActivity : Activity() {
         favRow = hbox().apply {
             clipChildren = false
             clipToPadding = false
-            setPadding(0, dpi(18f), dpi(40f), dpi(18f))
+            setPadding(0, dpi(16f), dpi(40f), dpi(6f))
         }
         favScroll.addView(favRow)
         page.addView(favScroll, lp(MATCH, WRAP))
-        favEmpty = text("Hold OK (or press ☰) on any app to pin it here.", 17f, theme.dim).apply {
-            setPadding(0, dpi(10f), 0, dpi(20f))
+        favEmpty = text("Hold OK on any app to pin it here.", 16f, theme.dim).apply {
+            setPadding(0, dpi(12f), 0, dpi(24f))
             visibility = View.GONE
         }
         page.addView(favEmpty)
 
-        allTitle = sectionTitle("All apps", "✿")
-        page.addView(allTitle, lp(MATCH, WRAP).apply { topMargin = dpi(14f) })
+        allTitle = sectionTitle("All apps")
+        page.addView(allTitle, lp(MATCH, WRAP).apply { topMargin = dpi(10f) })
         grid = vbox().apply {
             clipChildren = false
             clipToPadding = false
-            setPadding(0, dpi(18f), 0, 0)
+            setPadding(0, dpi(16f), 0, 0)
         }
         page.addView(grid, lp(MATCH, WRAP))
 
         setContentView(root)
     }
 
-    private fun sectionTitle(label: String, mark: String): TextView {
-        val s = SpannableString("$label  $mark")
-        s.setSpan(ForegroundColorSpan(theme.accent), label.length + 2, s.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        return text("", 24f, theme.text, bold = true).apply { text = s }
-    }
+    private fun sectionTitle(label: String): TextView = text(label, 19f, theme.text, bold = true)
 
     /** Rebuilds everything after the look changes. */
     private fun rebuild() {
@@ -262,7 +265,7 @@ class LauncherActivity : Activity() {
         for ((i, app) in favs.withIndex()) {
             val tile = makeTile(app, inFavorites = true)
             val l = lp(WRAP, WRAP)
-            if (i > 0) l.leftMargin = dpi(26f)
+            if (i > 0) l.leftMargin = gapPx
             favRow.addView(tile, l)
         }
         favScroll.visibility = if (favs.isEmpty()) View.GONE else View.VISIBLE
@@ -273,19 +276,19 @@ class LauncherActivity : Activity() {
         grid.removeAllViews()
         val hidden = repo.hidden
         val shown = apps.filter { repo.showHidden || it.pkg !in hidden }
-        val s = SpannableString("All apps  ✿  ${shown.size}")
-        s.setSpan(ForegroundColorSpan(theme.accent), 10, 11, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        s.setSpan(ForegroundColorSpan(theme.dim), 12, s.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        val s = SpannableString("All apps   ${shown.size}")
+        s.setSpan(ForegroundColorSpan(theme.dim), 11, s.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        s.setSpan(android.text.style.RelativeSizeSpan(0.8f), 11, s.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         allTitle.text = s
         var row: LinearLayout? = null
         for ((i, app) in shown.withIndex()) {
             if (i % columns == 0) {
                 row = hbox().apply { clipChildren = false; clipToPadding = false }
-                grid.addView(row, lp(MATCH, WRAP).apply { bottomMargin = dpi(22f) })
+                grid.addView(row, lp(MATCH, WRAP).apply { bottomMargin = dpi(2f) })
             }
             val tile = makeTile(app, inFavorites = false, dimmed = app.pkg in hidden)
             val l = lp(WRAP, WRAP)
-            if (i % columns > 0) l.leftMargin = dpi(26f)
+            if (i % columns > 0) l.leftMargin = gapPx
             row!!.addView(tile, l)
         }
     }
@@ -333,7 +336,7 @@ class LauncherActivity : Activity() {
 
     private fun launch(tile: AppTile) {
         tile.animate().scaleX(0.94f).scaleY(0.94f).setDuration(90).withEndAction {
-            bounce(tile, tile.isFocused, 1.12f)
+            bounce(tile, tile.isFocused, 1.1f)
             try {
                 startActivity(repo.launchIntent(tile.app))
             } catch (e: Exception) {
@@ -358,7 +361,7 @@ class LauncherActivity : Activity() {
             it.requestFocus()
             it.setMoving(true)
         }
-        toast("◀ ▶ to move, OK when done")
+        toast("Use ◀ ▶ to move it, then press OK")
     }
 
     private fun stopMoving() {
@@ -399,56 +402,53 @@ class LauncherActivity : Activity() {
         return super.dispatchKeyEvent(event)
     }
 
-    // ---------------------------------------------------------------- panels
+    // ---------------------------------------------------------------- the side sheet
 
+    /** Slides a sheet in from the right with a title, optional text and a list of rows. */
     private fun showPanel(title: String, body: String?, items: List<View>, focusIndex: Int = 0) {
+        val replacing = panel != null
         closePanel(restore = false)
         if (panelReturnFocus == null) panelReturnFocus = currentFocus
         page.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
 
         val scrim = FrameLayout(this).apply {
-            setBackgroundColor(theme.top and 0x00FFFFFF or (0xB8 shl 24))
+            setBackgroundColor(withAlpha(if (theme.dark) 0xFF000000.toInt() else theme.text, if (theme.dark) 0x80 else 0x33))
             isClickable = true
-            alpha = 0f
         }
-        val card = vbox().apply {
-            background = rounded(theme.panel, dp(34f))
+        val w = Math.min(dpi(460f), resources.displayMetrics.widthPixels / 2)
+        val sheet = vbox().apply {
+            background = GradientDrawable().apply {
+                setColor(theme.panel)
+                val r = dp(32f)
+                cornerRadii = floatArrayOf(r, r, 0f, 0f, 0f, 0f, r, r)
+            }
             elevation = dp(24f)
-            val p = dpi(34f)
-            setPadding(p, p, p, p)
-            clipChildren = false
-            clipToPadding = false
+            setPadding(dpi(30f), dpi(40f), dpi(30f), dpi(24f))
         }
-        card.addView(text(title, 28f, theme.text, bold = true))
+        sheet.addView(text(title, 26f, theme.text, bold = true).apply { setPadding(dpi(18f), 0, dpi(18f), 0) })
         if (body != null) {
-            card.addView(text(body, 17f, theme.dim).apply { setLineSpacing(0f, 1.25f) }, lp(MATCH, WRAP).apply { topMargin = dpi(10f) })
+            sheet.addView(text(body, 15f, theme.dim).apply {
+                setLineSpacing(0f, 1.3f)
+                setPadding(dpi(18f), 0, dpi(18f), 0)
+            }, lp(MATCH, WRAP).apply { topMargin = dpi(12f) })
         }
-        val list = vbox().apply {
-            clipChildren = false
-            clipToPadding = false
-            setPadding(dpi(8f), dpi(8f), dpi(8f), dpi(8f))
-        }
-        for (v in items) list.addView(v, lp(MATCH, WRAP).apply { topMargin = dpi(12f) })
+        val list = vbox()
+        for (v in items) list.addView(v, lp(MATCH, WRAP).apply { topMargin = dpi(4f) })
         val listScroll = ScrollView(this).apply {
             isVerticalScrollBarEnabled = false
-            clipChildren = false
-            clipToPadding = false
             addView(list)
         }
-        card.addView(listScroll, lp(MATCH, WRAP).apply { topMargin = dpi(12f) })
-
-        val w = Math.min(dpi(600f), resources.displayMetrics.widthPixels - dpi(80f))
-        val clp = FrameLayout.LayoutParams(w, WRAP, Gravity.CENTER)
-        clp.topMargin = dpi(30f)
-        clp.bottomMargin = dpi(30f)
-        scrim.addView(card, clp)
+        sheet.addView(listScroll, lp(MATCH, WRAP).apply { topMargin = dpi(18f) })
+        scrim.addView(sheet, FrameLayout.LayoutParams(w, MATCH, Gravity.END))
         root.addView(scrim, FrameLayout.LayoutParams(MATCH, MATCH))
         panel = scrim
 
-        scrim.animate().alpha(1f).setDuration(160).start()
-        card.scaleX = 0.85f
-        card.scaleY = 0.85f
-        card.animate().scaleX(1f).scaleY(1f).setInterpolator(OvershootInterpolator(2.2f)).setDuration(300).start()
+        if (!replacing) {
+            scrim.alpha = 0f
+            scrim.animate().alpha(1f).setDuration(180).start()
+            sheet.translationX = w.toFloat()
+            sheet.animate().translationX(0f).setInterpolator(DecelerateInterpolator(2f)).setDuration(260).start()
+        }
         val focusable = items.filter { it.isFocusable }
         (focusable.getOrNull(focusIndex) ?: focusable.firstOrNull())?.requestFocus()
     }
@@ -468,20 +468,20 @@ class LauncherActivity : Activity() {
         }
     }
 
-    private fun item(label: String, action: () -> Unit) = pill(label, theme, action)
-    private fun note(s: String) = text(s, 16f, theme.dim).apply { setLineSpacing(0f, 1.2f) }
+    private fun row(iconRes: Int, label: String, value: String? = null, action: () -> Unit) =
+        SheetRow(this, theme, icon(iconRes, theme.dim), label, value, action)
 
     private fun showAppMenu(app: AppEntry, inFavorites: Boolean, tile: AppTile) {
         panelReturnFocus = tile
         val items = ArrayList<View>()
         val fav = repo.isFavorite(app.pkg)
-        items += item("▶  Open") { closePanel(); launch(tile) }
+        items += row(R.drawable.ic_play, "Open") { closePanel(); launch(tile) }
         if (fav) {
-            if (inFavorites) items += item("↔  Move") {
+            if (inFavorites) items += row(R.drawable.ic_move, "Move") {
                 closePanel()
                 startMoving(app.pkg)
             }
-            items += item("♡  Unpin from Favorites") {
+            items += row(R.drawable.ic_heart_off, "Remove from Favorites") {
                 repo.removeFavorite(app.pkg)
                 closePanel(restore = false)
                 page.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
@@ -490,15 +490,15 @@ class LauncherActivity : Activity() {
                 (findTile(app.pkg, false) ?: run { focusFirst(); null })?.requestFocus()
             }
         } else {
-            items += item("♥  Pin to Favorites") {
+            items += row(R.drawable.ic_heart, "Add to Favorites") {
                 repo.addFavorite(app.pkg)
                 closePanel()
                 renderFavorites()
-                toast("Pinned ${app.label} ✦")
+                toast("Added ${app.label} to Favorites")
             }
         }
         if (app.pkg in repo.hidden) {
-            items += item("👀  Show in All apps") {
+            items += row(R.drawable.ic_show, "Show in All apps") {
                 repo.unhide(app.pkg)
                 closePanel(restore = false)
                 page.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
@@ -507,21 +507,21 @@ class LauncherActivity : Activity() {
                 findTile(app.pkg, inFavorites)?.requestFocus() ?: focusFirst()
             }
         } else {
-            items += item("🙈  Hide from All apps") {
+            items += row(R.drawable.ic_hide, "Hide from All apps") {
                 repo.hide(app.pkg)
                 closePanel(restore = false)
                 page.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
                 panelReturnFocus = null
                 renderGrid()
                 if (inFavorites) findTile(app.pkg, true)?.requestFocus() else focusFirst()
-                toast("Hidden. Find it again in Haven ▸ Hidden apps")
+                toast("Hidden. Find it in Haven settings › Hidden apps")
             }
         }
-        items += item("ℹ  App info") {
+        items += row(R.drawable.ic_info, "App info") {
             closePanel()
             tryStart(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", app.pkg, null)))
         }
-        items += item("🗑  Uninstall") {
+        items += row(R.drawable.ic_delete, "Uninstall") {
             closePanel()
             tryStart(Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.pkg}")))
         }
@@ -530,43 +530,43 @@ class LauncherActivity : Activity() {
 
     private fun showSettings(focus: Int) {
         val items = ArrayList<View>()
-        items += item("🎨  Look: ${theme.name}") { showThemes() }
-        items += item("✨  Floating bubbles: ${if (repo.animate) "On" else "Off"}") {
+        items += row(R.drawable.ic_palette, "Look", theme.name) { showThemes() }
+        items += row(R.drawable.ic_bubbles, "Floating bubbles", if (repo.animate) "On" else "Off") {
             repo.animate = !repo.animate
             bg.animated = repo.animate
             showSettings(1)
         }
-        items += item("🖼  App art: ${if (repo.useBanners) "TV banners" else "Icons"}") {
+        items += row(R.drawable.ic_image, "App art", if (repo.useBanners) "TV banners" else "Icons") {
             repo.useBanners = !repo.useBanners
-            closePanel(restore = false)
-            page.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-            panelReturnFocus = null
             renderFavorites()
             renderGrid()
             showSettings(2)
         }
-        items += item("🕒  Clock: ${if (repo.clock24) "24-hour" else "12-hour"}") {
+        items += row(R.drawable.ic_clock, "Clock", if (repo.clock24) "24-hour" else "12-hour") {
             repo.clock24 = !repo.clock24
             updateClock()
             showSettings(3)
         }
-        items += item("🙈  Hidden apps (${repo.hidden.size})") { showHidden() }
-        items += item("🏠  Home button: ${if (HomeWatcher.isOn(this)) "Haven ✓" else "Set up"}") { showHomeHelp() }
-        items += item("📱  Haven Remote") { showRemoteInfo() }
-        items += item("📺  Open the Fire TV home screen") {
+        items += row(R.drawable.ic_hide, "Hidden apps", "${repo.hidden.size}") { showHidden() }
+        items += row(R.drawable.ic_home, "Home button", if (HomeWatcher.isOn(this)) "Haven" else "Set up") { showHomeHelp() }
+        items += row(R.drawable.ic_remote, "Haven Remote") { showRemoteInfo() }
+        items += row(R.drawable.ic_tv, "Fire TV home screen") {
             closePanel()
             openStockHome()
         }
-        items += item("Done") { closePanel() }
-        showPanel("Haven", "Version ${versionName()}", items, focus)
+        showPanel("Settings", "Haven ${versionName()}", items, focus)
     }
 
     private fun showThemes() {
         val original = theme
         val items = THEMES.map { t ->
-            val label = SpannableString("●  ${t.name}${if (t.id == theme.id) "   ✓" else ""}")
-            label.setSpan(ForegroundColorSpan(t.accent), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            item("") {
+            val swatch = View(this).apply {
+                background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(t.blobs[0], t.accent)).apply {
+                    shape = GradientDrawable.OVAL
+                    setStroke(dpi(2f), 0xFFFFFFFF.toInt())
+                }
+            }
+            SheetRow(this, theme, swatch, t.name, if (t.id == theme.id) "Current" else null) {
                 onPanelClosed = null
                 repo.themeId = t.id
                 closePanel(restore = false)
@@ -574,7 +574,6 @@ class LauncherActivity : Activity() {
                 rebuild()
                 showSettings(0)
             }.apply {
-                text = label
                 val base = onFocusChangeListener
                 setOnFocusChangeListener { v, has ->
                     base?.onFocusChange(v, has)
@@ -582,65 +581,70 @@ class LauncherActivity : Activity() {
                 }
             }
         }
-        showPanel("Pick a look", "Move around to preview, press OK to keep it.", items, THEMES.indexOf(theme).coerceAtLeast(0))
-        onPanelClosed = { bg.theme = original }
+        showPanel("Look", "Move through the list to preview. Press OK to keep one.", items, THEMES.indexOf(theme).coerceAtLeast(0))
+        onPanelClosed = {
+            bg.theme = original
+            ui.post { if (panel == null) showSettings(0) }
+        }
     }
 
     private fun showHidden() {
         val hidden = repo.hidden
         val byPkg = apps.associateBy { it.pkg }
         val items = ArrayList<View>()
-        items += item("Show hidden apps (faded) in All apps: ${if (repo.showHidden) "On" else "Off"}") {
+        items += row(R.drawable.ic_show, "Show hidden apps faded", if (repo.showHidden) "On" else "Off") {
             repo.showHidden = !repo.showHidden
             renderGrid()
             showHidden()
         }
         for (pkg in hidden.sortedBy { byPkg[it]?.label?.lowercase() ?: it }) {
             val name = byPkg[pkg]?.label ?: pkg
-            items += item("👀  Unhide $name") {
+            items += row(R.drawable.ic_hide, name, "Unhide") {
                 repo.unhide(pkg)
                 renderGrid()
                 showHidden()
             }
         }
-        items += item("Back") { showSettings(4) }
-        showPanel("Hidden apps", if (hidden.isEmpty()) "Nothing hidden. Hold OK on an app ▸ Hide to tuck it away." else null, items)
+        showPanel("Hidden apps", if (hidden.isEmpty()) "Nothing is hidden. Hold OK on an app and choose Hide." else null, items)
+        onPanelClosed = { if (panel == null) ui.post { if (panel == null) showSettings(4) } }
     }
 
     private fun showHomeHelp() {
         val on = HomeWatcher.isOn(this)
         val body = if (on) {
-            "Haven opens whenever you press Home. ✓\n\nTo get the Fire TV home screen back for a moment, use Haven ▸ Open the Fire TV home screen."
+            "Haven opens whenever you press Home.\n\nTo see Amazon's home screen for a moment, use Settings › Fire TV home screen."
         } else {
             "Make the Home button open Haven:\n\n" +
-                "•  Easiest: on Haven Remote, go to Setup ▸ Make Haven the TV's home screen.\n" +
-                "•  Already use an app that opens your launcher automatically? Pick Haven in it instead.\n" +
-                "•  Or turn on \"Haven home button\" in accessibility settings, if this TV lists it."
+                "1.  Easiest: in Haven Remote, go to Setup › Make Haven the home screen.\n" +
+                "2.  Or pick Haven in the app you already use to open your launcher.\n" +
+                "3.  Or turn on \"Haven home button\" in accessibility settings, if this TV shows it."
         }
         val items = ArrayList<View>()
-        if (!on) items += item("Open accessibility settings") {
+        if (!on) items += row(R.drawable.ic_settings, "Accessibility settings") {
+            onPanelClosed = null
             closePanel()
             if (!tryStart(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))) toast("This TV hides that screen. Use Haven Remote instead.")
         }
-        items += item("Back") { showSettings(5) }
         showPanel("Home button", body, items)
+        onPanelClosed = { if (panel == null) ui.post { if (panel == null) showSettings(5) } }
     }
 
     private fun showRemoteInfo() {
-        val ip = ShareServer.localIp() ?: "unknown (not on Wi-Fi?)"
-        val body = "Control this TV from a phone with the Haven Remote app.\n\n" +
-            "1.  On this TV: Settings ▸ My Fire TV ▸ About, press OK on the TV's name 7 times. Developer options appears.\n" +
-            "2.  Settings ▸ My Fire TV ▸ Developer options ▸ turn on ADB debugging.\n" +
-            "3.  On the phone, open Haven Remote ▸ Setup ▸ Find my TV, then Connect.\n" +
-            "4.  On this TV, tick \"Always allow from this computer\" and press OK.\n\n" +
-            "This TV's address: $ip"
+        val ip = ShareServer.localIp() ?: "not on the network"
+        val body = "Control this TV from a phone with Haven Remote.\n\n" +
+            "1.  Settings › My Fire TV › About: press OK on the TV's name 7 times.\n" +
+            "2.  My Fire TV › Developer options: turn on ADB debugging.\n" +
+            "3.  In Haven Remote: Setup › Find my TV › Connect.\n" +
+            "4.  On this TV: tick Always allow, then OK.\n\n" +
+            "This TV's address is $ip"
         val items = ArrayList<View>()
-        items += item("Open Developer options") {
+        items += row(R.drawable.ic_settings, "Developer options") {
+            onPanelClosed = null
             closePanel()
-            if (!tryStart(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))) toast("Turn it on first (step 1)")
+            if (!tryStart(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))) toast("Do step 1 first")
         }
-        items += item("Back") { showSettings(6) }
         showPanel("Haven Remote", body, items)
+        onPanelClosed = { if (panel == null) ui.post { if (panel == null) showSettings(6) } }
     }
 
     // ---------------------------------------------------------------- misc
@@ -652,12 +656,13 @@ class LauncherActivity : Activity() {
         clock.text = SimpleDateFormat(fmt, Locale.getDefault()).format(now)
         date.text = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault()).format(now)
         val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        greeting.text = when (h) {
-            in 5..11 -> "Good morning  ☀"
-            in 12..16 -> "Good afternoon  ✿"
-            in 17..21 -> "Good evening  ☾"
-            else -> "Sweet dreams  ✧"
+        val hello = when (h) {
+            in 5..11 -> "Good morning"
+            in 12..16 -> "Good afternoon"
+            in 17..21 -> "Good evening"
+            else -> "Sweet dreams"
         }
+        date.text = "${SimpleDateFormat("EEEE, MMMM d", Locale.getDefault()).format(now)}   ·   $hello"
     }
 
     private fun openFireSettings() {

@@ -13,26 +13,30 @@ import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
 
-/** A rounded app card with its name underneath. Banners fill the card; plain icons sit on a pastel tile. */
+/**
+ * A rounded app card. TV banners fill the card; other apps get their icon and name on a soft
+ * pastel tile. The name under the card only shows on the selected app, which keeps the grid calm.
+ */
 @SuppressLint("ViewConstructor")
 class AppTile(
     ctx: Context,
     val app: AppEntry,
     private val t: HavenTheme,
     cardW: Int,
-    cardH: Int,
+    private val cardH: Int,
     private val dimmed: Boolean,
 ) : LinearLayout(ctx) {
 
-    private val radius = ctx.dp(20f)
+    private val radius = ctx.dp(18f)
     val card = FrameLayout(ctx)
-    private val image = ImageView(ctx)
-    private val name = ctx.text(app.label, 15f, t.dim)
-    private val ring = rounded(0, radius, 0xFFFFFFFF.toInt(), ctx.dpi(4f))
-    private val moveRing = rounded(0, radius, t.accent, ctx.dpi(5f))
+    private val name = ctx.text(app.label, 13f, t.text, bold = true)
+    private val ring = rounded(0, radius, 0xFFFFFFFF.toInt(), ctx.dpi(3f))
+    private val moveRing = rounded(0, radius, t.accent, ctx.dpi(4f))
     /** Drawn on top of the art: the white focus ring, or the accent ring while moving. */
     private val overlay = View(ctx)
+    private var art: View? = null
     private var wiggle: ObjectAnimator? = null
 
     init {
@@ -52,7 +56,6 @@ class AppTile(
             }
         }
         card.clipToOutline = true
-        card.elevation = ctx.dp(2f)
         overlay.visibility = View.INVISIBLE
         card.addView(overlay, FrameLayout.LayoutParams(MATCH, MATCH))
         addView(card, LayoutParams(cardW, cardH))
@@ -60,34 +63,56 @@ class AppTile(
         name.gravity = Gravity.CENTER
         name.maxLines = 1
         name.ellipsize = TextUtils.TruncateAt.END
-        val nlp = LayoutParams(cardW, WRAP)
+        name.alpha = 0f
+        val nlp = LayoutParams(cardW + ctx.dpi(30f), WRAP)
         nlp.topMargin = ctx.dpi(10f)
         addView(name, nlp)
 
-        if (dimmed) alpha = 0.5f
+        if (dimmed) alpha = 0.45f
 
         setOnFocusChangeListener { _, has ->
-            bounce(this, has, 1.12f)
+            bounce(this, has, 1.1f)
             if (wiggle == null) showRing(if (has) ring else null)
-            name.setTextColor(if (has) t.text else t.dim)
-            name.typeface = if (has) Fonts.bold(ctx) else Fonts.medium(ctx)
-            if (dimmed) alpha = if (has) 1f else 0.5f
+            name.animate().alpha(if (has) 1f else 0f).setDuration(if (has) 200 else 120).start()
+            if (dimmed) alpha = if (has) 1f else 0.45f
         }
     }
 
     /** Shows the art once it's been loaded off the main thread. */
     fun setArt(banner: Drawable?, icon: Drawable) {
-        card.removeView(image)
-        if (banner != null) {
-            image.setImageDrawable(banner)
-            image.scaleType = ImageView.ScaleType.CENTER_CROP
-            card.addView(image, 0, FrameLayout.LayoutParams(MATCH, MATCH))
+        art?.let { card.removeView(it) }
+        val view: View = if (banner != null) {
+            ImageView(context).apply {
+                setImageDrawable(banner)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                layoutParams = FrameLayout.LayoutParams(MATCH, MATCH)
+            }
         } else {
-            image.setImageDrawable(icon)
-            image.scaleType = ImageView.ScaleType.FIT_CENTER
-            val s = context.dpi(56f)
-            card.addView(image, 0, FrameLayout.LayoutParams(s, s, Gravity.CENTER))
+            // Icon with the app's name under it, centered on the tile.
+            context.vbox().apply {
+                gravity = Gravity.CENTER
+                val s = Math.min(context.dpi(40f), (cardH * 0.44f).toInt())
+                addView(ImageView(context).apply {
+                    setImageDrawable(icon)
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                }, LinearLayout.LayoutParams(s, s))
+                val label: TextView = context.text(app.label, 10f, t.text).apply {
+                    gravity = Gravity.CENTER
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                    alpha = 0.85f
+                }
+                val p = context.dpi(10f)
+                addView(label, LinearLayout.LayoutParams(MATCH, WRAP).apply {
+                    topMargin = context.dpi(4f)
+                    leftMargin = p
+                    rightMargin = p
+                })
+                layoutParams = FrameLayout.LayoutParams(MATCH, MATCH)
+            }
         }
+        art = view
+        card.addView(view, 0)
     }
 
     /** The little wobble while a favorite is being moved. */
@@ -97,8 +122,8 @@ class AppTile(
         rotation = 0f
         if (on) {
             showRing(moveRing)
-            wiggle = ObjectAnimator.ofFloat(this, View.ROTATION, -2.5f, 2.5f).apply {
-                duration = 140
+            wiggle = ObjectAnimator.ofFloat(this, View.ROTATION, -2f, 2f).apply {
+                duration = 150
                 repeatMode = ValueAnimator.REVERSE
                 repeatCount = ValueAnimator.INFINITE
                 start()
@@ -108,7 +133,7 @@ class AppTile(
         }
     }
 
-    private fun showRing(d: android.graphics.drawable.Drawable?) {
+    private fun showRing(d: Drawable?) {
         overlay.background = d
         overlay.visibility = if (d == null) View.INVISIBLE else View.VISIBLE
     }

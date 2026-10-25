@@ -34,7 +34,7 @@ if [ "$MODE" = tv ]; then
   key DPAD_RIGHT; shot 02-focus-second 1
   key DPAD_DOWN; shot 03-all-apps 1
   key DPAD_DOWN DPAD_DOWN; shot 04-scrolled 1
-  adb shell input keyevent --longpress DPAD_CENTER; shot 05-app-menu 2
+  key MENU; shot 05-app-menu 2
   key BACK
   adb shell am start -W -n $TV/.LauncherActivity > /dev/null; sleep 2   # Home: back to the top
   key DPAD_UP DPAD_UP; shot 06-header-focus 1
@@ -60,8 +60,7 @@ else
   tap_text "Remote"; shot 03-remote 3
   tap_text "Swipe"; shot 04-remote-swipe 2
   tap_text "Buttons"; sleep 1
-  tap_text "⌨" || true; shot 05-keyboard 3
-  adb shell input keyevent BACK; sleep 1
+  shot 05-remote-buttons 1
   tap_text "Apps"; shot 06-apps 8; alive apps $RM
   tap_text "Setup"; shot 07-setup 3
   adb shell input swipe 500 1800 500 400 400; shot 08-setup-scrolled 2

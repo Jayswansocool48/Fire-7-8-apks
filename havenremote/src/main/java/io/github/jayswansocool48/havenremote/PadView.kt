@@ -68,7 +68,7 @@ class PadView(ctx: Context, private val onKey: (Int) -> Unit) : View(ctx) {
     }
 
     init {
-        elevation = ctx.dp(8f)
+        elevation = ctx.dp(4f)
         outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
                 outline.setOval(0, 0, view.width, view.height)
