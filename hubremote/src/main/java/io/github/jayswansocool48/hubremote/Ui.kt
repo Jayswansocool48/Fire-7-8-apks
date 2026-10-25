@@ -210,10 +210,10 @@ class Chips(context: Context) : ViewGroup(context) {
 }
 
 /** Lays children out in equal columns, as many as fit [minCell]. */
-class Grid(context: Context, private val minCell: Int) : ViewGroup(context) {
+class Grid(context: Context, private val minCell: Int, private val fixedCols: Int = 0) : ViewGroup(context) {
     private val gap = context.dpi(12f)
 
-    private fun cols(w: Int) = maxOf(1, (w + gap) / (minCell + gap))
+    private fun cols(w: Int) = if (fixedCols > 0) fixedCols else maxOf(1, (w + gap) / (minCell + gap))
 
     override fun onMeasure(wSpec: Int, hSpec: Int) {
         val w = MeasureSpec.getSize(wSpec)

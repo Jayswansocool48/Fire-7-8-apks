@@ -94,7 +94,7 @@ class RemoteScreen(act: MainActivity) : Screen(act, scroll = false) {
         setMode(false)
 
         val controls = act.vbox()
-        val keys = Grid(act, act.dpi(90f))
+        val keys = Grid(act, act.dpi(90f), fixedCols = 3)
         for ((k, name) in listOf("Back" to "Back", "Home" to "Home", "Info" to "✱ Options", "Rev" to "◀◀", "Play" to "▶ ❚❚", "Fwd" to "▶▶")) {
             keys.addView(keyButton(name) { Hub.key(k) }, ViewGroupLp())
         }

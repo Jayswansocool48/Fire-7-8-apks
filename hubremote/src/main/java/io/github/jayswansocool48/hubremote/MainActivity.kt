@@ -120,7 +120,11 @@ class MainActivity : Activity() {
             root.addView(content, lp(MATCH, 0, 1f))
             root.addView(nav, lp(MATCH, WRAP))
         }
+        // Keep focus off the text boxes so the keyboard only opens when you tap one.
+        root.isFocusableInTouchMode = true
+        root.descendantFocusability = android.view.ViewGroup.FOCUS_BEFORE_DESCENDANTS
         setContentView(root)
+        root.requestFocus()
         updateHeader()
     }
 
@@ -145,6 +149,7 @@ class MainActivity : Activity() {
         s.animate().alpha(1f).translationY(0f).setDuration(200).start()
         for ((k, t) in tabs) t.active = k == key
         s.onShow()
+        root.requestFocus()
     }
 
     fun updateHeader() {

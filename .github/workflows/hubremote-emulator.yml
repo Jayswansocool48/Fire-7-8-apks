@@ -24,6 +24,7 @@ jobs:
             api: 34
             arch: x86_64
             size: 1280x800
+            skin: 1280x800
             density: 189
             padx: 420
             pady: 460
@@ -31,6 +32,7 @@ jobs:
             api: 25
             arch: x86
             size: 1024x600
+            skin: 1024x600
             density: 170
             padx: 340
             pady: 350
@@ -72,7 +74,7 @@ jobs:
           target: google_apis
           arch: ${{ matrix.arch }}
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -skin ${{ matrix.skin }} -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: OUT=screens/${{ matrix.name }} bash hubremote/tests/emulator.sh hubremote/build/outputs/apk/release/hubremote-release.apk ${{ matrix.size }} ${{ matrix.density }} ${{ matrix.padx }} ${{ matrix.pady }}
       - name: Collect results
         if: always()
