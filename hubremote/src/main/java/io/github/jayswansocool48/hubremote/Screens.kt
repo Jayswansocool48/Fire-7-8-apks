@@ -968,7 +968,14 @@ class HubScreen(act: MainActivity) : Screen(act) {
                 val p = act.dpi(14f)
                 setPadding(p, p, act.dpi(6f), p)
             }
-            card.addView(act.label(n.optString("text"), 15f, 0xFF1D1A10.toInt(), bold = true), lp(0, WRAP, 1f))
+            if (n.optString("kind") == "drawing") {
+                card.background = rounded(0xFF1B1F3B.toInt(), act.dp(12f))
+                val img = ImageView(act).apply { adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_START }
+                Images.load(img, n.optString("image"), 600)
+                card.addView(img, lp(0, act.dpi(110f), 1f))
+            } else {
+                card.addView(act.label(n.optString("text"), 15f, 0xFF1D1A10.toInt(), bold = true), lp(0, WRAP, 1f))
+            }
             card.addView(act.label("×", 20f, 0x99000000.toInt()).apply {
                 gravity = Gravity.CENTER
                 setOnClickListener { Hub.post("/api/notes/delete", json("id" to n.optString("id"))) { _, e -> act.toast(e ?: "Deleted"); reload() } }
