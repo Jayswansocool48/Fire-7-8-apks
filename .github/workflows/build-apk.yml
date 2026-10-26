@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+# One build at a time, so two pushes close together don't race to commit APKs.
+concurrency:
+  group: build-apps
+  cancel-in-progress: false
+
 jobs:
   desktop:
     runs-on: ubuntu-latest
@@ -134,5 +139,10 @@ jobs:
           git add Inkwell.apk Codeling.apk Deskmate.apk GameCodex.apk GameCodex.json Kiln.apk Glow.apk HubRemote.apk Haven.apk HavenRemote.apk
           git diff --cached --quiet && exit 0
           git commit -m "Update APKs [skip ci]"
-          git pull --rebase origin main
-          git push
+          # If another build committed APKs meanwhile, keep the ones built here.
+          for i in 1 2 3; do
+            git pull --rebase -X theirs origin main && git push && exit 0
+            git rebase --abort 2>/dev/null || true
+            sleep 5
+          done
+          exit 1
