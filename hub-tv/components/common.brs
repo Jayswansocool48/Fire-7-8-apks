@@ -50,15 +50,36 @@ function absUrl(server as String, path as String) as String
     return serverUrl(server) + path
 end function
 
+' Hub's typeface is Inter (bundled in pkg:/fonts, OFL licensed).
 function makeFont(bold as Boolean, size as Integer) as Object
+    if bold then return fontFile("semibold", size)
+    return fontFile("regular", size)
+end function
+
+' name: "clock" (extra light), "regular", "medium", "semibold"
+function fontFile(name as String, size as Integer) as Object
     f = CreateObject("roSGNode", "Font")
-    if bold
-        f.uri = "font:BoldSystemFontFile"
-    else
-        f.uri = "font:SystemFontFile"
-    end if
+    f.uri = "pkg:/fonts/" + name + ".ttf"
     f.size = size
     return f
+end function
+
+' "5 min ago", "2 h ago", "yesterday"
+function agoText(epoch as Dynamic) as String
+    now = CreateObject("roDateTime").asSeconds()
+    s = now - Int(epoch)
+    if s < 60 then return "just now"
+    if s < 3600 then return Int(s / 60).toStr() + " min ago"
+    if s < 86400 then return Int(s / 3600).toStr() + " h ago"
+    if s < 172800 then return "yesterday"
+    return Int(s / 86400).toStr() + " days ago"
+end function
+
+' A poster or thumbnail from the internet, fetched and cached by the Hub server.
+function thumbUrl(server as String, url as Dynamic) as String
+    if url = invalid or url = "" then return ""
+    if Left(url, 4) <> "http" then return absUrl(server, url)
+    return serverUrl(server) + "/api/thumb?u=" + urlEncode(url, false)
 end function
 
 function deviceIp() as String

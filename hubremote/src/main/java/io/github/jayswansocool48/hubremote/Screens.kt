@@ -329,7 +329,61 @@ class SendScreen(act: MainActivity) : Screen(act) {
     private var path = ""
 
     init {
-        heading("Send to TV", "Photos and videos open full screen on Hub. YouTube links play in the YouTube app; other links open in Hub's browser. You can also use Share → Hub Remote from any app.")
+        heading("Send to TV", "Ask the TV something, draw it a note, or send photos, videos and links. You can also use Share › Hub Remote from any app.")
+
+        section("Ask the TV")
+        val asked = act.label("", 13f, Theme.DIM)
+        val answer = act.label("", 17f, Theme.SNOW)
+        val answerBox = act.vbox().apply {
+            background = rounded((Theme.accent and 0x00FFFFFF) or 0x30000000, act.dp(14f), Theme.LINE, act.dpi(1f))
+            val p = act.dpi(16f)
+            setPadding(p, p, p, p)
+            addView(asked)
+            addView(answer, lp(MATCH, WRAP).apply { topMargin = act.dpi(4f) })
+            visibility = View.GONE
+        }
+        add(act.field("What should we watch? Will it rain tomorrow?", "Ask", primary = true) { q, e ->
+            if (q.isEmpty()) return@field
+            answerBox.visibility = View.VISIBLE
+            asked.text = q
+            answer.text = "Checking…"
+            Hub.post("/api/ask", json("q" to q)) { j, err ->
+                answer.text = err ?: j?.optString("answer")
+                if (err == null) e.setText("")
+            }
+        }, 0f)
+        add(answerBox, 10f)
+
+        section("Draw a note", "It shows up in the corner of the TV's home screen.")
+        val draw = DrawView(act)
+        add(draw, 0f)
+        val pens = Chips(act)
+        val penColors = linkedMapOf("White" to 0xFFFFFFFF.toInt(), "Yellow" to 0xFFFFD166.toInt(), "Pink" to 0xFFFF7AA8.toInt(),
+            "Blue" to 0xFF7CC4FF.toInt(), "Green" to 0xFF7CF0B5.toInt(), "Orange" to 0xFFFF9F43.toInt(), "Purple" to 0xFFB69CFF.toInt())
+        for (k in penColors.keys) pens.add(k, k)
+        pens.select("White")
+        pens.onPick = { k -> draw.color = penColors[k]!! }
+        add(pens, 10f)
+        val sizes = Chips(act)
+        sizes.add("6", "Thin")
+        sizes.add("12", "Medium")
+        sizes.add("22", "Thick")
+        sizes.select("12")
+        sizes.onPick = { k -> draw.brush = k.toFloat() }
+        add(sizes, 8f)
+        val drawBar = act.hbox()
+        drawBar.addView(act.button("Undo") { draw.undo() })
+        drawBar.addView(act.button("Clear") { draw.clear() }, lp(WRAP, WRAP).apply { leftMargin = act.dpi(8f) })
+        drawBar.addView(View(act), lp(0, 1, 1f))
+        drawBar.addView(act.button("Send to TV", primary = true) {
+            if (draw.isEmpty) { act.toast("Draw something first"); return@button }
+            Hub.uploadBytes("/api/notes/draw", draw.png(), "note.png") { _, err ->
+                if (err != null) act.toast(err) else { act.toast("Sent to the TV"); draw.clear() }
+            }
+        })
+        add(drawBar, 10f)
+
+        section("Photos and videos")
         val pick = act.vbox().apply {
             background = rounded((Theme.accent and 0x00FFFFFF) or 0x18000000, act.dp(20f), (Theme.accent and 0x00FFFFFF) or 0x90000000.toInt(), act.dpi(1.5f))
             gravity = Gravity.CENTER
@@ -340,7 +394,7 @@ class SendScreen(act: MainActivity) : Screen(act) {
             isClickable = true
             setOnClickListener { it.tick(); act.pickMedia(arrayOf("image/*", "video/*", "audio/*"), true) { sendFiles(it) } }
         }
-        add(pick, 12f)
+        add(pick, 0f)
         add(progress, 8f)
         section("Send a link")
         add(act.field("Paste a link", "Show on TV", url = true, primary = true) { u, e -> if (u.isNotEmpty()) { sendLink(u); e.setText("") } }, 0f)
@@ -431,6 +485,13 @@ class HubScreen(act: MainActivity) : Screen(act) {
     private val evList = ListBox(act)
     private val notes = act.vbox()
     private val server = ListBox(act)
+    private val showResults = ListBox(act)
+    private val moodList = ListBox(act)
+    private val showList = ListBox(act)
+    private val quoteList = ListBox(act)
+    private val aiBox = act.vbox()
+    private var moods = ArrayList<String>()
+    private var tvApps: List<JSONObject>? = null
     private var loaded = false
 
     init {
@@ -439,10 +500,10 @@ class HubScreen(act: MainActivity) : Screen(act) {
         add(HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false; addView(walls) }, 0f)
         section("Accent color")
         add(swatches, 0f)
-        section("Home screen rows", "Use the arrows to reorder. Switch off what you don't want.")
-        add(rows, 0f)
-        section("Widgets")
+        section("Top of the home screen")
         add(widgets, 0f)
+        section("Rows under the dock", "Press Down on the TV to see these. Use the arrows to reorder.")
+        add(rows, 0f)
         section("Clock and weather")
         add(prefs, 0f)
         add(act.field("Weather location, e.g. Detroit, Michigan", "Save") { t, _ ->
@@ -500,7 +561,38 @@ class HubScreen(act: MainActivity) : Screen(act) {
         add(act.button("Add a quick event") { quickEvent() }, 10f)
         add(evList, 10f)
 
-        section("Notes", "Notes show up on the TV's home screen.")
+        section("My Shows", "Shows and movies you love. They fill the My Shows row, and Pick for me chooses one by mood and opens it in the right app.")
+        add(act.field("Search a show or movie", "Search") { q, _ -> if (q.isNotEmpty()) searchShows(q) }, 0f)
+        showResults.visibility = View.GONE
+        add(showResults, 10f)
+        add(act.label("Moods", 14f, Theme.MIST, bold = true), 16f)
+        add(moodList, 8f)
+        add(act.field("New mood, e.g. Comfort sitcom", "Add mood") { n, e ->
+            if (n.isEmpty()) return@field
+            if (moods.contains(n)) { act.toast("You already have that mood"); return@field }
+            Hub.post("/api/moods", json("moods" to JSONArray(moods + n))) { _, err ->
+                if (err != null) act.toast(err) else { e.setText(""); act.toast("Added $n. Tap a show below to tag it."); reload() }
+            }
+        }, 8f)
+        add(showList, 12f)
+
+        section("Quotes", "One shows over the dock and changes every 10 minutes. With none, Hub shows a greeting.")
+        val qRow = act.hbox()
+        val qText = act.input("Quote")
+        val qBy = act.input("From (show)")
+        qRow.addView(qText, lp(0, WRAP, 2f))
+        qRow.addView(qBy, lp(0, WRAP, 1f).apply { leftMargin = act.dpi(8f) })
+        qRow.addView(act.button("Add") {
+            val t = qText.text.toString().trim()
+            if (t.isEmpty()) return@button
+            Hub.post("/api/quotes/add", json("text" to t, "by" to qBy.text.toString().trim())) { j, err ->
+                if (err != null) act.toast(err) else { qText.setText(""); qBy.setText(""); renderQuotes(j!!.getJSONArray("quotes")); act.toast("Added") }
+            }
+        }, lp(WRAP, WRAP).apply { leftMargin = act.dpi(8f) })
+        add(qRow, 0f)
+        add(quoteList, 10f)
+
+        section("Text notes", "Notes show up on the TV's home screen. To draw one, use Send.")
         add(act.field("Leave a note on the TV", "Post", primary = true) { t, e ->
             if (t.isEmpty()) return@field
             val colors = listOf("#FFD166", "#A0E7E5", "#FFAEBC", "#B4F8C8", "#C9B6FF")
@@ -510,8 +602,149 @@ class HubScreen(act: MainActivity) : Screen(act) {
         }, 0f)
         add(notes, 10f)
 
+        section("Ask the TV", "Weather, your calendar, opening apps, sleep timers and picking a show work without this. For any other question, connect an AI.")
+        add(aiBox, 0f)
+
         section("Server")
         add(server, 0f)
+    }
+
+    // ---- My Shows
+
+    private fun thumb(u: String) = "/api/thumb?u=" + enc(u)
+
+    private fun posterView(u: String): ImageView = ImageView(act).apply {
+        scaleType = ImageView.ScaleType.CENTER_CROP
+        background = rounded(Theme.RAISE, act.dp(8f))
+        clipToOutline = true
+        layoutParams = LinearLayout.LayoutParams(act.dpi(46f), act.dpi(68f))
+        if (u.isNotEmpty()) Images.load(this, thumb(u), 140)
+    }
+
+    private fun fixPoster(row: View, v: ImageView) {
+        (v.layoutParams as LinearLayout.LayoutParams).apply { width = act.dpi(46f); height = act.dpi(68f) }
+        row.requestLayout()
+    }
+
+    private fun searchShows(q: String) {
+        showResults.clear()
+        showResults.visibility = View.VISIBLE
+        showResults.row("Searching…")
+        Hub.get("/api/shows/search?q=" + enc(q)) { j, err ->
+            showResults.clear()
+            if (err != null) { showResults.row(err); return@get }
+            val res = j!!.getJSONArray("results").objects()
+            if (res.isEmpty()) showResults.row("Nothing found. Try another spelling.")
+            for (r in res) {
+                val pv = posterView(r.optString("poster"))
+                val sub = listOf(r.optString("year"), if (r.optString("kind") == "movie") "Movie" else "TV show", r.optString("network")).filter { it.isNotEmpty() }.joinToString(" ")
+                val row = showResults.row(r.optString("title"), sub, pv, act.button("Add", primary = true) {
+                    Hub.post("/api/shows/add", r) { k, e2 ->
+                        if (e2 != null) act.toast(e2) else {
+                            val app = k!!.getJSONObject("show").optString("appName")
+                            act.toast("Added ${r.optString("title")}" + if (app.isNotEmpty()) " ($app)" else "")
+                            showResults.visibility = View.GONE
+                            reload()
+                        }
+                    }
+                })
+                fixPoster(row, pv)
+            }
+        }
+    }
+
+    private fun renderShows(shows: List<JSONObject>, moodNames: List<String>) {
+        moods = ArrayList(moodNames)
+        moodList.clear()
+        if (moodNames.isEmpty()) moodList.row("No moods yet. Add one, like Comfort sitcom or Date night.")
+        for (m in moodNames) moodList.row(m, null, null, act.button("Remove", danger = true) {
+            Hub.post("/api/moods", json("moods" to JSONArray(moodNames - m))) { _, e -> if (e != null) act.toast(e) else reload() }
+        })
+        showList.clear()
+        if (shows.isEmpty()) showList.row("No shows yet. Search above to add some.")
+        for (sh in shows) {
+            val pv = posterView(sh.optString("poster"))
+            val tags = sh.optJSONArray("moods")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList()
+            val app = sh.optString("appName").ifEmpty { "Any app" }
+            val sub = (listOf(app) + tags).joinToString(", ")
+            val row = showList.row(sh.optString("title"), sub, pv, act.label("Edit", 14f, Theme.accent, bold = true)) { editShow(sh, tags) }
+            fixPoster(row, pv)
+        }
+    }
+
+    private fun editShow(sh: JSONObject, tags: List<String>) {
+        val checked = BooleanArray(moods.size) { tags.contains(moods[it]) }
+        val b = AlertDialog.Builder(act, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle(sh.optString("title"))
+        if (moods.isEmpty()) b.setMessage("Add a mood first (Moods, above) to tag this show.")
+        else b.setMultiChoiceItems(moods.toTypedArray(), checked) { _, i, on -> checked[i] = on }
+        b.setPositiveButton("Save") { _, _ ->
+            val next = JSONArray(moods.filterIndexed { i, _ -> checked[i] })
+            Hub.post("/api/shows/update", json("id" to sh.optString("id"), "moods" to next)) { _, e -> act.toast(e ?: "Saved"); reload() }
+        }
+        b.setNeutralButton("Choose app") { _, _ -> chooseApp(sh) }
+        b.setNegativeButton("Remove") { _, _ ->
+            Hub.post("/api/shows/delete", json("id" to sh.optString("id"))) { _, e -> act.toast(e ?: "Removed"); reload() }
+        }
+        b.show()
+    }
+
+    private fun chooseApp(sh: JSONObject) {
+        val go = { apps: List<JSONObject> ->
+            val names = listOf("Any app (Roku search)") + apps.map { it.optString("name") }
+            AlertDialog.Builder(act, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("Open ${sh.optString("title")} in")
+                .setItems(names.toTypedArray()) { _, i ->
+                    val a = if (i == 0) null else apps[i - 1]
+                    Hub.post("/api/shows/update", json("id" to sh.optString("id"), "app" to (a?.optString("id") ?: ""), "appName" to (a?.optString("name") ?: ""))) { _, e ->
+                        act.toast(e ?: "Saved"); reload()
+                    }
+                }.show()
+        }
+        tvApps?.let { go(it); return }
+        Hub.get("/api/tv/apps") { j, e ->
+            if (e != null) { act.toast(e); return@get }
+            tvApps = j!!.getJSONArray("apps").objects()
+            go(tvApps!!)
+        }
+    }
+
+    private fun renderQuotes(arr: JSONArray) {
+        quoteList.clear()
+        val list = arr.objects()
+        if (list.isEmpty()) quoteList.row("No quotes yet.")
+        for (q in list) quoteList.row("\u201C${q.optString("text")}\u201D", q.optString("by").ifEmpty { null }, null, act.button("Delete", danger = true) {
+            Hub.post("/api/quotes/delete", json("id" to q.optString("id"))) { j, e -> if (e != null) act.toast(e) else renderQuotes(j!!.getJSONArray("quotes")) }
+        })
+    }
+
+    private fun renderAI(ai: JSONObject) {
+        aiBox.removeAllViews()
+        val prov = Chips(act)
+        prov.add("", "Built-in only")
+        prov.add("claude", "Claude (API key)")
+        prov.add("ollama", "Ollama on my PC")
+        var provider = ai.optString("provider")
+        prov.select(provider)
+        val key = act.input(if (ai.optBoolean("hasKey")) "Key saved" else "Claude API key (sk-ant-…)").apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val url = act.input("Ollama address, e.g. 10.0.0.142", ai.optString("url"))
+        val model = act.input("Model (blank for the default)", ai.optString("model"))
+        fun vis() {
+            key.visibility = if (provider == "claude") View.VISIBLE else View.GONE
+            url.visibility = if (provider == "ollama") View.VISIBLE else View.GONE
+            model.visibility = if (provider.isEmpty()) View.GONE else View.VISIBLE
+        }
+        prov.onPick = { k -> provider = k; vis() }
+        aiBox.addView(prov, lp(MATCH, WRAP))
+        aiBox.addView(key, lp(MATCH, WRAP).apply { topMargin = act.dpi(10f) })
+        aiBox.addView(url, lp(MATCH, WRAP).apply { topMargin = act.dpi(10f) })
+        aiBox.addView(model, lp(MATCH, WRAP).apply { topMargin = act.dpi(10f) })
+        aiBox.addView(act.button("Save AI settings", primary = true) {
+            val b = json("provider" to provider, "url" to url.text.toString().trim(), "model" to model.text.toString().trim())
+            if (key.text.toString().isNotBlank()) b.put("key", key.text.toString().trim())
+            Hub.post("/api/ai", b) { _, e -> act.toast(e ?: "Saved. Try asking something on the Send tab."); if (e == null) reload() }
+        }, lp(WRAP, WRAP).apply { topMargin = act.dpi(12f) })
+        vis()
     }
 
     override fun onShow() = reload()
@@ -531,8 +764,12 @@ class HubScreen(act: MainActivity) : Screen(act) {
         val hub = s.getJSONObject("hub")
         renderWalls(hub)
         renderSwatches(hub.optString("accent"))
-        sortable(rows, hub.getJSONArray("rows"), mapOf("widgets" to "Widgets", "youtube" to "YouTube", "anime" to "Anime episodes", "apps" to "Hub apps", "channels" to "Channels"), "rows")
-        sortable(widgets, hub.getJSONArray("widgets"), mapOf("weather" to "Weather", "agenda" to "Up next (calendar)", "notes" to "Notes"), "widgets")
+        sortable(rows, hub.getJSONArray("rows"), mapOf("myshows" to "My Shows and Pick for me", "youtube" to "New on YouTube", "anime" to "Anime episodes", "agenda" to "Up next (calendar)"), "rows")
+        sortable(widgets, hub.getJSONArray("widgets"), mapOf("weather" to "Weather and what to wear", "note" to "Latest note", "quote" to "Quote over the dock"), "widgets")
+        val moodArr = s.optJSONArray("moods") ?: JSONArray()
+        renderShows((s.optJSONArray("shows") ?: JSONArray()).objects(), (0 until moodArr.length()).map { moodArr.getString(it) })
+        renderQuotes(s.optJSONArray("quotes") ?: JSONArray())
+        renderAI(s.optJSONObject("ai") ?: JSONObject())
 
         prefs.clear()
         prefs.row("24-hour clock", null, null, Toggle(act).apply { on = hub.optBoolean("clock24"); onChange = { saveHub(json("clock24" to it)) } })

@@ -168,6 +168,29 @@ h3{font-size:16px;font-weight:600;margin:26px 0 10px}
 .note button{position:absolute;top:6px;right:8px;color:#0007;font-size:16px}
 .cover{width:44px!important;height:62px!important;border-radius:8px!important}
 
+/* drawing a note */
+.sketch{position:relative;border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--line);background:
+  radial-gradient(120% 120% at 0% 0%,color-mix(in srgb,var(--accent) 22%,#0b0f22),#0b0f22 70%);aspect-ratio:300/192;touch-action:none;margin-top:6px}
+.sketch canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+.sketch .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim);pointer-events:none;font-size:15px;transition:opacity .2s}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.pen{width:30px;height:30px;border-radius:50%;border:3px solid transparent}
+.pen[aria-pressed=true]{border-color:var(--snow);box-shadow:0 0 0 2px var(--accent)}
+.size{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--raise);border:1px solid var(--line)}
+.size i{display:block;border-radius:50%;background:var(--snow)}
+.size[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft)}
+.tools .spacer{flex:1}
+.answer{margin-top:12px;padding:16px 18px;border-radius:var(--r-md);background:radial-gradient(140% 120% at 0% 0%,var(--accent-soft),var(--deep) 60%);border:1px solid var(--line);font-size:17px;display:none}
+.answer small{display:block;color:var(--dim);font-size:13px;margin-bottom:4px}
+.poster{width:46px!important;height:68px!important;border-radius:8px!important;object-fit:cover}
+.moodchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.moodchips .chip{padding:5px 11px;font-size:13px}
+.item select.input{max-width:150px;padding:7px 9px}
+.show-row{flex-wrap:wrap}
+.show-row .grow{min-width:150px}
+@media(max-width:600px){.show-row>div:last-child{flex-direction:row!important;width:100%;justify-content:space-between}}
+.quote{font-size:16px}
+.quote span{color:var(--dim)}
 #toast{position:fixed;left:50%;bottom:calc(86px + var(--safe-b));transform:translate(-50%,16px);background:var(--raise);border:1px solid var(--line);padding:11px 18px;border-radius:14px;opacity:0;pointer-events:none;transition:.22s;z-index:40;max-width:90vw;box-shadow:0 20px 40px -20px #000}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 #toast.bad{border-color:var(--coral)}
@@ -243,7 +266,17 @@ h3{font-size:16px;font-weight:600;margin:26px 0 10px}
     <!-- Send -->
     <section class="view" data-name="send">
       <h2>Send to TV</h2>
-      <p class="lede">Photos and videos open full screen on Hub. YouTube links open in the YouTube app; other links open in Hub's browser.</p>
+      <p class="lede">Ask the TV something, draw it a note, or send photos, videos and links.</p>
+
+      <h3>Ask the TV</h3>
+      <form class="field" id="askform"><input id="askq" placeholder="What should we watch? Will it rain tomorrow?" autocomplete="off"><button class="btn primary" type="submit">Ask</button></form>
+      <div class="answer" id="answer"><small id="askedq"></small><span id="answertext"></span></div>
+
+      <h3>Draw a note</h3>
+      <p class="small">It shows up in the corner of the TV's home screen.</p>
+      <div class="sketch" id="sketch"><canvas id="pad2" width="900" height="576"></canvas><div class="ph" id="sketchph">Draw here</div></div>
+      <div class="tools" id="pens"></div>
+      <h3>Photos and videos</h3>
       <label class="drop" id="drop">
         <b>Drop photos or videos here</b>
         <span class="small">or tap to choose from this device</span>
@@ -269,12 +302,12 @@ h3{font-size:16px;font-weight:600;margin:26px 0 10px}
       <h3>Accent color</h3>
       <div class="swatches" id="swatches"></div>
 
-      <h3>Home screen rows</h3>
-      <p class="small">Drag to reorder. Switch off what you don't want.</p>
-      <div class="list" id="rows"></div>
-
-      <h3>Widgets</h3>
+      <h3>Top of the home screen</h3>
       <div class="list" id="widgets"></div>
+
+      <h3>Rows under the dock</h3>
+      <p class="small">Press Down on the TV to see these. Drag to reorder.</p>
+      <div class="list" id="rows"></div>
 
       <h3>Clock and weather</h3>
       <div class="list">
@@ -310,9 +343,34 @@ h3{font-size:16px;font-weight:600;margin:26px 0 10px}
       <form class="field" id="evform" style="margin-top:10px"><input id="evtitle" placeholder="Quick event"><input id="evwhen" type="datetime-local" class="input" style="max-width:210px"><button class="btn" type="submit">Add</button></form>
       <div class="list" id="evlist" style="margin-top:10px"></div>
 
-      <h3>Notes</h3>
+      <h3>My Shows</h3>
+      <p class="small">Shows and movies you love. They fill the My Shows row, and Pick for me chooses from them by mood, then opens them in the right app.</p>
+      <form class="field" id="showform"><input id="showq" placeholder="Search a show or movie" autocomplete="off"><button class="btn" type="submit">Search</button></form>
+      <div class="list" id="showres" style="margin-top:10px;display:none"></div>
+      <p class="small" style="margin-top:14px">Moods</p>
+      <div class="moodchips" id="moods"></div>
+      <form class="field" id="moodform" style="margin-top:8px"><input id="moodname" placeholder="New mood, e.g. Comfort sitcom" autocomplete="off"><button class="btn" type="submit">Add mood</button></form>
+      <div class="list" id="showlist" style="margin-top:12px"></div>
+
+      <h3>Quotes</h3>
+      <p class="small">One shows over the dock and changes every 10 minutes. With none, Hub shows a greeting.</p>
+      <form class="field" id="quoteform"><input id="quotetext" placeholder="Quote"><input id="quoteby" class="input" style="max-width:160px" placeholder="From (show)"><button class="btn" type="submit">Add</button></form>
+      <div class="list" id="quotelist" style="margin-top:10px"></div>
+
+      <h3>Text notes</h3>
       <form class="field" id="noteform"><input id="notetext" placeholder="Leave a note on the TV"><button class="btn primary" type="submit">Post</button></form>
       <div class="notes" id="notes"></div>
+
+      <h3>Ask the TV</h3>
+      <p class="small">Weather, your calendar, opening apps, sleep timers and picking a show work without this. For any other question, connect an AI.</p>
+      <div class="list">
+        <div class="item"><div class="grow"><b>AI</b></div>
+          <select class="input" id="aiprov" style="max-width:190px"><option value="">Built-in answers only</option><option value="claude">Claude (API key)</option><option value="ollama">Ollama on my PC</option></select></div>
+        <div class="item" id="aikeyrow"><div class="grow"><b>API key</b><span id="aikeyinfo">From console.anthropic.com</span></div><input class="input" id="aikey" type="password" style="max-width:190px" placeholder="sk-ant-…" autocomplete="off"></div>
+        <div class="item" id="aiurlrow"><div class="grow"><b>Ollama address</b><span>Your PC's IP; start Ollama with OLLAMA_HOST=0.0.0.0</span></div><input class="input" id="aiurl" style="max-width:190px" placeholder="10.0.0.142"></div>
+        <div class="item"><div class="grow"><b>Model</b><span>Leave blank for the default</span></div><input class="input" id="aimodel" style="max-width:190px" placeholder="default"></div>
+      </div>
+      <button class="btn primary" id="aisave" style="margin-top:10px">Save AI settings</button>
 
       <h3>Server</h3>
       <div class="list">
@@ -565,15 +623,16 @@ async function loadLib(path) { libPath = path;
 
 /* ---------------- hub customization ---------------- */
 const ACCENTS = ["#4F7CFF", "#7C5CFF", "#E85DBA", "#FF6B6B", "#FF9F43", "#F5C542", "#4BD6A0", "#2EC4E6"];
-const ROWNAMES = { widgets: "Widgets", youtube: "YouTube", anime: "Anime episodes", apps: "Hub apps", channels: "Channels" };
-const WNAMES = { weather: "Weather", agenda: "Up next (calendar)", notes: "Notes" };
+const ROWNAMES = { myshows: "My Shows and Pick for me", youtube: "New on YouTube", anime: "Anime episodes", agenda: "Up next (calendar)" };
+const WNAMES = { weather: "Weather and what to wear", note: "Latest note", quote: "Quote over the dock" };
 async function saveHub(patch, msg) { try { const j = await api("/api/hub/config", patch); hub = j.hub; if (patch.accent) applyAccent(patch.accent); if (msg) toast(msg); } catch (e) { toast(e.message, true); } }
 async function loadHub() { await status(); const s = window.__status; if (!s) return; hub = s.hub;
   renderWalls(); renderSwatches(); renderRows(); renderWidgets();
   $("#clock24").checked = !!hub.clock24; $("#celsius").checked = hub.units === "C"; $("#name").value = hub.name || "";
   $("#place").value = hub.location || ""; $("#placeinfo").textContent = s.place ? "Showing weather for " + s.place.name + (s.place.region ? ", " + s.place.region : "") : "";
   $("#ssmin").value = String(hub.screensaver?.minutes ?? 5); $("#sssrc").value = hub.screensaver?.source || "gallery";
-  $("#cal").value = s.settings.calendar_url || ""; renderYT(s.youtube); renderAnime(s.anime); renderEvents(s.events); renderNotes(s.notes); }
+  $("#cal").value = s.settings.calendar_url || ""; renderYT(s.youtube); renderAnime(s.anime); renderEvents(s.events); renderNotes(s.notes);
+  renderShows(s.shows, s.moods); renderQuotes(s.quotes); renderAI(s.ai); }
 async function renderWalls() { const [p, w] = await Promise.all([api("/api/presets"), api("/api/wallpapers")]); const cur = hub.wallpaper || {};
   const tile = (style, label, sel, onclick, del) => { const t = h("button", { class: "wall", style, "aria-pressed": sel, "aria-label": "Wallpaper " + label, onclick }, h("span", {}, label));
     if (del) { const x = h("span", { class: "x", role: "button", "aria-label": "Delete" }, "×"); x.onclick = ev => { ev.stopPropagation(); api("/api/wallpapers/delete", { name: del }).then(renderWalls); }; t.append(x); } return t; };
@@ -626,11 +685,98 @@ $("#evform").onsubmit = e => { e.preventDefault(); const t = $("#evtitle").value
 const NOTECOLORS = ["#FFD166", "#A0E7E5", "#FFAEBC", "#B4F8C8", "#C9B6FF"];
 function renderNotes(list) { $("#notes").replaceChildren(...list.map(n => { const x = h("button", { "aria-label": "Delete note" }, "×");
   x.onclick = () => api("/api/notes/delete", { id: n.id }).then(() => status().then(() => renderNotes(window.__status.notes)));
+  if (n.kind === "drawing") return h("div", { class: "note", style: "background:#1B1F3B;padding:6px" }, h("img", { src: n.image, alt: "Drawn note", style: "width:100%;display:block;border-radius:8px" }), x);
   return h("div", { class: "note", style: "background:" + n.color }, n.text, x); })); }
 $("#noteform").onsubmit = e => { e.preventDefault(); const t = $("#notetext").value.trim(); if (!t) return;
   api("/api/notes/add", { text: t, color: NOTECOLORS[Math.floor(Math.random() * NOTECOLORS.length)] }).then(() => { $("#notetext").value = ""; toast("Posted to the TV"); status().then(() => renderNotes(window.__status.notes)); }).catch(er => toast(er.message, true)); };
 $$("[data-set]").forEach(c => c.onchange = () => api("/api/settings", { [c.dataset.set]: c.checked }).then(() => toast("Saved")).catch(e => toast(e.message, true)));
 $("#tvipform").onsubmit = e => { e.preventDefault(); api("/api/settings", { tv_ip: $("#tvip").value.trim() }).then(() => { toast("Saved"); apps = []; status(); }).catch(er => toast(er.message, true)); };
+
+/* ---------------- ask ---------------- */
+$("#askform").onsubmit = async e => { e.preventDefault(); const q = $("#askq").value.trim(); if (!q) return;
+  $("#answer").style.display = "block"; $("#askedq").textContent = q; $("#answertext").textContent = "Checking…";
+  try { const j = await api("/api/ask", { q }); $("#answertext").textContent = j.answer; $("#askq").value = ""; }
+  catch (er) { $("#answertext").textContent = er.message; } };
+
+/* ---------------- draw a note ---------------- */
+(function () {
+  const cv = $("#pad2"), ctx = cv.getContext("2d"); const strokes = []; let cur = null;
+  const PENS = ["#FFFFFF", "#FFD166", "#FF7AA8", "#7CC4FF", "#7CF0B5", "#FF9F43", "#B69CFF"]; const SIZES = [6, 12, 22];
+  let color = PENS[0], size = SIZES[1];
+  function redraw() { ctx.clearRect(0, 0, cv.width, cv.height); ctx.lineCap = "round"; ctx.lineJoin = "round";
+    for (const s of strokes) { ctx.strokeStyle = s.c; ctx.lineWidth = s.w; ctx.beginPath(); const p = s.p;
+      if (p.length === 1) { ctx.arc(p[0][0], p[0][1], s.w / 2, 0, 7); ctx.fillStyle = s.c; ctx.fill(); continue; }
+      ctx.moveTo(p[0][0], p[0][1]);
+      for (let i = 1; i < p.length - 1; i++) { const mx = (p[i][0] + p[i + 1][0]) / 2, my = (p[i][1] + p[i + 1][1]) / 2; ctx.quadraticCurveTo(p[i][0], p[i][1], mx, my); }
+      ctx.lineTo(p[p.length - 1][0], p[p.length - 1][1]); ctx.stroke(); }
+    $("#sketchph").style.opacity = strokes.length ? 0 : 1; }
+  const pt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * cv.width, (e.clientY - r.top) / r.height * cv.height]; };
+  cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); cur = { c: color, w: size, p: [pt(e)] }; strokes.push(cur); redraw(); });
+  cv.addEventListener("pointermove", e => { if (!cur) return; cur.p.push(pt(e)); redraw(); });
+  const end = () => { cur = null; }; cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+  const pens = $("#pens");
+  const penBtns = PENS.map(c => h("button", { class: "pen", style: "background:" + c, "aria-label": "Color " + c, "aria-pressed": c === color,
+    onclick: () => { color = c; penBtns.forEach(b => b.setAttribute("aria-pressed", b.style.background === c || b.dataset.c === c)); } }));
+  penBtns.forEach((b, i) => b.dataset.c = PENS[i]);
+  penBtns.forEach(b => b.onclick = () => { color = b.dataset.c; penBtns.forEach(x => x.setAttribute("aria-pressed", x === b)); });
+  const sizeBtns = SIZES.map(w => { const b = h("button", { class: "size", "aria-label": "Brush " + w, "aria-pressed": w === size }, h("i", { style: `width:${w / 2 + 3}px;height:${w / 2 + 3}px` }));
+    b.onclick = () => { size = w; sizeBtns.forEach(x => x.setAttribute("aria-pressed", x === b)); }; return b; });
+  pens.append(...penBtns, h("span", { style: "width:6px" }), ...sizeBtns, h("span", { class: "spacer" }),
+    h("button", { class: "btn", onclick: () => { strokes.pop(); redraw(); } }, "Undo"),
+    h("button", { class: "btn", onclick: () => { strokes.length = 0; redraw(); } }, "Clear"),
+    h("button", { class: "btn primary", onclick: () => { if (!strokes.length) return toast("Draw something first", true);
+      cv.toBlob(b => upload(new File([b], "note.png", { type: "image/png" }), "/api/notes/draw", () => { toast("Sent to the TV"); strokes.length = 0; redraw(); }), "image/png"); } }, "Send to TV"));
+  redraw();
+})();
+
+/* ---------------- my shows ---------------- */
+let tvApps = null;
+async function appsList() { if (tvApps) return tvApps; try { tvApps = (await api("/api/tv/apps")).apps; } catch (e) { tvApps = []; } return tvApps; }
+const thumb = u => u ? "/api/thumb?u=" + encodeURIComponent(u) : "";
+async function renderShows(shows, moods) { const apps = await appsList();
+  $("#moods").replaceChildren(...moods.map(m => { const c = h("span", { class: "chip" }, m + "  ", h("button", { "aria-label": "Remove mood " + m, style: "color:var(--dim)" }, "×"));
+    c.lastChild.onclick = () => api("/api/moods", { moods: moods.filter(x => x !== m) }).then(j => renderShows(j.shows, j.moods)); return c; }),
+    ...(moods.length ? [] : [h("span", { class: "small" }, "No moods yet. Add one, like Comfort sitcom or Date night.")]));
+  $("#showlist").replaceChildren(...(shows.length ? shows.map(sh => {
+    const sel = h("select", { class: "input", "aria-label": "App for " + sh.title }, h("option", { value: "" }, "Any app (search)"), ...apps.map(a => h("option", { value: a.id }, a.name)));
+    sel.value = sh.app || ""; sel.onchange = () => { const a = apps.find(x => x.id === sel.value); api("/api/shows/update", { id: sh.id, app: sel.value, appName: a ? a.name : "" }).then(() => toast("Saved")); };
+    const chips = h("div", { class: "moodchips" }, ...moods.map(m => { const on = sh.moods.includes(m); const c = h("button", { class: "chip", "aria-pressed": on }, m);
+      c.onclick = () => { const next = on ? sh.moods.filter(x => x !== m) : [...sh.moods, m]; api("/api/shows/update", { id: sh.id, moods: next }).then(j => renderShows(j.shows, j.moods)); }; return c; }));
+    return h("div", { class: "item show-row" }, h("img", { class: "poster", src: thumb(sh.poster), alt: "", loading: "lazy" }),
+      h("div", { class: "grow" }, h("b", {}, sh.title), h("span", {}, [sh.year, sh.kind === "movie" ? "Movie" : "TV show"].filter(Boolean).join(" ")), chips),
+      h("div", { style: "display:flex;flex-direction:column;gap:6px;align-items:flex-end" }, sel,
+        h("button", { class: "btn danger", onclick: () => api("/api/shows/delete", { id: sh.id }).then(j => { status().then(() => renderShows(j.shows, window.__status.moods)); }) }, "Remove"))); })
+    : [h("div", { class: "item" }, h("span", { class: "small" }, "No shows yet. Search above to add some."))])); }
+$("#showform").onsubmit = async e => { e.preventDefault(); const q = $("#showq").value.trim(); if (!q) return; const box = $("#showres");
+  box.style.display = ""; box.replaceChildren(h("div", { class: "item" }, h("span", { class: "small" }, "Searching…")));
+  try { const j = await api("/api/shows/search?q=" + encodeURIComponent(q));
+    box.replaceChildren(...(j.results.length ? j.results.map(r => h("div", { class: "item" }, h("img", { class: "poster", src: thumb(r.poster), alt: "", loading: "lazy" }),
+      h("div", { class: "grow" }, h("b", {}, r.title), h("span", {}, [r.year, r.kind === "movie" ? "Movie" : "TV show", r.network].filter(Boolean).join(" "))),
+      h("button", { class: "btn primary", onclick: async ev => { ev.target.disabled = true; try { const k = await api("/api/shows/add", r);
+        toast("Added " + r.title + (k.show.appName ? " (" + k.show.appName + ")" : "")); box.style.display = "none"; $("#showq").value = ""; renderShows(k.shows, k.moods); }
+        catch (er) { toast(er.message, true); ev.target.disabled = false; } } }, "Add")))
+      : [h("div", { class: "item" }, h("span", { class: "small" }, "Nothing found. Try another spelling."))]));
+  } catch (er) { box.replaceChildren(h("div", { class: "item" }, h("span", { class: "small" }, er.message))); } };
+$("#moodform").onsubmit = e => { e.preventDefault(); const n = $("#moodname").value.trim(); if (!n) return; const moods = window.__status?.moods || [];
+  if (moods.includes(n)) return toast("You already have that mood", true);
+  api("/api/moods", { moods: [...moods, n] }).then(j => { $("#moodname").value = ""; status().then(() => renderShows(j.shows, j.moods)); toast("Added " + n + ". Tap it on a show to tag it."); }); };
+
+/* ---------------- quotes ---------------- */
+function renderQuotes(list) { $("#quotelist").replaceChildren(...(list.length ? list.map(q => h("div", { class: "item" },
+  h("div", { class: "grow quote" }, "“" + q.text + "”", q.by ? h("span", {}, "  " + q.by) : null),
+  h("button", { class: "btn danger", onclick: () => api("/api/quotes/delete", { id: q.id }).then(j => renderQuotes(j.quotes)) }, "Delete")))
+  : [h("div", { class: "item" }, h("span", { class: "small" }, "No quotes yet."))])); }
+$("#quoteform").onsubmit = e => { e.preventDefault(); const t = $("#quotetext").value.trim(); if (!t) return;
+  api("/api/quotes/add", { text: t, by: $("#quoteby").value.trim() }).then(j => { $("#quotetext").value = ""; $("#quoteby").value = ""; renderQuotes(j.quotes); toast("Added"); }).catch(er => toast(er.message, true)); };
+
+/* ---------------- AI ---------------- */
+function aiRows() { const p = $("#aiprov").value; $("#aikeyrow").style.display = p === "claude" ? "" : "none"; $("#aiurlrow").style.display = p === "ollama" ? "" : "none"; }
+function renderAI(ai) { $("#aiprov").value = ai.provider || ""; $("#aimodel").value = ai.model || ""; $("#aiurl").value = ai.url || "";
+  $("#aikey").value = ""; $("#aikey").placeholder = ai.hasKey ? "Key saved" : "sk-ant-…"; aiRows(); }
+$("#aiprov").onchange = aiRows;
+$("#aisave").onclick = () => { const b = { provider: $("#aiprov").value, model: $("#aimodel").value.trim(), url: $("#aiurl").value.trim() };
+  if ($("#aikey").value.trim()) b.key = $("#aikey").value.trim();
+  api("/api/ai", b).then(() => { toast("Saved. Try asking something on the Send tab."); status().then(() => renderAI(window.__status.ai)); }).catch(er => toast(er.message, true)); };
 
 /* ---------------- start ---------------- */
 placeRemote(); if (wide.matches) show("channels");

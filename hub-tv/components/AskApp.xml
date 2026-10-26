@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ask the TV. Type (or say, on a voice remote) a question; the Hub server answers.
+     Questions asked from the phone show up here too. -->
+<component name="AskApp" extends="Group">
+  <interface>
+    <field id="done" type="boolean" alwaysNotify="true" />
+    <field id="server" type="string" />
+    <field id="params" type="assocarray" />
+    <field id="remoteAsk" type="assocarray" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/common.brs" />
+  <script type="text/brightscript" uri="pkg:/components/AskApp.brs" />
+  <children>
+    <Rectangle width="1280" height="720" color="0x04050DFF" />
+    <Poster id="aura" uri="pkg:/images/blob.png" width="760" height="760" translation="[260,-90]" opacity="0.32" />
+    <Group id="orb" translation="[640,282]" scaleRotateCenter="[0,0]">
+      <Poster id="orbBack" uri="pkg:/images/orb.png" width="340" height="340" translation="[-170,-170]" scaleRotateCenter="[170,170]" opacity="0.45" />
+      <Poster id="orbFront" uri="pkg:/images/orb.png" width="300" height="300" translation="[-150,-150]" scaleRotateCenter="[150,150]" />
+    </Group>
+    <Label id="question" translation="[140,478]" width="1000" horizAlign="center" wrap="true" maxLines="2" color="0xFFFFFF90" />
+    <Label id="answer" translation="[140,522]" width="1000" horizAlign="center" wrap="true" maxLines="4" color="0xFFFFFFFF" />
+    <Label id="hint" translation="[0,668]" width="1280" horizAlign="center" color="0xFFFFFF80" />
+
+    <Animation id="spinAnim" duration="30" repeat="true" easeFunction="linear">
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 6.2832]" fieldToInterp="orbFront.rotation" />
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[6.2832, 0.0]" fieldToInterp="orbBack.rotation" />
+    </Animation>
+    <Animation id="breathAnim" duration="4" repeat="true" easeFunction="inOutQuad">
+      <Vector2DFieldInterpolator key="[0.0, 0.5, 1.0]" keyValue="[[1.0,1.0],[1.05,1.05],[1.0,1.0]]" fieldToInterp="orb.scale" />
+    </Animation>
+    <Animation id="thinkAnim" duration="0.9" repeat="true" easeFunction="inOutQuad">
+      <Vector2DFieldInterpolator key="[0.0, 0.5, 1.0]" keyValue="[[0.92,0.92],[1.1,1.1],[0.92,0.92]]" fieldToInterp="orb.scale" />
+      <FloatFieldInterpolator key="[0.0, 0.5, 1.0]" keyValue="[0.25, 0.55, 0.25]" fieldToInterp="aura.opacity" />
+    </Animation>
+    <Animation id="answerAnim" duration="0.5" easeFunction="outCubic">
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="answer.opacity" />
+      <Vector2DFieldInterpolator key="[0.0, 1.0]" keyValue="[[140,540],[140,522]]" fieldToInterp="answer.translation" />
+    </Animation>
+    <Timer id="startTimer" duration="0.1" />
+    <Timer id="idleTimer" duration="40" />
+  </children>
+</component>

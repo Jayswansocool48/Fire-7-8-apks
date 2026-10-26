@@ -180,6 +180,31 @@ object Hub {
         }
     }
 
+    /** Uploads bytes made in the app (a drawn note) as the raw request body. */
+    fun uploadBytes(path: String, data: ByteArray, name: String, cb: (JSONObject?, String?) -> Unit) {
+        pool.execute {
+            try {
+                val c = URL(url(path)).openConnection() as HttpURLConnection
+                c.connectTimeout = 5000
+                c.readTimeout = 30000
+                c.requestMethod = "POST"
+                c.doOutput = true
+                c.setFixedLengthStreamingMode(data.size)
+                c.setRequestProperty("Content-Type", "application/octet-stream")
+                c.setRequestProperty("X-Filename", enc(name))
+                c.outputStream.use { it.write(data) }
+                val code = c.responseCode
+                val text = (if (code < 400) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
+                c.disconnect()
+                val j = try { JSONObject(text) } catch (e: Exception) { JSONObject() }
+                if (code >= 400 || !j.optBoolean("ok", true)) throw RuntimeException(j.optString("error", "Upload failed"))
+                main.post { cb(j, null) }
+            } catch (e: Exception) {
+                main.post { cb(null, friendly(e)) }
+            }
+        }
+    }
+
     // ---- status polling (what's on the TV, sleep timer, accent color) ----
 
     private val poll = object : Runnable {

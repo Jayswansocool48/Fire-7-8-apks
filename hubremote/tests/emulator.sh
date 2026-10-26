@@ -30,6 +30,10 @@ shot 02-remote-after-swipe 1
 for tab in channels browser send hub; do
   start --es tab $tab; calm; shot "03-$tab" 7; alive "$tab"
 done
+# the Send tab now starts with Ask and Draw: draw a squiggle and send it
+start --es tab send; calm; sleep 5
+adb shell input swipe $((PX - 150)) $((PY + 40)) $((PX + 150)) $((PY - 20)) 400; shot 03-send-drawn 2
+start --es tab hub; calm; sleep 5
 # scroll the Hub settings page to see more
 adb shell input swipe $((PX + 200)) 700 $((PX + 200)) 150 400; shot 04-hub-scrolled 2
 adb shell input swipe $((PX + 200)) 700 $((PX + 200)) 150 400; shot 05-hub-scrolled-more 2

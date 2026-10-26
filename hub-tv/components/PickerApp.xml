@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Don't have time to browse?" Flip through mood cards, press OK, and Hub shuffles
+     your shows and picks one, then opens it in the right app. -->
+<component name="PickerApp" extends="Group">
+  <interface>
+    <field id="done" type="boolean" alwaysNotify="true" />
+    <field id="server" type="string" />
+    <field id="params" type="assocarray" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/common.brs" />
+  <script type="text/brightscript" uri="pkg:/components/PickerApp.brs" />
+  <children>
+    <Rectangle width="1280" height="720" color="0x06081AFF" />
+    <Poster id="bgA" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0.5" />
+    <Poster id="bgB" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" />
+    <Poster uri="pkg:/images/veil.png" width="1280" height="720" />
+    <Poster id="aura" uri="pkg:/images/blob.png" width="900" height="900" translation="[190,-90]" opacity="0.35" />
+
+    <Group id="choose">
+      <Label id="title" text="Don't have time to browse?" translation="[0,54]" width="1280" horizAlign="center" color="0xFFFFFFFF" />
+      <Label id="sub" text="Pick a mood and Hub chooses for you" translation="[0,104]" width="1280" horizAlign="center" color="0xFFFFFFA0" />
+      <Label id="prevName" translation="[90,360]" width="300" horizAlign="right" color="0xFFFFFF70" />
+      <Label id="nextName" translation="[890,360]" width="300" color="0xFFFFFF70" />
+      <Group id="stack" translation="[490,168]">
+        <Group id="back2" scaleRotateCenter="[150,200]" rotation="0.13" translation="[34,10]" opacity="0.45" />
+        <Group id="back1" scaleRotateCenter="[150,200]" rotation="-0.09" translation="[-26,6]" opacity="0.7" />
+        <Group id="front" scaleRotateCenter="[150,400]" />
+      </Group>
+      <Label id="hint" translation="[0,640]" width="1280" horizAlign="center" color="0xFFFFFF90"
+        text="Left / Right to change mood     OK to pick something     Back to Hub" />
+    </Group>
+
+    <Group id="shuffle" visible="false">
+      <Label id="shuffleTitle" translation="[0,80]" width="1280" horizAlign="center" color="0xFFFFFFFF" />
+      <Group id="slot" translation="[640,370]" scaleRotateCenter="[0,0]">
+        <Poster id="slotGlow" uri="pkg:/images/glow.png" width="340" height="460" translation="[-170,-222]" opacity="0.8" />
+        <MaskGroup id="slotMask" maskUri="pkg:/images/mask_poster.png" maskSize="[240,360]" translation="[-120,-180]">
+          <Poster id="slotPoster" width="240" height="360" loadDisplayMode="scaleToFill" />
+        </MaskGroup>
+      </Group>
+    </Group>
+
+    <Group id="reveal" visible="false" opacity="0">
+      <Poster id="revealGlow" uri="pkg:/images/glow.png" width="372" height="504" translation="[104,120]" opacity="0.9" />
+      <MaskGroup maskUri="pkg:/images/mask_poster.png" maskSize="[260,390]" translation="[160,160]">
+        <Poster id="revealPoster" width="260" height="390" loadDisplayMode="scaleToFill" />
+      </MaskGroup>
+      <Label id="kicker" translation="[490,190]" color="0xFFFFFFFF" />
+      <Label id="pickTitle" translation="[490,224]" width="700" wrap="true" maxLines="2" color="0xFFFFFFFF" />
+      <Label id="pickMeta" translation="[492,0]" width="700" color="0xFFFFFFB0" />
+      <Group id="buttons" translation="[490,0]" />
+    </Group>
+
+    <Animation id="outAnim" duration="0.28" easeFunction="inCubic">
+      <Vector2DFieldInterpolator id="outMove" key="[0.0, 1.0]" keyValue="[[0,0],[460,40]]" fieldToInterp="front.translation" />
+      <FloatFieldInterpolator id="outRot" key="[0.0, 1.0]" keyValue="[0.0, -0.35]" fieldToInterp="front.rotation" />
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="front.opacity" />
+    </Animation>
+    <Animation id="inAnim" duration="0.34" easeFunction="outBack">
+      <Vector2DFieldInterpolator key="[0.0, 1.0]" keyValue="[[0.88,0.88],[1.0,1.0]]" fieldToInterp="front.scale" />
+      <Vector2DFieldInterpolator key="[0.0, 1.0]" keyValue="[[0,16],[0,0]]" fieldToInterp="front.translation" />
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.4, 1.0]" fieldToInterp="front.opacity" />
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 0.0]" fieldToInterp="front.rotation" />
+    </Animation>
+    <Animation id="bumpAnim" duration="0.12" easeFunction="outQuad">
+      <Vector2DFieldInterpolator key="[0.0, 0.5, 1.0]" keyValue="[[1.0,1.0],[1.06,1.06],[1.0,1.0]]" fieldToInterp="slot.scale" />
+    </Animation>
+    <Animation id="revealAnim" duration="0.6" easeFunction="outCubic">
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="reveal.opacity" />
+      <Vector2DFieldInterpolator key="[0.0, 1.0]" keyValue="[[40,0],[0,0]]" fieldToInterp="reveal.translation" />
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 0.55]" fieldToInterp="bgB.opacity" />
+    </Animation>
+    <Animation id="auraAnim" duration="14" repeat="true" easeFunction="inOutQuad">
+      <Vector2DFieldInterpolator key="[0.0, 0.5, 1.0]" keyValue="[[190,-90],[260,-40],[190,-90]]" fieldToInterp="aura.translation" />
+    </Animation>
+    <Timer id="shuffleTimer" duration="0.06" />
+  </children>
+</component>

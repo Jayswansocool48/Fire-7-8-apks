@@ -43,7 +43,7 @@ try:
 except ImportError:  # Python < 3.9
     ZoneInfo = None
 
-VERSION = "3.0.0"
+VERSION = "4.0.0"
 W, H = 1280, 720  # the Roku app's canvas, so clicks map 1:1
 HERE = os.path.dirname(os.path.abspath(__file__))
 LAN = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # never proxy TV traffic
@@ -61,18 +61,20 @@ DEFAULT_HUB = {
     "name": "",
     "units": "F",
     "location": "",
+    # Rows below the dock on the home screen ("lower deck").
     "rows": [
-        {"id": "widgets", "on": True},
+        {"id": "myshows", "on": True},
         {"id": "youtube", "on": True},
         {"id": "anime", "on": True},
-        {"id": "apps", "on": True},
-        {"id": "channels", "on": True},
+        {"id": "agenda", "on": True},
     ],
+    # What the top of the home screen shows.
     "widgets": [
         {"id": "weather", "on": True},
-        {"id": "agenda", "on": True},
-        {"id": "notes", "on": True},
+        {"id": "note", "on": True},
+        {"id": "quote", "on": True},
     ],
+    "layout": 4,
     "screensaver": {"minutes": 5, "source": "gallery"},
     "favorites": [],
 }
@@ -96,7 +98,15 @@ DEFAULTS = {
     "youtube": [],
     "anime": [],
     "place": None,
+    "quotes": [],
+    "shows": [],
+    "moods": [],
+    # Ask the TV: "claude" (API key) or "ollama" (on your PC); blank = built-in answers only.
+    "ai": {"provider": "", "key": "", "model": "", "url": ""},
 }
+
+ROW_IDS = ["myshows", "youtube", "anime", "agenda"]
+WIDGET_IDS = ["weather", "note", "quote"]
 
 # Wallpaper presets, as CSS. The server renders them to images for the TV; the control
 # page shows the same CSS as thumbnails, so both always match.
@@ -161,10 +171,28 @@ class Config:
                     saved = json.load(f)
                 hub = {**self.data["hub"], **saved.pop("hub", {})}
                 self.data.update(saved)
-                self.data["hub"] = hub
+                self.data["hub"] = self._migrate(hub)
             except (OSError, ValueError) as e:
                 log("Config unreadable, using defaults:", e)
         self.version = 1
+
+    @staticmethod
+    def _migrate(hub):
+        """Hub 3 had widgets/apps/channels rows; Hub 4 puts apps and channels in the dock."""
+        def fix(items, ids, defaults):
+            items = [dict(i) for i in (items or []) if isinstance(i, dict) and i.get("id") in ids]
+            have = {i["id"] for i in items}
+            items += [dict(d) for d in defaults if d["id"] not in have]
+            return items
+        if hub.get("layout") != 4:
+            # first run after Hub 3: new order, but keep YouTube/anime switched off if they were
+            was = {r.get("id"): r.get("on", True) for r in hub.get("rows") or [] if isinstance(r, dict)}
+            hub["rows"] = [{"id": d["id"], "on": was.get(d["id"], True)} for d in DEFAULT_HUB["rows"]]
+            hub["widgets"] = [dict(d) for d in DEFAULT_HUB["widgets"]]
+        hub["rows"] = fix(hub.get("rows"), ROW_IDS, DEFAULT_HUB["rows"])
+        hub["widgets"] = fix(hub.get("widgets"), WIDGET_IDS, DEFAULT_HUB["widgets"])
+        hub["layout"] = 4
+        return hub
 
     def __getitem__(self, key):
         return self.data[key]
@@ -867,7 +895,7 @@ class Widgets:
 
     def snapshot(self):
         d = dict(self.data)
-        d["notes"] = self.cfg["notes"][:20]
+        d["notes"] = [{"kind": "text", "text": "", "color": "#FFD166", "created": 0, **n} for n in self.cfg["notes"][:20]]
         d["agenda"] = self._merge_local(d.get("agenda") or [])
         return d
 
@@ -900,6 +928,7 @@ class Widgets:
         url = ("https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
                "&current=temperature_2m,apparent_temperature,weather_code,is_day,relative_humidity_2m,wind_speed_10m"
                "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+               "&hourly=temperature_2m,precipitation_probability,weather_code"
                "&timezone=auto&forecast_days=5"
                + ("&temperature_unit=fahrenheit&wind_speed_unit=mph" if f else "")).format(**place)
         d = fetch_json(url)
@@ -915,7 +944,8 @@ class Widgets:
                          "icon": ic, "rain": d["daily"]["precipitation_probability_max"][i] or 0})
         return {"place": place["name"], "temp": round(cur["temperature_2m"]), "feels": round(cur["apparent_temperature"]),
                 "text": text, "icon": icon, "humidity": cur.get("relative_humidity_2m"),
-                "wind": round(cur.get("wind_speed_10m") or 0), "unit": "F" if f else "C", "days": days}
+                "wind": round(cur.get("wind_speed_10m") or 0), "unit": "F" if f else "C", "days": days,
+                "tip": weather_tip(d, f)}
 
     # calendar
     def _agenda(self):
@@ -1027,6 +1057,371 @@ class Widgets:
                           "pop": m.get("popularity") or 0})
         items.sort(key=lambda a: -a["pop"])
         return sorted(items[:15], key=lambda a: a["airingAt"])
+
+
+def _hour_label(iso):
+    h = int(iso[11:13])
+    return "midnight" if h == 0 else "noon" if h == 12 else f"{h % 12} {'AM' if h < 12 else 'PM'}"
+
+
+def weather_tip(d, fahrenheit):
+    """One line on what to wear or bring for the next 12 hours, like 'Light jacket, cools to 53° by 10 PM'."""
+    try:
+        hourly = d["hourly"]
+        now = d["current"]["time"][:13]
+        start = next(i for i, t in enumerate(hourly["time"]) if t[:13] >= now)
+        idx = range(start, min(start + 12, len(hourly["time"])))
+        temps = [(hourly["temperature_2m"][i], hourly["time"][i]) for i in idx]
+        to_f = (lambda t: t) if fahrenheit else (lambda t: t * 9 / 5 + 32)
+        for i in idx:
+            code = hourly["weather_code"][i] or 0
+            if (hourly["precipitation_probability"][i] or 0) >= 55:
+                when = "now" if i == start else "around " + _hour_label(hourly["time"][i])
+                if code in (71, 73, 75, 77, 85, 86):
+                    return f"Snow {when}, dress warm"
+                if code in (95, 96, 99):
+                    return f"Storms {when}, stay in if you can"
+                return f"Bring an umbrella, rain {when}"
+        lo, lo_at = min(temps)
+        hi, hi_at = max(temps)
+        if to_f(lo) < 35:
+            return f"Bundle up, down to {round(lo)}° by {_hour_label(lo_at)}"
+        if to_f(lo) < 50:
+            return f"Coat weather, {round(lo)}° by {_hour_label(lo_at)}"
+        if to_f(lo) < 62:
+            return f"Light jacket, cools to {round(lo)}° by {_hour_label(lo_at)}"
+        if to_f(hi) > 86:
+            return f"Stay cool, up to {round(hi)}° by {_hour_label(hi_at)}"
+        return "T-shirt weather all day"
+    except (KeyError, StopIteration, ValueError, TypeError):
+        return ""
+
+
+# ---------------------------------------------------------------- My Shows + mood picker
+
+# Streaming services as TVmaze / Apple name them -> words to find the matching Roku channel.
+SERVICE_WORDS = [
+    ("netflix", "netflix"), ("prime", "prime video"), ("amazon", "prime video"), ("disney", "disney"),
+    ("hulu", "hulu"), ("max", "max"), ("hbo", "max"), ("peacock", "peacock"), ("paramount", "paramount"),
+    ("apple", "apple tv"), ("crunchyroll", "crunchyroll"), ("youtube", "youtube"), ("tubi", "tubi"),
+    ("pluto", "pluto"), ("starz", "starz"), ("showtime", "paramount"), ("fx", "hulu"), ("abc", "hulu"),
+    ("nbc", "peacock"), ("cbs", "paramount"), ("adult swim", "max"), ("cartoon network", "max"),
+]
+
+
+class Shows:
+    def __init__(self, cfg, roku, events):
+        self.cfg = cfg
+        self.roku = roku
+        self.events = events
+
+    # -- search TVmaze (TV) and Apple's catalog (movies); no keys needed
+    def search(self, q):
+        q = (q or "").strip()
+        if not q:
+            return []
+        out = []
+        try:
+            for hit in fetch_json("https://api.tvmaze.com/search/shows?q=" + quote(q), timeout=12)[:8]:
+                sh = hit["show"]
+                net = (sh.get("webChannel") or {}).get("name") or (sh.get("network") or {}).get("name") or ""
+                img = (sh.get("image") or {}).get("original") or (sh.get("image") or {}).get("medium")
+                out.append({"key": f"tv:{sh['id']}", "title": sh["name"], "kind": "tv",
+                            "year": (sh.get("premiered") or "")[:4], "poster": img, "network": net,
+                            "tvmaze": sh["id"]})
+        except Exception as e:  # noqa: BLE001
+            log("TVmaze search:", e)
+        try:
+            res = fetch_json("https://itunes.apple.com/search?media=movie&entity=movie&limit=8&term=" + quote(q), timeout=12)
+            for m in res.get("results", []):
+                art = (m.get("artworkUrl100") or "").replace("100x100bb", "600x900bb")
+                out.append({"key": f"movie:{m.get('trackId')}", "title": m.get("trackName"), "kind": "movie",
+                            "year": (m.get("releaseDate") or "")[:4], "poster": art, "network": ""})
+        except Exception as e:  # noqa: BLE001
+            log("Movie search:", e)
+        return out
+
+    def _backdrop(self, tvmaze_id):
+        try:
+            imgs = fetch_json(f"https://api.tvmaze.com/shows/{int(tvmaze_id)}/images", timeout=12)
+            bgs = [i for i in imgs if i.get("type") == "background"]
+            bgs.sort(key=lambda i: -(i.get("resolutions", {}).get("original", {}).get("width") or 0))
+            if bgs:
+                return bgs[0]["resolutions"]["original"]["url"]
+        except Exception as e:  # noqa: BLE001
+            log("TVmaze images:", e)
+        return None
+
+    def guess_app(self, network):
+        n = (network or "").lower()
+        if not n:
+            return None
+        try:
+            apps = self.roku.apps()
+        except Exception:  # noqa: BLE001
+            return None
+        for word, name in SERVICE_WORDS:
+            if word in n:
+                for a in apps:
+                    if name in a["name"].lower():
+                        return a
+        for a in apps:
+            if a["name"].lower() in n or n in a["name"].lower():
+                return a
+        return None
+
+    def add(self, b):
+        title = str(b.get("title", "")).strip()[:120]
+        if not title:
+            raise ValueError("Give the show a title")
+        item = {"id": new_id(), "title": title, "kind": b.get("kind") if b.get("kind") in ("tv", "movie") else "tv",
+                "year": str(b.get("year") or "")[:4], "poster": b.get("poster") or "", "backdrop": b.get("backdrop") or "",
+                "app": b.get("app") or "", "appName": b.get("appName") or "",
+                "moods": [m for m in (b.get("moods") or []) if isinstance(m, str)][:8], "network": b.get("network") or ""}
+        if b.get("tvmaze") and not item["backdrop"]:
+            item["backdrop"] = self._backdrop(b["tvmaze"]) or ""
+        if not item["app"]:
+            a = self.guess_app(item["network"])
+            if a:
+                item["app"], item["appName"] = a["id"], a["name"]
+        moods = list(self.cfg["moods"])
+        for m in item["moods"]:
+            if m not in moods:
+                moods.append(m)
+        self.cfg.update(shows=[item] + [x for x in self.cfg["shows"] if x["title"].lower() != title.lower()], moods=moods)
+        self.events.publish(type="widgets")
+        return item
+
+    def update(self, b):
+        shows = self.cfg["shows"]
+        for x in shows:
+            if x["id"] == b.get("id"):
+                if "app" in b:
+                    x["app"] = b.get("app") or ""
+                    x["appName"] = b.get("appName") or ""
+                if "moods" in b:
+                    x["moods"] = [m for m in b["moods"] if isinstance(m, str)][:8]
+        moods = list(self.cfg["moods"])
+        for x in shows:
+            for m in x["moods"]:
+                if m not in moods:
+                    moods.append(m)
+        self.cfg.update(shows=shows, moods=moods)
+        self.events.publish(type="widgets")
+
+    def delete(self, show_id):
+        self.cfg.update(shows=[x for x in self.cfg["shows"] if x["id"] != show_id])
+        self.events.publish(type="widgets")
+
+    def set_moods(self, names, renames=None):
+        names = [str(n).strip()[:40] for n in names if str(n).strip()]
+        shows = self.cfg["shows"]
+        for x in shows:
+            ms = [(renames or {}).get(m, m) for m in x["moods"]]
+            x["moods"] = [m for m in ms if m in names]
+        self.cfg.update(moods=names, shows=shows)
+        self.events.publish(type="widgets")
+
+    def mood_cards(self):
+        cards = []
+        for name in self.cfg["moods"]:
+            items = [x for x in self.cfg["shows"] if name in x["moods"]]
+            if items:
+                cards.append({"name": name, "count": len(items), "ids": [x["id"] for x in items]})
+        if self.cfg["shows"]:
+            cards.append({"name": "Anything", "count": len(self.cfg["shows"]), "ids": [x["id"] for x in self.cfg["shows"]]})
+        return cards
+
+    def play(self, show):
+        """Opens the title in its app through Roku search (works for any app that supports it)."""
+        params = {"keyword": show["title"], "title": show["title"], "type": "movie" if show.get("kind") == "movie" else "tv-show"}
+        if show.get("app"):
+            params["provider-id"] = show["app"]
+            params["launch"] = "true"
+        self.roku._req("/search/browse?" + urlencode(params), "POST")
+        return {"ok": True, "app": show.get("appName") or ""}
+
+    def find(self, show_id):
+        return next((x for x in self.cfg["shows"] if x["id"] == show_id), None)
+
+
+# ---------------------------------------------------------------- Ask the TV
+
+class Assistant:
+    """Answers questions typed or spoken on the TV or the phone. Weather, time, the calendar,
+    opening apps, the sleep timer and picking something to watch are built in; anything else
+    goes to Claude (API key) or Ollama (on your PC) if one is set up in Hub settings."""
+
+    WORD_NUM = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "ten": 10, "fifteen": 15, "twenty": 20,
+                "thirty": 30, "forty": 40, "forty-five": 45, "sixty": 60, "ninety": 90, "half": 30, "an": 60, "a": 60}
+
+    def __init__(self, app):
+        self.app = app
+
+    def ask(self, q):
+        q = (q or "").strip()
+        if not q:
+            return {"answer": "Ask me about the weather, your schedule, or what to watch."}
+        low = q.lower().strip(" ?!.")
+        for fn in (self._sleep, self._weather, self._time, self._agenda, self._pick, self._open, self._watch):
+            r = fn(low, q)
+            if r:
+                return r
+        return self._ai(q)
+
+    # -- built-in answers
+    def _weather(self, low, q):
+        if not re.search(r"\b(weather|rain|raining|snow|cold|hot|warm|jacket|coat|umbrella|temperature|outside|degrees|forecast|wear)\b", low):
+            return None
+        w = self.app.widgets.data.get("weather")
+        if not w:
+            return {"answer": "Set your weather location on the Hub page of the remote app and I'll know."}
+        if "tomorrow" in low and len(w["days"]) > 1:
+            d = w["days"][1]
+            rain = f", {d['rain']}% chance of rain" if d["rain"] >= 20 else ""
+            return {"answer": f"Tomorrow in {w['place']}: high {d['hi']}°, low {d['lo']}°{rain}."}
+        tip = (". " + w["tip"] + ".") if w.get("tip") else "."
+        today = w["days"][0] if w["days"] else None
+        hl = f" Today: {today['hi']}° / {today['lo']}°." if today else ""
+        return {"answer": f"It's {w['temp']}° and {w['text'].lower()} in {w['place']}{tip}{hl}".replace("..", ".")}
+
+    def _time(self, low, q):
+        if re.search(r"\bwhat time\b|\btime is it\b", low):
+            return {"answer": "It's " + datetime.now().strftime("%-I:%M %p") + "."}
+        if re.search(r"\bwhat('s| is) (the )?date\b|\bwhat day\b", low):
+            return {"answer": "It's " + datetime.now().strftime("%A, %B %-d") + "."}
+        return None
+
+    def _agenda(self, low, q):
+        if not re.search(r"\b(calendar|schedule|agenda|what('s| is) next|up next|plans|busy|events?|appointments?)\b", low):
+            return None
+        items = self.app.widgets.snapshot().get("agenda") or []
+        if not items:
+            return {"answer": "Nothing on your calendar coming up."}
+        parts = []
+        for e in items[:3]:
+            when = datetime.fromtimestamp(e["start"]).strftime("%a" if e.get("allDay") else "%a %-I:%M %p")
+            parts.append(f"{e['title']} ({when})")
+        return {"answer": "Coming up: " + "; ".join(parts) + "."}
+
+    def _sleep(self, low, q):
+        if not re.search(r"\b(sleep|turn (the )?(tv )?off|shut (it )?off|off in)\b", low):
+            return None
+        if re.search(r"\b(cancel|stop|never ?mind)\b", low):
+            self.app.sleep.set(0)
+            return {"answer": "Sleep timer off.", "action": "sleep"}
+        m = re.search(r"(\d+|an?|half|one|two|three|ten|fifteen|twenty|thirty|forty-five|forty|sixty|ninety)\s*(minutes?|mins?|hours?|hrs?)", low)
+        if not m:
+            return {"answer": "How long? Try “turn off in 30 minutes”."}
+        n = m.group(1)
+        if m.group(2).startswith("h"):
+            num = 30 if n == "half" else 60 if n in ("a", "an") else (int(n) if n.isdigit() else self.WORD_NUM.get(n, 1)) * 60
+        else:
+            num = int(n) if n.isdigit() else self.WORD_NUM.get(n, 30)
+        self.app.sleep.set(num)
+        self.app.events.publish(type="widgets")
+        return {"answer": f"Okay, the TV turns off in {num} minutes.", "action": "sleep"}
+
+    def _pick(self, low, q):
+        if not re.search(r"\b(what should (i|we) watch|pick (something|a show|a movie)|something to watch|i'?m bored|surprise me|choose for me)\b", low):
+            return None
+        shows = self.app.cfg["shows"]
+        if not shows:
+            return {"answer": "Add some shows on the Hub page of the remote app and I'll pick one."}
+        mood = next((m for m in self.app.cfg["moods"] if m.lower() in low), None)
+        pool = [x for x in shows if mood in x["moods"]] if mood else shows
+        pick = random.choice(pool or shows)
+        where = f" on {pick['appName']}" if pick.get("appName") else ""
+        return {"answer": f"How about {pick['title']}{where}?", "pick": pick["id"]}
+
+    def _open(self, low, q):
+        m = re.match(r"^(open|launch|start|go to)\s+(.+)$", low)
+        if not m:
+            return None
+        name = m.group(2).strip()
+        try:
+            apps = self.app.roku.apps()
+        except Exception:  # noqa: BLE001
+            return {"answer": "I can't reach the TV right now."}
+        hit = next((a for a in apps if a["name"].lower() == name), None) or next((a for a in apps if name in a["name"].lower()), None)
+        if not hit:
+            return None
+        self.app.roku.launch(hit["id"])
+        return {"answer": f"Opening {hit['name']}.", "action": "launched"}
+
+    def _watch(self, low, q):
+        m = re.match(r"^(play|watch|put on)\s+(.+?)(\s+on\s+(.+))?$", low)
+        if not m:
+            return None
+        title = m.group(2).strip()
+        mine = next((x for x in self.app.cfg["shows"] if x["title"].lower() == title), None)
+        show = mine or {"title": title, "kind": "tv", "app": "", "appName": ""}
+        if m.group(4) and not show.get("app"):
+            try:
+                a = next((a for a in self.app.roku.apps() if m.group(4).strip() in a["name"].lower()), None)
+                if a:
+                    show = {**show, "app": a["id"], "appName": a["name"]}
+            except Exception:  # noqa: BLE001
+                pass
+        try:
+            self.app.shows.play(show)
+        except Exception:  # noqa: BLE001
+            return {"answer": "I can't reach the TV right now."}
+        where = f" on {show['appName']}" if show.get("appName") else ""
+        name = show["title"] if mine else q[len(m.group(1)) + 1:].strip()
+        if m.group(4) and not mine:
+            name = re.sub(r"\s+on\s+.+$", "", name, flags=re.I)
+        return {"answer": f"Looking for {name}{where}.", "action": "launched"}
+
+    # -- anything else: Claude or Ollama
+    def _context(self):
+        w = self.app.widgets.data.get("weather")
+        lines = [f"Now: {datetime.now().strftime('%A %B %-d, %-I:%M %p')}."]
+        if w:
+            lines.append(f"Weather in {w['place']}: {w['temp']}°{w['unit']}, {w['text']}. {w.get('tip', '')}")
+        ag = self.app.widgets.snapshot().get("agenda") or []
+        if ag:
+            lines.append("Calendar: " + "; ".join(f"{e['title']} at {datetime.fromtimestamp(e['start']).strftime('%a %-I:%M %p')}" for e in ag[:4]))
+        if self.app.cfg["shows"]:
+            lines.append("Their saved shows: " + ", ".join(x["title"] for x in self.app.cfg["shows"][:30]))
+        return "\n".join(lines)
+
+    def _ai(self, q):
+        ai = self.app.cfg["ai"] or {}
+        system = ("You are Hub, the assistant on a family's TV. Answer in one to three short, friendly sentences "
+                  "that read well on a TV screen. No markdown, no lists.\n" + self._context())
+        try:
+            if ai.get("provider") == "claude" and ai.get("key"):
+                body = {"model": ai.get("model") or "claude-haiku-5-5", "max_tokens": 300, "system": system,
+                        "messages": [{"role": "user", "content": q}]}
+                req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(body).encode(),
+                                             headers={"x-api-key": ai["key"], "anthropic-version": "2023-06-01",
+                                                      "content-type": "application/json"})
+                with urllib.request.urlopen(req, timeout=40) as r:
+                    res = json.loads(r.read())
+                text = "".join(c.get("text", "") for c in res.get("content", []) if c.get("type") == "text").strip()
+                return {"answer": text or "I don't have an answer for that."}
+            if ai.get("provider") == "ollama" and ai.get("url"):
+                url = ai["url"].rstrip("/")
+                if "://" not in url:
+                    url = "http://" + url
+                if not re.search(r":\d+$", url):
+                    url += ":11434"
+                body = {"model": ai.get("model") or "llama3.2", "stream": False,
+                        "messages": [{"role": "system", "content": system}, {"role": "user", "content": q}]}
+                req = urllib.request.Request(url + "/api/chat", data=json.dumps(body).encode(), headers={"content-type": "application/json"})
+                with LAN.open(req, timeout=90) as r:
+                    res = json.loads(r.read())
+                return {"answer": (res.get("message") or {}).get("content", "").strip() or "I don't have an answer for that."}
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", "ignore")[:200]
+            log("Ask:", e.code, detail)
+            return {"answer": "The AI service said no" + (" (check the API key)." if e.code in (401, 403) else f" ({e.code}).")}
+        except Exception as e:  # noqa: BLE001
+            log("Ask:", e)
+            return {"answer": "I couldn't reach the AI service. Check the address in Hub settings."}
+        return {"answer": "I can do the weather, your schedule, opening apps, sleep timers and picking something to "
+                          "watch. For other questions, add a Claude API key or Ollama on the Hub page of the remote app."}
 
 
 # ---------------------------------------------------------------- the TV watcher (auto-open, kiosk, sleep timer)
@@ -1280,6 +1675,13 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(200, data, ctype or "image/png", {"Cache-Control": "max-age=86400"})
                 except Exception:  # noqa: BLE001
                     self._send(404, b"", "text/plain")
+            elif path == "/api/shows/search":
+                self._json(200, {"ok": True, "results": S.shows.search(q.get("q", ""))})
+            elif path == "/api/thumb":
+                f, ctype = S.thumb(q.get("u", ""))
+                self._file(f, ctype)
+            elif path.startswith("/api/notes/img/"):
+                self._file(os.path.join(S.notes_dir, safe_name(path.rsplit("/", 1)[1])), "image/png")
             elif path == "/api/anime/search":
                 self._json(200, {"ok": True, "results": Widgets.anime_search(q.get("q", ""))})
             elif path == "/api/widgets":
@@ -1300,6 +1702,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/wallpapers/upload":
                 src = self._upload(os.path.join(S.data_dir, "uploads"), 60)
                 self._ok(**S.add_wallpaper(src))
+                return
+            if path == "/api/notes/draw":
+                src = self._upload(os.path.join(S.data_dir, "uploads"), 20)
+                self._ok(note=S.add_drawing(src))
                 return
             if path == "/api/send/file":
                 dest = self._upload(S.library.inbox)
@@ -1363,15 +1769,67 @@ class Handler(BaseHTTPRequestHandler):
                 S.events.publish(type="widgets")
                 self._ok()
             elif path == "/api/notes/add":
-                note = {"id": new_id(), "text": str(b.get("text", ""))[:500], "color": b.get("color") or "#FFD166",
+                note = {"id": new_id(), "kind": "text", "text": str(b.get("text", ""))[:500], "color": b.get("color") or "#FFD166",
                         "created": time.time()}
                 S.cfg.update(notes=([note] + S.cfg["notes"])[:30])
                 S.events.publish(type="widgets")
                 S.events.publish(type="toast", text="New note: " + note["text"][:60])
                 self._ok(note=note)
             elif path == "/api/notes/delete":
+                gone = [n for n in S.cfg["notes"] if n["id"] == b.get("id")]
+                for n in gone:
+                    if n.get("kind") == "drawing":
+                        try:
+                            os.remove(os.path.join(S.notes_dir, safe_name(n["id"] + ".png")))
+                        except OSError:
+                            pass
                 S.cfg.update(notes=[n for n in S.cfg["notes"] if n["id"] != b.get("id")])
                 S.events.publish(type="widgets")
+                self._ok()
+            elif path == "/api/shows/add":
+                self._ok(show=S.shows.add(b), shows=S.cfg["shows"], moods=S.cfg["moods"])
+            elif path == "/api/shows/update":
+                S.shows.update(b)
+                self._ok(shows=S.cfg["shows"], moods=S.cfg["moods"])
+            elif path == "/api/shows/delete":
+                S.shows.delete(b.get("id"))
+                self._ok(shows=S.cfg["shows"])
+            elif path == "/api/shows/play":
+                show = S.shows.find(b.get("id")) if b.get("id") else {"title": b.get("title", ""), "kind": b.get("kind", "tv"),
+                                                                        "app": b.get("app", ""), "appName": b.get("appName", "")}
+                if not show or not show.get("title"):
+                    raise ValueError("Unknown show")
+                self._tv(lambda: S.shows.play(show))
+            elif path == "/api/moods":
+                S.shows.set_moods(b.get("moods") or [], b.get("renames") or {})
+                self._ok(moods=S.cfg["moods"], shows=S.cfg["shows"])
+            elif path == "/api/quotes/add":
+                text = str(b.get("text", "")).strip()[:200]
+                if not text:
+                    raise ValueError("Type a quote first")
+                qt = {"id": new_id(), "text": text, "by": str(b.get("by", "")).strip()[:60]}
+                S.cfg.update(quotes=S.cfg["quotes"] + [qt])
+                S.events.publish(type="widgets")
+                self._ok(quotes=S.cfg["quotes"])
+            elif path == "/api/quotes/delete":
+                S.cfg.update(quotes=[x for x in S.cfg["quotes"] if x["id"] != b.get("id")])
+                S.events.publish(type="widgets")
+                self._ok(quotes=S.cfg["quotes"])
+            elif path == "/api/ask":
+                res = S.assistant.ask(str(b.get("q", ""))[:500])
+                if b.get("source") != "tv":
+                    S.events.publish(type="ask", q=str(b.get("q", ""))[:500], answer=res.get("answer", ""), pick=res.get("pick"))
+                self._ok(**res)
+            elif path == "/api/ai":
+                ai = dict(S.cfg["ai"] or {})
+                for k in ("provider", "model", "url"):
+                    if k in b:
+                        ai[k] = str(b[k] or "").strip()
+                if b.get("key"):
+                    ai["key"] = str(b["key"]).strip()
+                if b.get("clearKey"):
+                    ai["key"] = ""
+                S.cfg.update(ai=ai)
                 self._ok()
             elif path == "/api/youtube/add":
                 ch = Widgets.resolve_youtube(str(b.get("channel", "")))
@@ -1428,6 +1886,10 @@ class App:
         self.adblock = AdBlock(os.path.join(data_dir, "adblock-hosts.txt"))
         self.library = Library(cfg, data_dir)
         self.widgets = Widgets(cfg, self.events, self.roku)
+        self.shows = Shows(cfg, self.roku, self.events)
+        self.assistant = Assistant(self)
+        self.notes_dir = os.path.join(data_dir, "notes")
+        os.makedirs(self.notes_dir, exist_ok=True)
         self.browser = None
 
     def status(self):
@@ -1442,12 +1904,16 @@ class App:
             "sleep": self.sleep.remaining(),
             "settings": {k: c[k] for k in ("tv_ip", "home", "adblock", "autolaunch", "kiosk", "quality", "media", "calendar_url")},
             "hub": c["hub"], "place": c.get("place"), "youtube": c["youtube"], "anime": c["anime"],
-            "events": c["events"], "notes": c["notes"],
+            "events": c["events"], "notes": c["notes"], "quotes": c["quotes"], "shows": c["shows"],
+            "moods": c["moods"], "moodCards": self.shows.mood_cards(),
+            "ai": {"provider": (c["ai"] or {}).get("provider", ""), "model": (c["ai"] or {}).get("model", ""),
+                   "url": (c["ai"] or {}).get("url", ""), "hasKey": bool((c["ai"] or {}).get("key"))},
         }
 
     def hub_state(self):
         return {"ok": True, "hub": self.cfg["hub"], "wallpaper": "/api/wallpaper.jpg?v=" + self.wallpaper_key(),
                 "widgets": self.widgets.snapshot(), "sleep": self.sleep.remaining(),
+                "quotes": self.cfg["quotes"], "shows": self.cfg["shows"], "moodCards": self.shows.mood_cards(),
                 "adblock": {"enabled": self.cfg["adblock"], "blocked": self.adblock.blocked},
                 "server_time": int(time.time())}
 
@@ -1503,6 +1969,40 @@ class App:
         self.cfg.update_hub({"wallpaper": {"type": "custom", "value": os.path.basename(out)}})
         self.events.publish(type="config")
         return {"name": os.path.basename(out), "wallpapers": self.list_wallpapers()}
+
+    def thumb(self, url):
+        """Caches a remote picture (posters, thumbnails) so the TV loads it fast over plain HTTP."""
+        if not re.match(r"^https?://", url or ""):
+            raise FileNotFoundError(url)
+        out = os.path.join(self.cache, "thumbs", hashlib.sha1(url.encode()).hexdigest() + ".img")
+        if not os.path.exists(out):
+            data = fetch(url, timeout=20)
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+            with open(out + ".tmp", "wb") as f:
+                f.write(data)
+            os.replace(out + ".tmp", out)
+        with open(out, "rb") as f:
+            head = f.read(12)
+        ctype = "image/png" if head.startswith(b"\x89PNG") else "image/webp" if head[8:12] == b"WEBP" else "image/jpeg"
+        return out, ctype
+
+    def add_drawing(self, src):
+        note_id = new_id()
+        dest = os.path.join(self.notes_dir, note_id + ".png")
+        os.replace(src, dest)
+        note = {"id": note_id, "kind": "drawing", "image": f"/api/notes/img/{note_id}.png", "text": "",
+                "color": "#1B1F3B", "created": time.time()}
+        keep = ([note] + self.cfg["notes"])[:30]
+        for old in self.cfg["notes"]:
+            if old not in keep and old.get("kind") == "drawing":
+                try:
+                    os.remove(os.path.join(self.notes_dir, old["id"] + ".png"))
+                except OSError:
+                    pass
+        self.cfg.update(notes=keep)
+        self.events.publish(type="widgets")
+        self.events.publish(type="toast", text="New note from your phone")
+        return note
 
     def local_url(self, abs_path):
         """A URL Chromium (inside this server) can load a local file from."""
