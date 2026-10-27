@@ -1,0 +1,59 @@
+name: Hub release
+
+# Publishes the Roku channel (Hub.zip) and the server (hub-server.zip) as a GitHub release
+# whenever hub-server/VERSION changes on main, or when you run it by hand.
+# It refuses to publish if the version in the code doesn't match VERSION.
+on:
+  push:
+    branches: [main]
+    paths:
+      - hub-server/VERSION
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that every version matches
+        id: ver
+        run: |
+          v=$(tr -d ' \n' < hub-server/VERSION)
+          code=$(sed -n 's/^VERSION = "\(.*\)"/\1/p' hub-server/hub_server.py)
+          tv=$(awk -F= '/^major_version/{a=$2}/^minor_version/{b=$2}/^build_version/{c=$2}END{print a"."b"."c}' hub-tv/manifest)
+          echo "VERSION file: $v, hub_server.py: $code, TV manifest: $tv"
+          if [ "$v" != "$code" ] || [ "$v" != "$tv" ]; then
+            echo "::error::Versions don't match. Set all three to the same number."
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if this version is already released
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "hub-v${{ steps.ver.outputs.version }}" > /dev/null 2>&1; then
+            echo "Hub ${{ steps.ver.outputs.version }} is already released."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package
+        if: steps.exists.outputs.skip != '1'
+        run: |
+          (cd hub-tv && zip -qr ../Hub.zip manifest source components images fonts)
+          (cd hub-server && zip -qr ../hub-server.zip hub_server.py hub_control.html start.sh install.sh docker-compose.yml VERSION fonts README.md COMPLIANCE.md)
+          ls -la Hub.zip hub-server.zip
+
+      - name: Publish
+        if: steps.exists.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=${{ steps.ver.outputs.version }}
+          gh release create "hub-v$v" Hub.zip hub-server.zip --title "Hub $v" \
+            --notes "Hub.zip goes on the Roku (developer installer). hub-server.zip goes on your server; see hub-server/README.md. Hub Remote is HubRemote.apk in the repo root."

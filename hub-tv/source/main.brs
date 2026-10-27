@@ -1,4 +1,4 @@
-' Hub 3 - a launcher that bundles several apps into one sideloaded channel.
+' Hub: a launcher that bundles several apps into one sideloaded channel.
 ' The phone/tablet/PC can open Hub (or a Hub app) through the TV's control protocol:
 ' launch params arrive in `args`, and as roInputEvent while Hub is already running.
 sub Main(args as Dynamic)

@@ -3,8 +3,10 @@ sub init()
     m.back = m.top.findNode("slideA")
     m.top.findNode("slideA").observeField("loadStatus", "onLoad")
     m.top.findNode("slideB").observeField("loadStatus", "onLoad")
-    m.top.findNode("clock").font = makeFont(true, 88)
-    m.top.findNode("date").font = makeFont(false, 26)
+    m.top.findNode("clock").font = fontFile("clock", 96)
+    springFade(m.top.findNode("xfade"), m.top.findNode("xIn"), 0.0, 1.0, "slow")
+    springFade(invalid, m.top.findNode("xOut"), 1.0, 0.0, "slow")
+    m.top.findNode("date").font = fontFile("medium", 26)
     m.top.findNode("weather").font = makeFont(false, 24)
     m.photos = []
     m.pos = 0

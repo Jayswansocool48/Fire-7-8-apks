@@ -26,11 +26,15 @@ import random
 import re
 import shutil
 import socket
+import subprocess
+import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 import uuid
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, quote_plus, unquote, urlencode, urlparse
@@ -43,7 +47,11 @@ try:
 except ImportError:  # Python < 3.9
     ZoneInfo = None
 
-VERSION = "4.0.0"
+VERSION = "4.1.0"
+# Where "Check for updates" looks for newer server files.
+UPDATE_BASE = "https://raw.githubusercontent.com/Jayswansocool48/Fire-7-8-apks/main/hub-server/"
+UPDATE_FILES = ["hub_server.py", "hub_control.html", "start.sh", "install.sh", "VERSION", "fonts/manrope.woff", "fonts/fraunces.woff",
+                "fonts/fraunces-italic.woff", "fonts/LICENSE-Manrope-OFL.txt", "fonts/LICENSE-Fraunces-OFL.txt"]
 W, H = 1280, 720  # the Roku app's canvas, so clicks map 1:1
 HERE = os.path.dirname(os.path.abspath(__file__))
 LAN = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # never proxy TV traffic
@@ -55,8 +63,8 @@ AUDIO = {".mp3", ".m4a", ".aac", ".flac", ".wav", ".ogg", ".opus", ".wma"}
 PHOTO = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".heic"}
 
 DEFAULT_HUB = {
-    "wallpaper": {"type": "preset", "value": "aurora"},
-    "accent": "#4F7CFF",
+    "wallpaper": {"type": "preset", "value": "dusk"},
+    "accent": "#D9894A",
     "clock24": False,
     "name": "",
     "units": "F",
@@ -100,25 +108,60 @@ DEFAULTS = {
     "place": None,
     "quotes": [],
     "shows": [],
-    "moods": [],
-    # Ask the TV: "claude" (API key) or "ollama" (on your PC); blank = built-in answers only.
-    "ai": {"provider": "", "key": "", "model": "", "url": ""},
+    "passed": [],  # titles you marked "Not for me"
+    # Ask the TV: "ollama" (on your PC) or "claude" (API key). "share" sends the weather,
+    # calendar and your saved shows along with questions; it stays off until you turn it on.
+    "ai": {"provider": "ollama", "key": "", "model": "", "url": "", "share": False},
 }
 
 ROW_IDS = ["myshows", "youtube", "anime", "agenda"]
+# Accent colors offered on the control page and in Hub Remote.
+ACCENTS = ["#D9894A", "#C9A44C", "#8FB38A", "#5FA3A0", "#C46F5E", "#7E97C9", "#C58A9B", "#B9A58F"]
 WIDGET_IDS = ["weather", "note", "quote"]
 
 # Wallpaper presets, as CSS. The server renders them to images for the TV; the control
 # page shows the same CSS as thumbnails, so both always match.
 PRESETS = {
-    "aurora": "radial-gradient(55% 75% at 12% 8%,#2f5bff 0%,transparent 62%),radial-gradient(50% 70% at 88% 92%,#8a3fd6 0%,transparent 60%),radial-gradient(40% 50% at 55% 78%,#139fb8 0%,transparent 60%),#070a14",
-    "sunset": "radial-gradient(70% 90% at 80% 100%,#ff7a3d 0%,transparent 60%),radial-gradient(60% 80% at 20% 90%,#ff2e6e 0%,transparent 62%),radial-gradient(80% 60% at 50% 0%,#3b1366 0%,transparent 70%),#12061f",
-    "ocean": "radial-gradient(70% 80% at 0% 100%,#0b8f9c 0%,transparent 60%),radial-gradient(60% 70% at 100% 0%,#1d4ed8 0%,transparent 60%),linear-gradient(160deg,#03111f,#062a3a)",
-    "forest": "radial-gradient(60% 80% at 15% 85%,#1f8a4c 0%,transparent 60%),radial-gradient(50% 60% at 85% 15%,#0f5132 0%,transparent 60%),radial-gradient(40% 40% at 60% 60%,#7bb33b33 0%,transparent 70%),#04140c",
-    "ember": "radial-gradient(60% 70% at 85% 20%,#ff5a1f 0%,transparent 55%),radial-gradient(50% 70% at 10% 90%,#a1131f 0%,transparent 60%),#140605",
-    "glacier": "radial-gradient(60% 80% at 20% 20%,#7dd3fc 0%,transparent 60%),radial-gradient(60% 80% at 80% 90%,#6366f1 0%,transparent 60%),linear-gradient(180deg,#0b1730,#1e2a4a)",
-    "candy": "radial-gradient(55% 70% at 15% 15%,#ff5fa2 0%,transparent 60%),radial-gradient(55% 70% at 85% 85%,#5b8cff 0%,transparent 60%),radial-gradient(40% 50% at 70% 25%,#b45cff 0%,transparent 60%),#160b24",
-    "midnight": "radial-gradient(80% 60% at 50% 110%,#1e293b 0%,transparent 70%),linear-gradient(180deg,#05060a,#0b0f19)",
+    "dusk": "linear-gradient(170deg,#3a2f2a 0%,#6b4a3a 55%,#b7835a 100%)",
+    "harbor": "linear-gradient(175deg,#1f2a2e 0%,#2f4a4f 60%,#56756f 100%)",
+    "moss": "linear-gradient(165deg,#1c211b 0%,#36432f 60%,#6a7a52 100%)",
+    "clay": "linear-gradient(160deg,#2a1d19 0%,#5a3529 60%,#9a5b43 100%)",
+    "linen": "linear-gradient(180deg,#5e564b 0%,#8f8574 100%)",
+    "slate": "linear-gradient(180deg,#1d2024 0%,#3a4048 100%)",
+    "night": "linear-gradient(180deg,#121417 0%,#1f232b 100%)",
+}
+
+# Shown on the control page and in Hub Remote (Settings > Privacy and terms).
+LEGAL = {
+    "updated": "October 26, 2026",
+    "privacy": [
+        ["What Hub keeps", "Your settings, notes, drawings, quotes, saved shows, wallpapers and the files you send to the TV. "
+         "All of it stays on your server in the Hub folder (/DATA/AppData/hub-server on CasaOS). Hub has no accounts, "
+         "no analytics, no ads and no cookies, and sends nothing to the person who made it."],
+        ["Who Hub talks to", "Your Roku TV. Open-Meteo, with the place you typed, for the weather. The calendar link you added. "
+         "YouTube and AniList, with the channels and anime you follow. TVmaze and Apple's iTunes Search, with show and movie titles, "
+         "for posters and summaries. Bing, for the daily photo. GitHub, for the ad block list and the update check. "
+         "Any website you open in the TV browser sees that visit like any browser visit."],
+        ["Ask the TV and AI picks", "Built-in answers (weather, time, calendar, apps, sleep timer, picks) never leave your server. "
+         "Ollama runs on your own computer. If you choose Claude, your question goes to Anthropic, and with "
+         "\"Share weather, calendar and shows\" on, so do the current weather, your next few calendar events and the titles "
+         "of your saved shows. Anthropic handles that under its own privacy policy. Your API key stays on the server and "
+         "never reaches the control page, the TV or the tablet."],
+        ["Children", "Hub asks for no age, name or email, and has no sign-up."],
+        ["Deleting your data", "Delete any note, show, quote or file from the control page or Hub Remote. "
+         "Settings > Remove Hub deletes everything Hub keeps, including the server files. Your media folders are read-only to Hub "
+         "and stay as they are."],
+        ["Questions", "Hub is a personal project by Jayswansocool48 on GitHub, with no company behind it. "
+         "Open an issue at github.com/Jayswansocool48/Fire-7-8-apks."],
+    ],
+    "terms": [
+        ["Using Hub", "Hub is free. It has no fees, no subscription and nothing to refund. It comes as is, with no warranty."],
+        ["What you send", "Send only photos, videos, drawings and links you have the right to show. They stay on your server, "
+         "and you can delete them in Library or the notes list at any time."],
+        ["Other services", "Roku, the streaming apps, Anthropic, Open-Meteo, TVmaze, Apple, AniList and YouTube each have their own "
+         "terms. Hub opens their apps and pages; it doesn't change what they allow."],
+        ["Fonts", "Hub bundles the Fraunces and Manrope fonts under the SIL Open Font License. The license files ship in the fonts folder."],
+    ],
 }
 
 WMO = {
@@ -172,6 +215,10 @@ class Config:
                 hub = {**self.data["hub"], **saved.pop("hub", {})}
                 self.data.update(saved)
                 self.data["hub"] = self._migrate(hub)
+                self.data.pop("moods", None)
+                for x in self.data.get("shows") or []:
+                    x.pop("moods", None)
+                self.data["ai"] = {**DEFAULTS["ai"], **(self.data.get("ai") or {})}
             except (OSError, ValueError) as e:
                 log("Config unreadable, using defaults:", e)
         self.version = 1
@@ -192,6 +239,11 @@ class Config:
         hub["rows"] = fix(hub.get("rows"), ROW_IDS, DEFAULT_HUB["rows"])
         hub["widgets"] = fix(hub.get("widgets"), WIDGET_IDS, DEFAULT_HUB["widgets"])
         hub["layout"] = 4
+        if str(hub.get("accent", "")).upper() not in ACCENTS:
+            hub["accent"] = DEFAULT_HUB["accent"]
+        wall = hub.get("wallpaper") or {}
+        if wall.get("type") == "preset" and wall.get("value") not in PRESETS:
+            hub["wallpaper"] = dict(DEFAULT_HUB["wallpaper"])
         return hub
 
     def __getitem__(self, key):
@@ -215,8 +267,10 @@ class Config:
     def _save(self):
         os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
         tmp = self.path + ".tmp"
-        with open(tmp, "w") as f:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
             json.dump(self.data, f, indent=2)
+        os.chmod(tmp, 0o600)
         os.replace(tmp, self.path)
 
 
@@ -642,7 +696,7 @@ class Browser:
         return self.render_html(img, w, h, out)
 
     def render_preset(self, name, out):
-        css = PRESETS.get(name, PRESETS["aurora"])
+        css = PRESETS.get(name, PRESETS["dusk"])
         return self.render_html(f"<div style='width:{W}px;height:{H}px;background:{css}'></div>", W, H, out, 90)
 
     def close(self):
@@ -1097,7 +1151,7 @@ def weather_tip(d, fahrenheit):
         return ""
 
 
-# ---------------------------------------------------------------- My Shows + mood picker
+# ---------------------------------------------------------------- My Shows
 
 # Streaming services as TVmaze / Apple name them -> words to find the matching Roku channel.
 SERVICE_WORDS = [
@@ -1128,7 +1182,7 @@ class Shows:
                 img = (sh.get("image") or {}).get("original") or (sh.get("image") or {}).get("medium")
                 out.append({"key": f"tv:{sh['id']}", "title": sh["name"], "kind": "tv",
                             "year": (sh.get("premiered") or "")[:4], "poster": img, "network": net,
-                            "tvmaze": sh["id"]})
+                            "tvmaze": sh["id"], "genres": norm_genres(sh.get("genres"))})
         except Exception as e:  # noqa: BLE001
             log("TVmaze search:", e)
         try:
@@ -1136,7 +1190,8 @@ class Shows:
             for m in res.get("results", []):
                 art = (m.get("artworkUrl100") or "").replace("100x100bb", "600x900bb")
                 out.append({"key": f"movie:{m.get('trackId')}", "title": m.get("trackName"), "kind": "movie",
-                            "year": (m.get("releaseDate") or "")[:4], "poster": art, "network": ""})
+                            "year": (m.get("releaseDate") or "")[:4], "poster": art, "network": "",
+                            "genres": norm_genres([m.get("primaryGenreName", "")])})
         except Exception as e:  # noqa: BLE001
             log("Movie search:", e)
         return out
@@ -1177,18 +1232,17 @@ class Shows:
         item = {"id": new_id(), "title": title, "kind": b.get("kind") if b.get("kind") in ("tv", "movie") else "tv",
                 "year": str(b.get("year") or "")[:4], "poster": b.get("poster") or "", "backdrop": b.get("backdrop") or "",
                 "app": b.get("app") or "", "appName": b.get("appName") or "",
-                "moods": [m for m in (b.get("moods") or []) if isinstance(m, str)][:8], "network": b.get("network") or ""}
+                "genres": norm_genres(b.get("genres")), "network": b.get("network") or ""}
         if b.get("tvmaze") and not item["backdrop"]:
             item["backdrop"] = self._backdrop(b["tvmaze"]) or ""
         if not item["app"]:
             a = self.guess_app(item["network"])
             if a:
                 item["app"], item["appName"] = a["id"], a["name"]
-        moods = list(self.cfg["moods"])
-        for m in item["moods"]:
-            if m not in moods:
-                moods.append(m)
-        self.cfg.update(shows=[item] + [x for x in self.cfg["shows"] if x["title"].lower() != title.lower()], moods=moods)
+        if not item["genres"]:
+            c = Recommender.CATALOG_KEYS.get(title_key(item["kind"], title))
+            item["genres"] = list(c["genres"]) if c else []
+        self.cfg.update(shows=[item] + [x for x in self.cfg["shows"] if x["title"].lower() != title.lower()])
         self.events.publish(type="widgets")
         return item
 
@@ -1199,38 +1253,12 @@ class Shows:
                 if "app" in b:
                     x["app"] = b.get("app") or ""
                     x["appName"] = b.get("appName") or ""
-                if "moods" in b:
-                    x["moods"] = [m for m in b["moods"] if isinstance(m, str)][:8]
-        moods = list(self.cfg["moods"])
-        for x in shows:
-            for m in x["moods"]:
-                if m not in moods:
-                    moods.append(m)
-        self.cfg.update(shows=shows, moods=moods)
+        self.cfg.update(shows=shows)
         self.events.publish(type="widgets")
 
     def delete(self, show_id):
         self.cfg.update(shows=[x for x in self.cfg["shows"] if x["id"] != show_id])
         self.events.publish(type="widgets")
-
-    def set_moods(self, names, renames=None):
-        names = [str(n).strip()[:40] for n in names if str(n).strip()]
-        shows = self.cfg["shows"]
-        for x in shows:
-            ms = [(renames or {}).get(m, m) for m in x["moods"]]
-            x["moods"] = [m for m in ms if m in names]
-        self.cfg.update(moods=names, shows=shows)
-        self.events.publish(type="widgets")
-
-    def mood_cards(self):
-        cards = []
-        for name in self.cfg["moods"]:
-            items = [x for x in self.cfg["shows"] if name in x["moods"]]
-            if items:
-                cards.append({"name": name, "count": len(items), "ids": [x["id"] for x in items]})
-        if self.cfg["shows"]:
-            cards.append({"name": "Anything", "count": len(self.cfg["shows"]), "ids": [x["id"] for x in self.cfg["shows"]]})
-        return cards
 
     def play(self, show):
         """Opens the title in its app through Roku search (works for any app that supports it)."""
@@ -1243,6 +1271,538 @@ class Shows:
 
     def find(self, show_id):
         return next((x for x in self.cfg["shows"] if x["id"] == show_id), None)
+
+
+# ---------------------------------------------------------------- recommendations
+
+# Hub's own short list of shows and movies to suggest from: title|year|kind|genres.
+# Picks lean toward the genres of the shows you saved. With an AI set up and sharing on,
+# Claude or Ollama suggests titles too.
+CATALOG = """
+The Office|2005|tv|Comedy
+Parks and Recreation|2009|tv|Comedy
+Brooklyn Nine-Nine|2013|tv|Comedy,Crime
+Abbott Elementary|2021|tv|Comedy
+What We Do in the Shadows|2019|tv|Comedy,Horror
+Schitt's Creek|2015|tv|Comedy
+The Good Place|2016|tv|Comedy,Fantasy
+Community|2009|tv|Comedy
+Ted Lasso|2020|tv|Comedy,Drama,Sports
+Only Murders in the Building|2021|tv|Comedy,Mystery,Crime
+The Bear|2022|tv|Comedy,Drama
+Arrested Development|2003|tv|Comedy
+It's Always Sunny in Philadelphia|2005|tv|Comedy
+Superstore|2015|tv|Comedy
+New Girl|2011|tv|Comedy,Romance
+How I Met Your Mother|2005|tv|Comedy,Romance
+Friends|1994|tv|Comedy,Romance
+Seinfeld|1989|tv|Comedy
+Hacks|2021|tv|Comedy,Drama
+Veep|2012|tv|Comedy
+Derry Girls|2018|tv|Comedy
+Fleabag|2016|tv|Comedy,Drama
+Reservation Dogs|2021|tv|Comedy,Drama
+Shrinking|2023|tv|Comedy,Drama
+Barry|2018|tv|Comedy,Crime,Drama
+Atlanta|2016|tv|Comedy,Drama
+Curb Your Enthusiasm|2000|tv|Comedy
+The Simpsons|1989|tv|Animation,Comedy
+Bob's Burgers|2011|tv|Animation,Comedy,Family
+Futurama|1999|tv|Animation,Comedy,Sci-Fi
+Rick and Morty|2013|tv|Animation,Comedy,Sci-Fi
+BoJack Horseman|2014|tv|Animation,Comedy,Drama
+Bluey|2018|tv|Animation,Family,Comedy
+Gravity Falls|2012|tv|Animation,Mystery,Family,Comedy
+Avatar: The Last Airbender|2005|tv|Animation,Fantasy,Adventure,Family
+Arcane|2021|tv|Animation,Fantasy,Action,Drama
+Invincible|2021|tv|Animation,Superhero,Action
+The Boys|2019|tv|Superhero,Action,Comedy
+Loki|2021|tv|Superhero,Sci-Fi,Adventure
+WandaVision|2021|tv|Superhero,Mystery,Comedy
+Breaking Bad|2008|tv|Crime,Drama,Thriller
+Better Call Saul|2015|tv|Crime,Drama
+The Sopranos|1999|tv|Crime,Drama
+The Wire|2002|tv|Crime,Drama
+Succession|2018|tv|Drama,Comedy
+Mad Men|2007|tv|Drama
+The Crown|2016|tv|Drama
+This Is Us|2016|tv|Drama,Family,Romance
+Friday Night Lights|2006|tv|Drama,Sports
+The Last of Us|2023|tv|Drama,Horror,Sci-Fi
+Yellowstone|2018|tv|Drama,Western
+Ozark|2017|tv|Crime,Drama,Thriller
+Peaky Blinders|2013|tv|Crime,Drama
+Shogun|2024|tv|Drama,Adventure
+The Queen's Gambit|2020|tv|Drama
+Normal People|2020|tv|Romance,Drama
+Bridgerton|2020|tv|Romance,Drama
+Outlander|2014|tv|Romance,Fantasy,Drama
+Grey's Anatomy|2005|tv|Drama,Romance
+The Pitt|2025|tv|Drama
+Beef|2023|tv|Comedy,Drama
+Slow Horses|2022|tv|Thriller,Crime
+Mindhunter|2017|tv|Crime,Thriller
+True Detective|2014|tv|Crime,Mystery,Drama
+Mare of Easttown|2021|tv|Crime,Mystery,Drama
+Sherlock|2010|tv|Crime,Mystery
+Squid Game|2021|tv|Thriller,Drama
+Money Heist|2017|tv|Crime,Thriller,Action
+Dark|2017|tv|Sci-Fi,Mystery,Thriller
+Black Mirror|2011|tv|Sci-Fi,Thriller
+Stranger Things|2016|tv|Sci-Fi,Horror,Mystery
+Severance|2022|tv|Sci-Fi,Mystery,Drama
+The Mandalorian|2019|tv|Sci-Fi,Action,Adventure
+Andor|2022|tv|Sci-Fi,Thriller
+Silo|2023|tv|Sci-Fi,Mystery
+Fallout|2024|tv|Sci-Fi,Action,Comedy
+The Expanse|2015|tv|Sci-Fi,Drama
+Westworld|2016|tv|Sci-Fi,Mystery
+Game of Thrones|2011|tv|Fantasy,Drama,Action
+House of the Dragon|2022|tv|Fantasy,Drama
+The Witcher|2019|tv|Fantasy,Action
+Wednesday|2022|tv|Comedy,Mystery,Horror
+The Haunting of Hill House|2018|tv|Horror,Drama
+Midnight Mass|2021|tv|Horror,Drama
+From|2022|tv|Horror,Mystery
+The Walking Dead|2010|tv|Horror,Drama,Action
+Yellowjackets|2021|tv|Horror,Thriller,Mystery
+Lost|2004|tv|Mystery,Sci-Fi,Adventure
+The Leftovers|2014|tv|Drama,Mystery
+Twin Peaks|1990|tv|Mystery,Drama
+Doctor Who|2005|tv|Sci-Fi,Adventure
+Star Trek: Strange New Worlds|2022|tv|Sci-Fi,Adventure
+Reacher|2022|tv|Action,Crime
+Jack Ryan|2018|tv|Action,Thriller
+The Night Agent|2023|tv|Thriller,Action
+Lupin|2021|tv|Crime,Mystery
+The Great British Baking Show|2010|tv|Reality
+Nailed It!|2018|tv|Reality,Comedy
+Survivor|2000|tv|Reality
+Planet Earth|2006|tv|Documentary
+Our Planet|2019|tv|Documentary
+Formula 1: Drive to Survive|2019|tv|Documentary,Sports
+Attack on Titan|2013|tv|Anime,Action,Fantasy
+Demon Slayer: Kimetsu no Yaiba|2019|tv|Anime,Action,Fantasy
+Jujutsu Kaisen|2020|tv|Anime,Action,Fantasy
+One Piece|1999|tv|Anime,Adventure,Action
+Frieren: Beyond Journey's End|2023|tv|Anime,Fantasy,Adventure
+Spy x Family|2022|tv|Anime,Comedy,Action,Family
+Chainsaw Man|2022|tv|Anime,Action,Horror
+Fullmetal Alchemist: Brotherhood|2009|tv|Anime,Adventure,Fantasy
+Death Note|2006|tv|Anime,Thriller,Mystery
+Cowboy Bebop|1998|tv|Anime,Sci-Fi,Action
+My Hero Academia|2016|tv|Anime,Superhero,Action
+Hunter x Hunter|2011|tv|Anime,Adventure,Action
+Haikyu!!|2014|tv|Anime,Sports,Comedy
+Mob Psycho 100|2016|tv|Anime,Action,Comedy
+Solo Leveling|2024|tv|Anime,Action,Fantasy
+Dan Da Dan|2024|tv|Anime,Action,Comedy,Sci-Fi
+Vinland Saga|2019|tv|Anime,Action,Drama
+Steins;Gate|2011|tv|Anime,Sci-Fi,Thriller
+Naruto Shippuden|2007|tv|Anime,Action,Adventure
+Bocchi the Rock!|2022|tv|Anime,Comedy,Music
+Kaguya-sama: Love Is War|2019|tv|Anime,Comedy,Romance
+Violet Evergarden|2018|tv|Anime,Drama,Fantasy
+Your Lie in April|2014|tv|Anime,Romance,Drama,Music
+Blue Lock|2022|tv|Anime,Sports
+Neon Genesis Evangelion|1995|tv|Anime,Sci-Fi,Drama
+Oshi no Ko|2023|tv|Anime,Drama,Mystery
+The Apothecary Diaries|2023|tv|Anime,Mystery,Drama
+Kaiju No. 8|2024|tv|Anime,Action,Sci-Fi
+Everything Everywhere All at Once|2022|movie|Sci-Fi,Comedy,Action
+Knives Out|2019|movie|Mystery,Comedy,Crime
+Glass Onion|2022|movie|Mystery,Comedy,Crime
+Parasite|2019|movie|Thriller,Drama,Comedy
+Get Out|2017|movie|Horror,Thriller,Mystery
+The Grand Budapest Hotel|2014|movie|Comedy,Adventure
+Spider-Man: Into the Spider-Verse|2018|movie|Animation,Superhero,Action
+Spider-Man: Across the Spider-Verse|2023|movie|Animation,Superhero,Action
+Dune|2021|movie|Sci-Fi,Adventure
+Dune: Part Two|2024|movie|Sci-Fi,Adventure,Action
+Interstellar|2014|movie|Sci-Fi,Drama,Adventure
+Inception|2010|movie|Sci-Fi,Action,Thriller
+The Dark Knight|2008|movie|Superhero,Action,Crime
+Mad Max: Fury Road|2015|movie|Action,Sci-Fi,Adventure
+John Wick|2014|movie|Action,Thriller,Crime
+Top Gun: Maverick|2022|movie|Action,Drama
+Mission: Impossible Fallout|2018|movie|Action,Thriller
+The Social Network|2010|movie|Drama
+Whiplash|2014|movie|Drama,Music
+La La Land|2016|movie|Romance,Musical,Drama
+Past Lives|2023|movie|Romance,Drama
+About Time|2013|movie|Romance,Comedy,Fantasy
+Crazy Rich Asians|2018|movie|Romance,Comedy
+The Princess Bride|1987|movie|Fantasy,Adventure,Romance,Comedy
+Back to the Future|1985|movie|Sci-Fi,Comedy,Adventure
+Jurassic Park|1993|movie|Sci-Fi,Adventure
+The Matrix|1999|movie|Sci-Fi,Action
+Alien|1979|movie|Horror,Sci-Fi
+Arrival|2016|movie|Sci-Fi,Drama,Mystery
+Blade Runner 2049|2017|movie|Sci-Fi,Mystery
+Edge of Tomorrow|2014|movie|Sci-Fi,Action
+The Martian|2015|movie|Sci-Fi,Adventure,Drama
+Spirited Away|2001|movie|Anime,Animation,Fantasy,Family
+My Neighbor Totoro|1988|movie|Anime,Animation,Family,Fantasy
+Howl's Moving Castle|2004|movie|Anime,Animation,Fantasy,Romance
+Princess Mononoke|1997|movie|Anime,Animation,Fantasy,Adventure
+Your Name.|2016|movie|Anime,Animation,Romance,Fantasy
+Suzume|2022|movie|Anime,Animation,Adventure,Fantasy
+The Boy and the Heron|2023|movie|Anime,Animation,Fantasy
+Akira|1988|movie|Anime,Animation,Sci-Fi,Action
+Demon Slayer: Mugen Train|2020|movie|Anime,Animation,Action,Fantasy
+Jujutsu Kaisen 0|2021|movie|Anime,Animation,Action,Fantasy
+A Silent Voice|2016|movie|Anime,Animation,Drama,Romance
+Perfect Blue|1997|movie|Anime,Animation,Thriller,Horror
+Coco|2017|movie|Animation,Family,Fantasy,Music
+Inside Out|2015|movie|Animation,Family,Comedy
+Inside Out 2|2024|movie|Animation,Family,Comedy
+Up|2009|movie|Animation,Family,Adventure
+Toy Story|1995|movie|Animation,Family,Comedy
+WALL-E|2008|movie|Animation,Sci-Fi,Family
+Ratatouille|2007|movie|Animation,Comedy,Family
+The Incredibles|2004|movie|Animation,Superhero,Family,Action
+Shrek|2001|movie|Animation,Comedy,Fantasy,Family
+The Lego Movie|2014|movie|Animation,Comedy,Family
+Puss in Boots: The Last Wish|2022|movie|Animation,Adventure,Comedy,Family
+The Mitchells vs. the Machines|2021|movie|Animation,Comedy,Sci-Fi,Family
+Paddington 2|2017|movie|Family,Comedy,Adventure
+Klaus|2019|movie|Animation,Family,Comedy
+Encanto|2021|movie|Animation,Musical,Family
+Moana|2016|movie|Animation,Adventure,Musical,Family
+Soul|2020|movie|Animation,Family,Comedy,Music
+Kung Fu Panda|2008|movie|Animation,Action,Comedy,Family
+How to Train Your Dragon|2010|movie|Animation,Fantasy,Adventure,Family
+The Iron Giant|1999|movie|Animation,Sci-Fi,Family
+Nimona|2023|movie|Animation,Fantasy,Comedy,Action
+The Super Mario Bros. Movie|2023|movie|Animation,Adventure,Comedy,Family
+Wicked|2024|movie|Musical,Fantasy
+Barbie|2023|movie|Comedy,Fantasy
+Oppenheimer|2023|movie|Drama,Thriller
+Avengers: Endgame|2019|movie|Superhero,Action,Sci-Fi
+Avengers: Infinity War|2018|movie|Superhero,Action,Sci-Fi
+Guardians of the Galaxy|2014|movie|Superhero,Sci-Fi,Comedy,Action
+Black Panther|2018|movie|Superhero,Action
+Deadpool & Wolverine|2024|movie|Superhero,Comedy,Action
+Thor: Ragnarok|2017|movie|Superhero,Comedy,Action
+The Batman|2022|movie|Superhero,Crime,Mystery
+Logan|2017|movie|Superhero,Action,Drama
+A Quiet Place|2018|movie|Horror,Sci-Fi,Thriller
+Hereditary|2018|movie|Horror,Mystery
+The Conjuring|2013|movie|Horror
+Talk to Me|2023|movie|Horror
+Nope|2022|movie|Horror,Sci-Fi,Mystery
+Scream|1996|movie|Horror,Mystery
+It|2017|movie|Horror
+Barbarian|2022|movie|Horror,Thriller
+Sinners|2025|movie|Horror,Drama
+The Shining|1980|movie|Horror
+Gone Girl|2014|movie|Thriller,Mystery,Crime
+Prisoners|2013|movie|Thriller,Crime,Mystery
+Zodiac|2007|movie|Crime,Mystery,Thriller
+Se7en|1995|movie|Crime,Thriller,Mystery
+The Silence of the Lambs|1991|movie|Thriller,Crime,Horror
+Heat|1995|movie|Crime,Action,Thriller
+The Godfather|1972|movie|Crime,Drama
+Goodfellas|1990|movie|Crime,Drama
+Pulp Fiction|1994|movie|Crime,Comedy
+Baby Driver|2017|movie|Action,Crime,Music
+The Nice Guys|2016|movie|Comedy,Crime,Action
+Hot Fuzz|2007|movie|Comedy,Action,Crime,Mystery
+Shaun of the Dead|2004|movie|Comedy,Horror
+Superbad|2007|movie|Comedy
+Bridesmaids|2011|movie|Comedy
+Game Night|2018|movie|Comedy,Crime,Mystery
+Palm Springs|2020|movie|Comedy,Romance,Sci-Fi
+The Holdovers|2023|movie|Comedy,Drama
+Booksmart|2019|movie|Comedy
+Free Guy|2021|movie|Comedy,Action,Sci-Fi
+Jumanji: Welcome to the Jungle|2017|movie|Adventure,Comedy,Action,Family
+Ferris Bueller's Day Off|1986|movie|Comedy
+Groundhog Day|1993|movie|Comedy,Romance,Fantasy
+Mean Girls|2004|movie|Comedy
+The Truman Show|1998|movie|Comedy,Drama,Sci-Fi
+Little Women|2019|movie|Drama,Romance
+Pride & Prejudice|2005|movie|Romance,Drama
+When Harry Met Sally...|1989|movie|Romance,Comedy
+10 Things I Hate About You|1999|movie|Romance,Comedy
+Anyone but You|2023|movie|Romance,Comedy
+Gladiator|2000|movie|Action,Drama,Adventure
+Raiders of the Lost Ark|1981|movie|Adventure,Action
+Pirates of the Caribbean: The Curse of the Black Pearl|2003|movie|Adventure,Fantasy,Action
+The Lord of the Rings: The Fellowship of the Ring|2001|movie|Fantasy,Adventure
+Harry Potter and the Sorcerer's Stone|2001|movie|Fantasy,Family,Adventure
+Star Wars|1977|movie|Sci-Fi,Adventure,Action
+Dungeons & Dragons: Honor Among Thieves|2023|movie|Fantasy,Adventure,Comedy
+Ford v Ferrari|2019|movie|Drama,Sports,Action
+Creed|2015|movie|Drama,Sports
+Moneyball|2011|movie|Drama,Sports
+Hidden Figures|2016|movie|Drama
+The Shawshank Redemption|1994|movie|Drama,Crime
+Good Will Hunting|1997|movie|Drama
+Godzilla Minus One|2023|movie|Sci-Fi,Action,Drama
+RRR|2022|movie|Action,Drama
+Crouching Tiger, Hidden Dragon|2000|movie|Action,Fantasy,Romance
+Free Solo|2018|movie|Documentary,Sports
+"""
+
+GENRES = ["Comedy", "Drama", "Crime", "Thriller", "Mystery", "Sci-Fi", "Fantasy", "Horror", "Action", "Adventure",
+          "Romance", "Animation", "Anime", "Family", "Superhero", "Documentary", "Reality", "Sports", "Music",
+          "Musical", "Western"]
+
+# Words people use when they ask for something -> catalog genres.
+GENRE_WORDS = {
+    "funny": "Comedy", "comedy": "Comedy", "laugh": "Comedy", "scary": "Horror", "horror": "Horror",
+    "creepy": "Horror", "romantic": "Romance", "romance": "Romance", "date night": "Romance", "love": "Romance",
+    "action": "Action", "anime": "Anime", "cartoon": "Animation", "animated": "Animation", "kids": "Family",
+    "family": "Family", "sci-fi": "Sci-Fi", "scifi": "Sci-Fi", "space": "Sci-Fi", "fantasy": "Fantasy",
+    "mystery": "Mystery", "detective": "Mystery", "crime": "Crime", "thriller": "Thriller", "intense": "Thriller",
+    "drama": "Drama", "superhero": "Superhero", "documentary": "Documentary", "sports": "Sports",
+    "adventure": "Adventure", "musical": "Musical",
+}
+
+# TVmaze and Apple genre names -> catalog genres.
+GENRE_ALIASES = {"science-fiction": "Sci-Fi", "sci-fi & fantasy": "Sci-Fi", "kids & family": "Family",
+                 "children": "Family", "music": "Music", "anime": "Anime", "supernatural": "Fantasy",
+                 "war": "Drama", "history": "Drama", "legal": "Crime", "medical": "Drama", "espionage": "Thriller",
+                 "suspense": "Thriller", "comedies": "Comedy", "action & adventure": "Action",
+                 "documentaries": "Documentary", "romance": "Romance", "musicals": "Musical",
+                 "horror": "Horror", "western": "Western", "sports": "Sports", "food": "Reality",
+                 "travel": "Documentary", "nature": "Documentary"}
+
+
+def norm_genres(names):
+    out = []
+    for n in names or []:
+        n = str(n).strip()
+        g = GENRE_ALIASES.get(n.lower()) or next((x for x in GENRES if x.lower() == n.lower()), None)
+        if g and g not in out:
+            out.append(g)
+    return out
+
+
+def title_key(kind, title, year=""):
+    return f"{'movie' if kind == 'movie' else 'tv'}:{re.sub(r'[^a-z0-9]+', ' ', (title or '').lower()).strip()}:{str(year or '')[:4]}"
+
+
+def base_key(key):
+    """A title key without its year, so a saved show matches the catalog's copy of it."""
+    return key.rsplit(":", 1)[0]
+
+
+def strip_html(text):
+    return html.unescape(re.sub(r"<[^>]+>", "", text or "")).strip()
+
+
+def short_summary(text, limit=230):
+    text = re.sub(r"\s+", " ", strip_html(text))
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    return cut[:end + 1] if end > 80 else cut.rsplit(" ", 1)[0] + "…"
+
+
+class Recommender:
+    """Suggests shows and movies. Each pick says which saved show it follows from."""
+    CATALOG_KEYS = {}
+
+    def __init__(self, app):
+        self.app = app
+        self.lock = threading.Lock()
+        self.cache_path = os.path.join(app.cache, "titles.json")
+        try:
+            with open(self.cache_path) as f:
+                self.titles = json.load(f)
+        except (OSError, ValueError):
+            self.titles = {}
+        self.catalog = []
+        for line in CATALOG.strip().splitlines():
+            t, y, k, g = line.split("|")
+            self.catalog.append({"title": t, "year": y, "kind": k, "genres": g.split(",")})
+        self.by_key = {title_key(c["kind"], c["title"]): c for c in self.catalog}
+        Recommender.CATALOG_KEYS = self.by_key
+        self.recent = []      # keys shown lately, so "Another" moves on
+        self.ai_pool = {}     # kind -> (time, [items]) from the AI
+        self.top = None       # the current first pick, for the TV home card
+
+    # -- what you like
+    def _genres_of(self, show):
+        if show.get("genres"):
+            return norm_genres(show["genres"])
+        c = self.by_key.get(title_key(show.get("kind"), show.get("title")))
+        return c["genres"] if c else []
+
+    def taste(self):
+        weights, sources = {}, {}
+        for s in self.app.cfg["shows"]:
+            for g in self._genres_of(s):
+                weights[g] = weights.get(g, 0) + 1
+                sources.setdefault(g, []).append(s["title"])
+        return weights, sources
+
+    # -- choosing
+    def _skip_keys(self):
+        cfg = self.app.cfg
+        keys = {base_key(title_key(s.get("kind"), s.get("title"))) for s in cfg["shows"]}
+        keys |= {base_key(k) for k in cfg.get("passed", [])}
+        return keys
+
+    def _score(self, item, weights, genre):
+        gs = item["genres"]
+        if genre and genre not in gs:
+            return -1
+        base = sum(weights.get(g, 0) for g in gs) / max(1.0, len(gs) ** 0.5)
+        return base + random.random() * (1.2 if weights else 3.0)
+
+    def _reason(self, item, weights, sources, genre):
+        if item.get("reason"):
+            return item["reason"]
+        shared = sorted(item["genres"], key=lambda g: -weights.get(g, 0))
+        for g in shared:
+            if sources.get(g):
+                names = [n for n in sources[g] if n.lower() != item["title"].lower()]
+                if names:
+                    return f"Because you saved {random.choice(names[:3])}"
+        what = "movie" if item["kind"] == "movie" else "show"
+        g = genre or (item["genres"][0] if item["genres"] else "")
+        return f"A {g.lower()} {what} to start with" if g else f"A {what} to start with"
+
+    def pick(self, kind="any", genre=None, n=6, fresh=False):
+        kind = kind if kind in ("tv", "movie") else "any"
+        genre = genre if genre in GENRES else None
+        weights, sources = self.taste()
+        skip = self._skip_keys()
+        recent = set(self.recent[-40:]) if not fresh else set()
+        pool = []
+        for item in self._ai_items(kind) + self.catalog:
+            key = base_key(title_key(item["kind"], item["title"]))
+            if key in skip or key in recent or (kind != "any" and item["kind"] != kind):
+                continue
+            if any(title_key(p["kind"], p["title"]) == key for p in pool):
+                continue
+            pool.append(item)
+        if not pool:  # seen everything lately: start the rotation over
+            self.recent = []
+            pool = [c for c in self.catalog if base_key(title_key(c["kind"], c["title"])) not in skip
+                    and (kind == "any" or c["kind"] == kind)]
+        scored = sorted(((self._score(i, weights, genre) + (2.5 if i.get("reason") else 0), i) for i in pool),
+                        key=lambda x: -x[0])
+        chosen = [i for s, i in scored if s >= 0][:n]
+        if not chosen and genre:
+            return self.pick(kind, None, n, fresh)
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            out = list(ex.map(lambda i: self.describe(i, self._reason(i, weights, sources, genre)), chosen))
+        out = [o for o in out if o]
+        self.recent += [o["key"].rsplit(":", 1)[0] for o in out[:1]]
+        if out:
+            self.top = out[0]
+        return out
+
+    def warm(self):
+        """Keeps a fresh pick ready for the TV home screen."""
+        while True:
+            try:
+                had = (self.top or {}).get("key")
+                self.pick("any", None, n=1)
+                if (self.top or {}).get("key") != had:
+                    self.app.events.publish(type="widgets")
+            except Exception as e:  # noqa: BLE001
+                log("Pick refresh:", e)
+            time.sleep(3 * 3600)
+
+    def note_seen(self, key):
+        k = key.rsplit(":", 1)[0]
+        if k not in self.recent:
+            self.recent.append(k)
+
+    def passed(self, key, undo=False):
+        cfg = self.app.cfg
+        keys = [k for k in cfg.get("passed", []) if k != key]
+        if not undo:
+            keys = (keys + [key])[-300:]
+        cfg.update(passed=keys)
+
+    # -- the AI's suggestions (only when sharing is on)
+    def _ai_items(self, kind):
+        ai = self.app.cfg["ai"] or {}
+        if not ai.get("share") or not ai.get("provider"):
+            return []
+        got = self.ai_pool.get(kind)
+        if got and time.time() - got[0] < 1800:
+            return got[1]
+        items = []
+        saved = [s["title"] for s in self.app.cfg["shows"]][:40]
+        if saved:
+            what = {"tv": "TV shows", "movie": "movies"}.get(kind, "TV shows or movies")
+            q = ("Suggest 8 " + what + " for someone who saved these: " + "; ".join(saved) + ". "
+                 "Skip anything on that list. Reply with one per line, exactly like: "
+                 "Title | year | show or movie | one short reason, under 12 words, that names a saved title")
+            text = self.app.assistant.raw(q, max_tokens=500)
+            for line in (text or "").splitlines():
+                parts = [p.strip(" -*•\t") for p in line.split("|")]
+                if len(parts) < 4 or not parts[0]:
+                    continue
+                k = "movie" if "movie" in parts[2].lower() else "tv"
+                if kind != "any" and k != kind:
+                    continue
+                c = self.by_key.get(title_key(k, parts[0]))
+                items.append({"title": parts[0][:120], "year": re.sub(r"\D", "", parts[1])[:4], "kind": k,
+                              "genres": c["genres"] if c else [], "reason": parts[3][:90]})
+        self.ai_pool[kind] = (time.time(), items)
+        return items
+
+    # -- poster, summary, where to watch (cached)
+    def describe(self, item, reason):
+        ck = title_key(item["kind"], item["title"], item.get("year"))
+        info = self.titles.get(ck)
+        if not info:
+            info = self._lookup(item) or {}
+        if info and ck not in self.titles:
+            with self.lock:
+                self.titles[ck] = info
+                try:
+                    tmp = self.cache_path + ".tmp"
+                    with open(tmp, "w") as f:
+                        json.dump(self.titles, f)
+                    os.replace(tmp, self.cache_path)
+                except OSError:
+                    pass
+        out = {"key": ck, "title": item["title"], "year": item.get("year") or info.get("year", ""),
+               "kind": item["kind"], "genres": item["genres"] or norm_genres(info.get("genres")),
+               "summary": info.get("summary", ""), "poster": info.get("poster", ""), "backdrop": info.get("backdrop", ""),
+               "network": info.get("network", ""), "tvmaze": info.get("tvmaze"), "reason": reason, "app": "", "appName": ""}
+        a = self.app.shows.guess_app(out["network"]) if out["network"] else None
+        if a:
+            out["app"], out["appName"] = a["id"], a["name"]
+        return out
+
+    def _lookup(self, item):
+        try:
+            if item["kind"] == "tv":
+                hits = [h["show"] for h in fetch_json("https://api.tvmaze.com/search/shows?q=" + quote(item["title"]), timeout=10)[:6]]
+                y = str(item.get("year") or "")
+                sh = next((h for h in hits if y and (h.get("premiered") or "").startswith(y)), None)
+                sh = sh or next((h for h in hits if h.get("name", "").lower() == item["title"].lower()), None) or (hits[0] if hits else None)
+                if not sh:
+                    return None
+                img = sh.get("image") or {}
+                return {"title": sh.get("name"), "year": (sh.get("premiered") or "")[:4], "summary": short_summary(sh.get("summary")),
+                        "poster": img.get("original") or img.get("medium") or "", "genres": sh.get("genres") or [],
+                        "network": (sh.get("webChannel") or {}).get("name") or (sh.get("network") or {}).get("name") or "",
+                        "backdrop": self.app.shows._backdrop(sh["id"]) or "", "tvmaze": sh["id"]}
+            res = fetch_json("https://itunes.apple.com/search?media=movie&entity=movie&limit=6&term=" + quote(item["title"]), timeout=10)
+            hits = res.get("results", [])
+            y = str(item.get("year") or "")
+            m = next((h for h in hits if y and (h.get("releaseDate") or "").startswith(y)), hits[0] if hits else None)
+            if not m:
+                return None
+            art = (m.get("artworkUrl100") or "").replace("100x100bb", "600x900bb")
+            return {"title": m.get("trackName"), "year": (m.get("releaseDate") or "")[:4],
+                    "summary": short_summary(m.get("longDescription") or m.get("shortDescription")),
+                    "poster": art, "genres": [m.get("primaryGenreName", "")], "network": "", "backdrop": ""}
+        except Exception as e:  # noqa: BLE001
+            log("Title lookup:", item["title"], e)
+            return None
 
 
 # ---------------------------------------------------------------- Ask the TV
@@ -1323,16 +1883,20 @@ class Assistant:
         return {"answer": f"Okay, the TV turns off in {num} minutes.", "action": "sleep"}
 
     def _pick(self, low, q):
-        if not re.search(r"\b(what should (i|we) watch|pick (something|a show|a movie)|something to watch|i'?m bored|surprise me|choose for me)\b", low):
+        if not re.search(r"\b(what should (i|we) watch|(recommend|suggest)\b.*\b(show|movie|film|series|anime|watch|something)|"
+                         r"pick (something|a show|a movie)|something to watch|"
+                         r"(a|some) (good )?(show|movie)s? (to|for)|i'?m bored|surprise me|choose for me)\b", low):
             return None
-        shows = self.app.cfg["shows"]
-        if not shows:
-            return {"answer": "Add some shows on the Hub page of the remote app and I'll pick one."}
-        mood = next((m for m in self.app.cfg["moods"] if m.lower() in low), None)
-        pool = [x for x in shows if mood in x["moods"]] if mood else shows
-        pick = random.choice(pool or shows)
-        where = f" on {pick['appName']}" if pick.get("appName") else ""
-        return {"answer": f"How about {pick['title']}{where}?", "pick": pick["id"]}
+        kind = "movie" if re.search(r"\bmovies?\b|\bfilm\b", low) else "tv" if re.search(r"\b(shows?|series)\b", low) else "any"
+        genre = next((g for w, g in GENRE_WORDS.items() if w in low), None)
+        recs = self.app.recommender.pick(kind, genre, n=1)
+        if not recs:
+            return {"answer": "I couldn't find a pick right now. Try again in a minute."}
+        r = recs[0]
+        what = "movie" if r["kind"] == "movie" else "show"
+        year = f" ({r['year']})" if r.get("year") else ""
+        where = f" It's on {r['appName']}." if r.get("appName") else ""
+        return {"answer": f"Try {r['title']}{year}, a {what}. {r['reason']}.{where}", "rec": r}
 
     def _open(self, low, q):
         m = re.match(r"^(open|launch|start|go to)\s+(.+)$", low)
@@ -1375,6 +1939,8 @@ class Assistant:
 
     # -- anything else: Claude or Ollama
     def _context(self):
+        if not (self.app.cfg["ai"] or {}).get("share"):
+            return "Now: " + datetime.now().strftime("%A %B %-d, %-I:%M %p") + "."
         w = self.app.widgets.data.get("weather")
         lines = [f"Now: {datetime.now().strftime('%A %B %-d, %-I:%M %p')}."]
         if w:
@@ -1387,12 +1953,24 @@ class Assistant:
         return "\n".join(lines)
 
     def _ai(self, q):
-        ai = self.app.cfg["ai"] or {}
         system = ("You are Hub, the assistant on a family's TV. Answer in one to three short, friendly sentences "
                   "that read well on a TV screen. No markdown, no lists.\n" + self._context())
+        res = self._call(system, q, 300)
+        if res is not None:
+            return res
+        return {"answer": "I can do the weather, your schedule, opening apps, sleep timers and picking something to "
+                          "watch. For other questions, set up Ollama or a Claude API key on the Hub page of the remote app."}
+
+    def raw(self, q, max_tokens=500):
+        """Plain text from the AI, or "" when none is set up or it fails."""
+        res = self._call("Answer exactly in the format asked. No extra text.", q, max_tokens)
+        return (res or {}).get("answer", "") if res and not res.get("error") else ""
+
+    def _call(self, system, q, max_tokens):
+        ai = self.app.cfg["ai"] or {}
         try:
             if ai.get("provider") == "claude" and ai.get("key"):
-                body = {"model": ai.get("model") or "claude-haiku-5-5", "max_tokens": 300, "system": system,
+                body = {"model": ai.get("model") or "claude-haiku-5-5", "max_tokens": max_tokens, "system": system,
                         "messages": [{"role": "user", "content": q}]}
                 req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(body).encode(),
                                              headers={"x-api-key": ai["key"], "anthropic-version": "2023-06-01",
@@ -1416,12 +1994,11 @@ class Assistant:
         except urllib.error.HTTPError as e:
             detail = e.read().decode("utf-8", "ignore")[:200]
             log("Ask:", e.code, detail)
-            return {"answer": "The AI service said no" + (" (check the API key)." if e.code in (401, 403) else f" ({e.code}).")}
+            return {"error": True, "answer": "The AI service said no" + (" (check the API key)." if e.code in (401, 403) else f" ({e.code}).")}
         except Exception as e:  # noqa: BLE001
             log("Ask:", e)
-            return {"answer": "I couldn't reach the AI service. Check the address in Hub settings."}
-        return {"answer": "I can do the weather, your schedule, opening apps, sleep timers and picking something to "
-                          "watch. For other questions, add a Claude API key or Ollama on the Hub page of the remote app."}
+            return {"error": True, "answer": "I couldn't reach the AI service. Check the address in Hub settings."}
+        return None
 
 
 # ---------------------------------------------------------------- the TV watcher (auto-open, kiosk, sleep timer)
@@ -1491,12 +2068,18 @@ def watch_tv(roku, cfg, events, sleep, stop):
 class Handler(BaseHTTPRequestHandler):
     S = None  # the App, set in main()
     protocol_version = "HTTP/1.0"
+    IDEM = {}  # Idempotency-Key -> (time, code, body, ctype), so a retried POST runs once
+    IDEM_LOCK = threading.Lock()
+    _idem = None
 
     def log_message(self, fmt, *args):
         pass
 
     # -- helpers
     def _send(self, code, body, ctype, extra=None):
+        if self._idem and self.command == "POST":
+            with Handler.IDEM_LOCK:
+                Handler.IDEM[self._idem] = (time.time(), code, body, ctype)
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
@@ -1624,6 +2207,18 @@ class Handler(BaseHTTPRequestHandler):
                     self._file(page, "text/html; charset=utf-8")
                 else:
                     self._send(200, b"<h1>Hub server is running</h1><p>Put hub_control.html next to hub_server.py for the control page.</p>", "text/html")
+            elif path.startswith("/fonts/"):
+                name = safe_name(path[len("/fonts/"):])
+                self._file(os.path.join(HERE, "fonts", name),
+                           "font/woff" if name.endswith(".woff") else None)
+            elif path == "/api/legal":
+                self._json(200, {"ok": True, **LEGAL})
+            elif path == "/api/recommend":
+                items = S.recommender.pick(q.get("kind", "any"), q.get("genre"), max(1, min(10, int(q.get("n", 6)))),
+                                           bool(q.get("fresh")))
+                self._json(200, {"ok": True, "items": items})
+            elif path == "/api/update/check":
+                self._json(200, {"ok": True, **S.check_update()})
             elif path == "/frame.jpg":
                 data = S.frames.get(q.get("c"), 8.0 if q.get("wait") else 0)
                 if data is None:
@@ -1678,8 +2273,11 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/shows/search":
                 self._json(200, {"ok": True, "results": S.shows.search(q.get("q", ""))})
             elif path == "/api/thumb":
-                f, ctype = S.thumb(q.get("u", ""))
-                self._file(f, ctype)
+                if q.get("tiny"):
+                    self._file(S.tiny(q.get("u", "")), "image/jpeg")
+                else:
+                    f, ctype = S.thumb(q.get("u", ""))
+                    self._file(f, ctype)
             elif path.startswith("/api/notes/img/"):
                 self._file(os.path.join(S.notes_dir, safe_name(path.rsplit("/", 1)[1])), "image/png")
             elif path == "/api/anime/search":
@@ -1697,6 +2295,20 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         S = self.S
         path = urlparse(self.path).path
+        key = (self.headers.get("Idempotency-Key") or "")[:80]
+        if key:
+            with Handler.IDEM_LOCK:
+                now = time.time()
+                for k in [k for k, v in Handler.IDEM.items() if now - v[0] > 900]:
+                    del Handler.IDEM[k]
+                hit = Handler.IDEM.get(key)
+            if hit:
+                length = int(self.headers.get("Content-Length") or 0)
+                if length:
+                    self.rfile.read(length)
+                self._send(hit[1], hit[2], hit[3])
+                return
+            self._idem = key
         try:
             # uploads first (raw body, not JSON)
             if path == "/api/wallpapers/upload":
@@ -1740,6 +2352,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._ok()
             elif path == "/api/hub/config":
                 allowed = {k: v for k, v in b.items() if k in DEFAULT_HUB}
+                if "accent" in allowed and str(allowed["accent"]).upper() not in ACCENTS:
+                    raise ValueError("Pick one of Hub's accent colors")
+                if "rows" in allowed:
+                    allowed["rows"] = Config._migrate({**S.cfg["hub"], "rows": allowed["rows"]})["rows"]
+                if "widgets" in allowed:
+                    allowed["widgets"] = Config._migrate({**S.cfg["hub"], "widgets": allowed["widgets"]})["widgets"]
                 S.cfg.update_hub(allowed)
                 if "units" in allowed:
                     S.widgets.refresh("weather")
@@ -1787,10 +2405,10 @@ class Handler(BaseHTTPRequestHandler):
                 S.events.publish(type="widgets")
                 self._ok()
             elif path == "/api/shows/add":
-                self._ok(show=S.shows.add(b), shows=S.cfg["shows"], moods=S.cfg["moods"])
+                self._ok(show=S.shows.add(b), shows=S.cfg["shows"])
             elif path == "/api/shows/update":
                 S.shows.update(b)
-                self._ok(shows=S.cfg["shows"], moods=S.cfg["moods"])
+                self._ok(shows=S.cfg["shows"])
             elif path == "/api/shows/delete":
                 S.shows.delete(b.get("id"))
                 self._ok(shows=S.cfg["shows"])
@@ -1800,9 +2418,39 @@ class Handler(BaseHTTPRequestHandler):
                 if not show or not show.get("title"):
                     raise ValueError("Unknown show")
                 self._tv(lambda: S.shows.play(show))
-            elif path == "/api/moods":
-                S.shows.set_moods(b.get("moods") or [], b.get("renames") or {})
-                self._ok(moods=S.cfg["moods"], shows=S.cfg["shows"])
+            elif path == "/api/recommend/watch":
+                item = {"title": str(b.get("title", ""))[:120], "kind": b.get("kind", "tv"), "app": b.get("app", ""),
+                        "appName": b.get("appName", "")}
+                if not item["title"]:
+                    raise ValueError("Nothing to watch")
+                self._tv(lambda: S.shows.play(item))
+            elif path == "/api/recommend/pass":
+                S.recommender.passed(str(b.get("key", ""))[:200], undo=bool(b.get("undo")))
+                self._ok()
+            elif path == "/api/recommend/reset":
+                S.cfg.update(passed=[])
+                self._ok()
+            elif path == "/api/recommend/seen":
+                S.recommender.note_seen(str(b.get("key", ""))[:200])
+                self._ok()
+            elif path == "/api/update/apply":
+                self._ok(**S.apply_update())
+                threading.Timer(1.0, S.restart).start()
+            elif path == "/api/tv/remove-channel":
+                S.remove_tv_channel(str(b.get("password", "")))
+                self._ok()
+            elif path == "/api/uninstall":
+                if b.get("confirm") != "REMOVE":
+                    raise ValueError("Type REMOVE to confirm")
+                tv = "skipped"
+                if b.get("password"):
+                    try:
+                        S.remove_tv_channel(str(b["password"]))
+                        tv = "removed"
+                    except Exception as e:  # noqa: BLE001
+                        tv = "failed: " + str(e)
+                self._ok(tv=tv)
+                threading.Timer(1.0, S.uninstall).start()
             elif path == "/api/quotes/add":
                 text = str(b.get("text", "")).strip()[:200]
                 if not text:
@@ -1818,13 +2466,16 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/ask":
                 res = S.assistant.ask(str(b.get("q", ""))[:500])
                 if b.get("source") != "tv":
-                    S.events.publish(type="ask", q=str(b.get("q", ""))[:500], answer=res.get("answer", ""), pick=res.get("pick"))
+                    S.events.publish(type="ask", q=str(b.get("q", ""))[:500], answer=res.get("answer", ""), rec=res.get("rec"))
                 self._ok(**res)
             elif path == "/api/ai":
                 ai = dict(S.cfg["ai"] or {})
                 for k in ("provider", "model", "url"):
                     if k in b:
                         ai[k] = str(b[k] or "").strip()
+                if "share" in b:
+                    ai["share"] = bool(b["share"])
+                    S.recommender.ai_pool = {}
                 if b.get("key"):
                     ai["key"] = str(b["key"]).strip()
                 if b.get("clearKey"):
@@ -1888,6 +2539,7 @@ class App:
         self.widgets = Widgets(cfg, self.events, self.roku)
         self.shows = Shows(cfg, self.roku, self.events)
         self.assistant = Assistant(self)
+        self.recommender = Recommender(self)
         self.notes_dir = os.path.join(data_dir, "notes")
         os.makedirs(self.notes_dir, exist_ok=True)
         self.browser = None
@@ -1905,17 +2557,91 @@ class App:
             "settings": {k: c[k] for k in ("tv_ip", "home", "adblock", "autolaunch", "kiosk", "quality", "media", "calendar_url")},
             "hub": c["hub"], "place": c.get("place"), "youtube": c["youtube"], "anime": c["anime"],
             "events": c["events"], "notes": c["notes"], "quotes": c["quotes"], "shows": c["shows"],
-            "moods": c["moods"], "moodCards": self.shows.mood_cards(),
+            "passed": len(c.get("passed") or []), "accents": ACCENTS,
             "ai": {"provider": (c["ai"] or {}).get("provider", ""), "model": (c["ai"] or {}).get("model", ""),
-                   "url": (c["ai"] or {}).get("url", ""), "hasKey": bool((c["ai"] or {}).get("key"))},
+                   "url": (c["ai"] or {}).get("url", ""), "hasKey": bool((c["ai"] or {}).get("key")),
+                   "share": bool((c["ai"] or {}).get("share"))},
         }
 
     def hub_state(self):
         return {"ok": True, "hub": self.cfg["hub"], "wallpaper": "/api/wallpaper.jpg?v=" + self.wallpaper_key(),
                 "widgets": self.widgets.snapshot(), "sleep": self.sleep.remaining(),
-                "quotes": self.cfg["quotes"], "shows": self.cfg["shows"], "moodCards": self.shows.mood_cards(),
+                "quotes": self.cfg["quotes"], "shows": self.cfg["shows"], "pick": self.recommender.top,
                 "adblock": {"enabled": self.cfg["adblock"], "blocked": self.adblock.blocked},
                 "server_time": int(time.time())}
+
+    # -- updates, removing Hub
+    def check_update(self):
+        try:
+            src = fetch(UPDATE_BASE + "hub_server.py", timeout=15).decode("utf-8", "ignore")
+            m = re.search(r'^VERSION = "([\d.]+)"', src, re.M)
+            latest = m.group(1) if m else ""
+        except Exception as e:  # noqa: BLE001
+            return {"current": VERSION, "latest": "", "error": f"Couldn't reach GitHub ({e})"}
+        newer = tuple(int(x) for x in latest.split(".")) > tuple(int(x) for x in VERSION.split(".")) if latest else False
+        return {"current": VERSION, "latest": latest, "newer": newer}
+
+    def apply_update(self):
+        got = {}
+        for name in UPDATE_FILES:
+            got[name] = fetch(UPDATE_BASE + name, timeout=30)
+        if b"VERSION = " not in got["hub_server.py"]:
+            raise ValueError("The download looks wrong; nothing changed")
+        for name, data in got.items():
+            dest = os.path.join(HERE, name)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest + ".tmp", "wb") as f:
+                f.write(data)
+            os.replace(dest + ".tmp", dest)
+        return {"updated": len(got)}
+
+    def restart(self):
+        log("Restarting with the updated files")
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+    def remove_tv_channel(self, password):
+        """Deletes the sideloaded Hub channel through the TV's developer installer (needs the dev password)."""
+        ip = self.cfg["tv_ip"]
+        if not ip or not password:
+            raise ValueError("Needs the TV address and its developer password")
+        url = f"http://{ip}/plugin_install"
+        pw = urllib.request.HTTPPasswordMgrWithDefaultRealm()  # Roku's realm is "rokudev"; accept any
+        pw.add_password(None, url, "rokudev", password)
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPDigestAuthHandler(pw))
+        bound = "----hub" + new_id()
+        body = (f"--{bound}\r\nContent-Disposition: form-data; name=\"mysubmit\"\r\n\r\nDelete\r\n"
+                f"--{bound}\r\nContent-Disposition: form-data; name=\"archive\"; filename=\"\"\r\n"
+                f"Content-Type: application/octet-stream\r\n\r\n\r\n--{bound}--\r\n").encode()
+        req = urllib.request.Request(url, data=body, headers={"Content-Type": f"multipart/form-data; boundary={bound}"})
+        try:
+            with opener.open(req, timeout=20) as r:
+                text = r.read().decode("utf-8", "ignore")
+        except urllib.error.HTTPError as e:
+            raise ValueError("The TV said no. Check the developer password." if e.code == 401 else f"The TV said {e.code}") from e
+        log("TV channel removal:", re.sub(r"\s+", " ", strip_html(text))[:160])
+
+    def uninstall(self):
+        """Deletes everything Hub keeps: settings, notes, wallpapers, caches, uploads and the server files.
+        Your /media folders are read-only to Hub and stay untouched."""
+        log("Removing Hub and all of its data")
+        unit = os.path.expanduser("~/.config/systemd/user/hub-server.service")
+        if os.path.exists(unit):  # installed with install.sh rather than CasaOS
+            subprocess.run(["systemctl", "--user", "disable", "hub-server.service"], check=False)
+            try:
+                os.remove(unit)
+            except OSError:
+                pass
+        for root in {self.data_dir, HERE}:
+            for name in os.listdir(root):
+                path = os.path.join(root, name)
+                try:
+                    if os.path.isdir(path) and not os.path.islink(path):
+                        shutil.rmtree(path)
+                    else:
+                        os.remove(path)
+                except OSError as e:
+                    log("Couldn't remove", path, e)
+        os._exit(0)
 
     # -- wallpapers
     def wallpaper_key(self):
@@ -1933,16 +2659,16 @@ class App:
                     return p
             elif kind == "bing":
                 return self.bing_wallpaper()
-            name = value if kind == "preset" and value in PRESETS else "aurora"
+            name = value if kind == "preset" and value in PRESETS else "dusk"
             out = os.path.join(self.cache, "presets", name + ".jpg")
             if not os.path.exists(out):
                 self.proxy.call("render_preset", name, out)
             return out
         except Exception as e:  # noqa: BLE001
             log("Wallpaper:", e)
-            out = os.path.join(self.cache, "presets", "aurora.jpg")
+            out = os.path.join(self.cache, "presets", "dusk.jpg")
             if not os.path.exists(out):
-                self.proxy.call("render_preset", "aurora", out)
+                self.proxy.call("render_preset", "dusk", out)
             return out
 
     def bing_wallpaper(self):
@@ -1985,6 +2711,14 @@ class App:
             head = f.read(12)
         ctype = "image/png" if head.startswith(b"\x89PNG") else "image/webp" if head[8:12] == b"WEBP" else "image/jpeg"
         return out, ctype
+
+    def tiny(self, url):
+        """An 8x12 preview of a poster, shown blurred while the full picture loads."""
+        full, _ = self.thumb(url)
+        out = os.path.join(self.cache, "tiny", os.path.basename(full)[:-4] + ".jpg")
+        if not os.path.exists(out):
+            self.proxy.call("render_image", self.local_url(full), 8, 12, out, "cover")
+        return out
 
     def add_drawing(self, src):
         note_id = new_id()
@@ -2114,6 +2848,7 @@ def main():
 
     stop = threading.Event()
     threading.Thread(target=watch_tv, args=(app.roku, cfg, app.events, app.sleep, stop), daemon=True).start()
+    threading.Thread(target=app.recommender.warm, daemon=True).start()
 
     server = ThreadingHTTPServer(("0.0.0.0", int(cfg["port"])), FullHandler)
     server.daemon_threads = True

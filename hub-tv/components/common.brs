@@ -50,13 +50,15 @@ function absUrl(server as String, path as String) as String
     return serverUrl(server) + path
 end function
 
-' Hub's typeface is Inter (bundled in pkg:/fonts, OFL licensed).
+' Hub's type: Fraunces for the clock, titles and quotes, Manrope for everything else.
+' Both ship in pkg:/fonts under the SIL Open Font License.
 function makeFont(bold as Boolean, size as Integer) as Object
     if bold then return fontFile("semibold", size)
     return fontFile("regular", size)
 end function
 
-' name: "clock" (extra light), "regular", "medium", "semibold"
+' name: "clock" (Fraunces light), "title" (Fraunces), "quote" (Fraunces italic),
+'       "regular", "medium", "semibold" (Manrope)
 function fontFile(name as String, size as Integer) as Object
     f = CreateObject("roSGNode", "Font")
     f.uri = "pkg:/fonts/" + name + ".ttf"
@@ -194,11 +196,173 @@ function untilText(secs as Dynamic) as String
     return "in " + Int(hrs / 24).toStr() + "d " + (hrs mod 24).toStr() + "h"
 end function
 
-' "#4F7CFF" -> "0x4F7CFFFF" (with optional alpha hex "80")
+' "#D9894A" -> "0xD9894AFF" (with optional alpha hex "80")
 function rokuColor(hexColor as Dynamic, alpha as String) as String
-    if type(hexColor) <> "String" and type(hexColor) <> "roString" then return "0x4F7CFF" + alpha
+    if type(hexColor) <> "String" and type(hexColor) <> "roString" then return "0xD9894A" + alpha
     hc = hexColor
     if Left(hc, 1) = "#" then hc = hc.mid(1)
-    if hc.len() <> 6 then return "0x4F7CFF" + alpha
+    if hc.len() <> 6 then return "0xD9894A" + alpha
     return "0x" + UCase(hc) + alpha
 end function
+
+' ---------------------------------------------------------------- color
+' Hub's evening palette: warm ink panels, cream text. The accent comes from Hub settings.
+function pal(name as String) as String
+    if name = "ink" then return "0x14120FFF"
+    if name = "panel" then return "0x1E1A16FF"
+    if name = "raise" then return "0x2A251FFF"
+    if name = "line" then return "0x3A332BFF"
+    if name = "mist" then return "0xBDB3A3FF"
+    if name = "dim" then return "0x8A8174FF"
+    if name = "coral" then return "0xE07A5FFF"
+    return "0xF2EADCFF" ' cream
+end function
+
+' ---------------------------------------------------------------- motion
+' Every move in Hub follows a damped spring (mass 1). The closed-form solution is sampled
+' into keyframes, so the Animation runs with a linear ease and the spring sets the shape.
+'   snappy: focus and presses   smooth: rows and pages   gentle: fades   bouncy: arrivals
+'   slow: photo crossfades
+function springSpec(preset as String) as Object
+    if m.springs = invalid then m.springs = {}
+    if m.springs.doesExist(preset) then return m.springs[preset]
+    k = 420.0
+    c = 34.0
+    if preset = "smooth"
+        k = 220.0
+        c = 28.0
+    else if preset = "gentle"
+        k = 120.0
+        c = 22.0
+    else if preset = "bouncy"
+        k = 300.0
+        c = 20.0
+    else if preset = "slow"
+        k = 40.0
+        c = 12.6
+    end if
+    w0 = Sqr(k)
+    z = c / (2.0 * w0)
+    ' time to settle within about 0.3% of the target
+    secs = 8.3 / w0
+    if z < 0.9 then secs = 5.8 / (z * w0)
+    keys = []
+    vals = []
+    n = 30
+    for i = 0 to n
+        t = secs * i / n
+        if z < 1
+            wd = w0 * Sqr(1.0 - z * z)
+            x = 1.0 - Exp(-z * w0 * t) * (Cos(wd * t) + (z * w0 / wd) * Sin(wd * t))
+        else
+            x = 1.0 - Exp(-w0 * t) * (1.0 + w0 * t)
+        end if
+        keys.push(i / n)
+        vals.push(x)
+    end for
+    vals[n] = 1.0
+    spec = { keys: keys, vals: vals, secs: secs }
+    m.springs[preset] = spec
+    return spec
+end function
+
+' Fills `interp` with a spring from a to b (Float or [x, y]) and sets the animation's length.
+' Start from the field's current value and an interrupted move carries on from where it is.
+sub springTo(anim as Dynamic, interp as Object, a as Dynamic, b as Dynamic, preset as String)
+    spec = springSpec(preset)
+    vals = []
+    vec = type(a) = "roArray"
+    for each p in spec.vals
+        if vec
+            vals.push([a[0] + (b[0] - a[0]) * p, a[1] + (b[1] - a[1]) * p])
+        else
+            vals.push(a + (b - a) * p)
+        end if
+    end for
+    interp.key = spec.keys
+    interp.keyValue = vals
+    if anim <> invalid
+        anim.easeFunction = "linear"
+        anim.duration = spec.secs
+    end if
+end sub
+
+' Same, for opacity: the spring's overshoot is clipped to 0..1.
+sub springFade(anim as Dynamic, interp as Object, a as Float, b as Float, preset as String)
+    springTo(anim, interp, a, b, preset)
+    vals = interp.keyValue
+    out = []
+    for each v in vals
+        if v > 1 then v = 1.0
+        if v < 0 then v = 0.0
+        out.push(v)
+    end for
+    interp.keyValue = out
+end sub
+
+' A press: squeeze to 92% fast, then spring back to `s`.
+sub springPress(anim as Object, interp as Object, s as Float)
+    spec = springSpec("bouncy")
+    keys = [0.0]
+    vals = [[s, s]]
+    lo = s * 0.92
+    head = 0.07 / (spec.secs + 0.07)
+    keys.push(head)
+    vals.push([lo, lo])
+    for i = 1 to spec.keys.count() - 1
+        keys.push(head + spec.keys[i] * (1.0 - head))
+        v = lo + (s - lo) * spec.vals[i]
+        vals.push([v, v])
+    end for
+    interp.key = keys
+    interp.keyValue = vals
+    anim.easeFunction = "linear"
+    anim.duration = spec.secs + 0.07
+end sub
+
+' Slow harmonic drift for ambient motion (wallpaper breathing): x = a + (b - a)(1 - cos 2πt) / 2.
+sub driftLoop(anim as Object, interp as Object, a as Dynamic, b as Dynamic, secs as Float)
+    keys = []
+    vals = []
+    n = 24
+    vec = type(a) = "roArray"
+    for i = 0 to n
+        p = (1.0 - Cos(6.2831853 * i / n)) / 2.0
+        keys.push(i / n)
+        if vec
+            vals.push([a[0] + (b[0] - a[0]) * p, a[1] + (b[1] - a[1]) * p])
+        else
+            vals.push(a + (b - a) * p)
+        end if
+    end for
+    interp.key = keys
+    interp.keyValue = vals
+    anim.easeFunction = "linear"
+    anim.duration = secs
+    anim.repeat = true
+end sub
+
+' Fade in on a spring, hold for `hold` seconds, fade out on a spring (captions, notices).
+sub springHold(anim as Object, interp as Object, hold as Float)
+    spec = springSpec("gentle")
+    t = spec.secs
+    total = t * 2 + hold
+    keys = []
+    vals = []
+    for i = 0 to spec.keys.count() - 1
+        keys.push(spec.keys[i] * t / total)
+        v = spec.vals[i]
+        if v > 1 then v = 1.0
+        vals.push(v)
+    end for
+    for i = 1 to spec.keys.count() - 1
+        keys.push((t + hold + spec.keys[i] * t) / total)
+        v = 1.0 - spec.vals[i]
+        if v < 0 then v = 0.0
+        vals.push(v)
+    end for
+    interp.key = keys
+    interp.keyValue = vals
+    anim.easeFunction = "linear"
+    anim.duration = total
+end sub

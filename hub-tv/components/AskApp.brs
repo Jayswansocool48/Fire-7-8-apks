@@ -1,13 +1,15 @@
 sub init()
-    m.top.findNode("question").font = fontFile("regular", 22)
-    m.top.findNode("answer").font = fontFile("medium", 32)
+    m.top.findNode("question").font = fontFile("medium", 22)
+    m.top.findNode("answer").font = fontFile("title", 36)
     m.top.findNode("hint").font = fontFile("regular", 17)
-    m.pick = invalid
+    m.rec = invalid
     m.fromPhone = false
     m.dialog = invalid
     m.thinking = false
-    m.top.findNode("spinAnim").control = "start"
-    m.top.findNode("breathAnim").control = "start"
+    a = m.top.findNode("answerAnim")
+    springFade(a, m.top.findNode("answerFade"), 0.0, 1.0, "gentle")
+    springTo(invalid, m.top.findNode("answerMove"), [140, 432], [140, 414], "bouncy")
+    setVoice(false)
     m.top.observeField("params", "onParams")
     m.top.observeField("remoteAsk", "onRemoteAsk")
     t = m.top.findNode("startTimer")
@@ -20,10 +22,10 @@ end sub
 sub onParams()
     p = m.top.params
     if p = invalid then return
-    if p.accent <> invalid then m.top.findNode("aura").blendColor = rokuColor(p.accent, "FF")
+    if p.accent <> invalid then m.top.findNode("bar2").blendColor = rokuColor(p.accent, "FF")
     if p.q <> invalid
         m.fromPhone = true
-        showAnswer(p.q, p.answer, p.pick)
+        showAnswer(p.q, p.answer, p.rec)
     end if
 end sub
 
@@ -41,7 +43,25 @@ sub onRemoteAsk()
     if ev = invalid then return
     closeDialog()
     m.fromPhone = true
-    showAnswer(ev.q, ev.answer, ev.pick)
+    showAnswer(ev.q, ev.answer, ev.rec)
+end sub
+
+' Idle: slow, small moves. Thinking: quick, tall moves. Each bar has its own speed so
+' they never line up.
+sub setVoice(busy as Boolean)
+    lows = [0.55, 0.4, 0.3, 0.45, 0.6]
+    for i = 0 to 4
+        a = m.top.findNode("barAnim" + i.toStr())
+        a.control = "stop"
+        secs = 2.6 + i * 0.37
+        lo = 0.8
+        if busy
+            secs = 0.62 + i * 0.09
+            lo = lows[i]
+        end if
+        driftLoop(a, m.top.findNode("barInterp" + i.toStr()), [1.0, 1.0], [1.0, lo], secs)
+        a.control = "start"
+    end for
 end sub
 
 sub setHint(text as String)
@@ -51,7 +71,7 @@ end sub
 sub askDialog()
     dlg = CreateObject("roSGNode", "StandardKeyboardDialog")
     dlg.title = "Ask Hub"
-    dlg.message = ["Try: what should we watch?  Will it rain tomorrow?  Turn off in 30 minutes.  Open Netflix."]
+    dlg.message = ["Try: recommend a funny movie.  Will it rain tomorrow?  Turn off in 30 minutes.  Open Netflix."]
     dlg.buttons = ["Ask", "Cancel"]
     dlg.observeField("buttonSelected", "onDialogButton")
     dlg.observeField("wasClosed", "onDialogClosed")
@@ -89,12 +109,11 @@ end sub
 
 sub ask(q as String)
     m.thinking = true
-    m.pick = invalid
+    m.rec = invalid
     m.top.findNode("question").text = q
     m.top.findNode("answer").text = "Checking..."
     setHint("")
-    m.top.findNode("breathAnim").control = "stop"
-    m.top.findNode("thinkAnim").control = "start"
+    setVoice(true)
     startRequest(serverUrl(m.top.server) + "/api/ask", "POST", FormatJson({ "q": q, "source": "tv" }), "onAnswer")
 end sub
 
@@ -107,23 +126,21 @@ sub onAnswer(msg as Object)
     if data = invalid
         showAnswer(q, "I can't reach the Hub server right now.", invalid)
     else
-        showAnswer(q, data.answer, data.pick)
+        showAnswer(q, data.answer, data.rec)
     end if
 end sub
 
-sub showAnswer(q as Dynamic, a as Dynamic, pick as Dynamic)
+sub showAnswer(q as Dynamic, a as Dynamic, rec as Dynamic)
     m.thinking = false
-    m.top.findNode("thinkAnim").control = "stop"
-    m.top.findNode("aura").opacity = 0.32
-    m.top.findNode("breathAnim").control = "start"
+    setVoice(false)
     if q = invalid then q = ""
     if a = invalid then a = ""
     m.top.findNode("question").text = q
     m.top.findNode("answer").text = a
     m.top.findNode("answerAnim").control = "start"
-    m.pick = invalid
-    if pick <> invalid and pick <> "" then m.pick = pick
-    if m.pick <> invalid
+    m.rec = invalid
+    if rec <> invalid and type(rec) = "roAssociativeArray" and rec.title <> invalid then m.rec = rec
+    if m.rec <> invalid
         setHint("OK to watch it     Play to ask another     Back to Hub")
     else
         setHint("OK to ask another     Back to Hub")
@@ -146,9 +163,10 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
     m.idle.control = "stop"
     if m.thinking then return key <> "back"
     if key = "OK"
-        if m.pick <> invalid
-            m.top.findNode("answer").text = "Opening..."
-            startRequest(serverUrl(m.top.server) + "/api/shows/play", "POST", FormatJson({ "id": m.pick }), "onPlayed")
+        if m.rec <> invalid
+            m.top.findNode("answer").text = "Opening " + m.rec.title + "..."
+            body = { "title": m.rec.title, "kind": m.rec.kind, "app": m.rec.app, "appName": m.rec.appName }
+            startRequest(serverUrl(m.top.server) + "/api/recommend/watch", "POST", FormatJson(body), "onPlayed")
         else
             m.fromPhone = false
             askDialog()

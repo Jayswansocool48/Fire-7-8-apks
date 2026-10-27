@@ -1,13 +1,13 @@
-' Hub 4 home screen.
-'   Top: photo wallpaper, thin clock, date, weather and what-to-wear tip, the latest note
+' Hub home screen.
+'   Top: photo wallpaper, clock, date, weather and what-to-wear tip, the latest note
 '        from your phone (drawn or typed), and a quote from your shows.
-'   Bottom: a glass dock with your channels and Hub's own tools.
-'   Press Down for the lower deck: My Shows (with the mood picker), YouTube, anime, Up next.
+'   Bottom: a dock with your channels and Hub's own tools.
+'   Press Down for the lower deck: Hub's pick for you and My Shows, YouTube, anime, Up next.
 ' Everything comes from the Hub server and can be changed from the phone, tablet or PC.
 
 sub init()
     m.tools = [
-        { id: "pick", name: "Pick for me", icon: "pkg:/images/i_pick.png" },
+        { id: "pick", name: "Recommend", icon: "pkg:/images/i_pick.png" },
         { id: "ask", name: "Ask", icon: "pkg:/images/i_ask.png" },
         { id: "browser", name: "Browser", icon: "pkg:/images/globe.png" },
         { id: "library", name: "Library", icon: "pkg:/images/library.png" },
@@ -15,8 +15,8 @@ sub init()
         { id: "settings", name: "Settings", icon: "pkg:/images/gear.png" }
     ]
     m.server = regRead("browserServer", "")
-    m.hub = { accent: "#4F7CFF", clock24: false, name: "", rows: [], widgets: [], favorites: [], screensaver: { minutes: 5 } }
-    m.state = { widgets: {}, quotes: [], shows: [], moodCards: [] }
+    m.hub = { accent: "#D9894A", clock24: false, name: "", rows: [], widgets: [], favorites: [], screensaver: { minutes: 5 } }
+    m.state = { widgets: {}, quotes: [], shows: [], pick: invalid }
     m.sleepLeft = invalid
     m.sleepStamp = 0
     m.serverOk = false
@@ -42,7 +42,7 @@ sub init()
     m.DOCK_GAP = 22
     m.RAIL_TOP = 760
 
-    m.fRow = fontFile("semibold", 24)
+    m.fRow = fontFile("title", 26)
     m.fCaption = fontFile("medium", 22)
     m.fTitle = fontFile("semibold", 24)
     m.fBody = fontFile("regular", 19)
@@ -56,7 +56,7 @@ sub init()
     m.top.findNode("tipText").font = fontFile("medium", 17)
     m.top.findNode("noteText").font = fontFile("semibold", 26)
     m.top.findNode("noteCaption").font = fontFile("regular", 15)
-    m.top.findNode("quoteText").font = fontFile("medium", 34)
+    m.top.findNode("quoteText").font = fontFile("quote", 36)
     m.top.findNode("quoteBy").font = fontFile("regular", 19)
     m.top.findNode("dockLabel").font = fontFile("medium", 18)
     m.top.findNode("toastText").font = fontFile("medium", 18)
@@ -69,9 +69,8 @@ sub init()
     m.focusAnim = m.top.findNode("focusAnim")
     m.growInterp = m.top.findNode("growInterp")
     m.shrinkInterp = m.top.findNode("shrinkInterp")
-    m.glowIn = m.top.findNode("glowIn")
-    m.glowOut = m.top.findNode("glowOut")
     m.ringIn = m.top.findNode("ringIn")
+    m.ringOut = m.top.findNode("ringOut")
     m.pressAnim = m.top.findNode("pressAnim")
     m.pressInterp = m.top.findNode("pressInterp")
     m.pressAnim.observeField("state", "onPressDone")
@@ -85,6 +84,28 @@ sub init()
     m.captionInterp = m.top.findNode("captionInterp")
     m.wallAnim = m.top.findNode("wallAnim")
     m.wallAnim.observeField("state", "onWallDone")
+    springFade(m.wallAnim, m.top.findNode("wallFade"), 0.0, 1.0, "gentle")
+    qa = m.top.findNode("quoteAnim")
+    springFade(qa, m.top.findNode("quoteFade"), 0.0, 1.0, "gentle")
+    springTo(invalid, m.top.findNode("quoteMove"), [68, 442], [68, 428], "gentle")
+    na = m.top.findNode("noteAnim")
+    springFade(na, m.top.findNode("noteFade"), 0.0, 1.0, "bouncy")
+    springTo(invalid, m.top.findNode("noteMove"), [880, 60], [880, 96], "bouncy")
+    oa = m.top.findNode("openAnim")
+    springFade(oa, m.top.findNode("openPage"), 1.0, 0.0, "smooth")
+    springFade(invalid, m.top.findNode("openLayer"), 0.0, 1.0, "smooth")
+    springFade(m.top.findNode("closeAnim"), m.top.findNode("closePage"), 0.0, 1.0, "smooth")
+    ti = m.top.findNode("toastIn")
+    springFade(ti, m.top.findNode("toastInFade"), 0.0, 1.0, "smooth")
+    springTo(invalid, m.top.findNode("toastInMove"), [640, 8], [640, 28], "bouncy")
+    springFade(m.top.findNode("toastOut"), m.top.findNode("toastOutFade"), 1.0, 0.0, "gentle")
+    m.toastTimer = m.top.findNode("toastTimer")
+    m.toastTimer.observeField("fire", "onToastTimer")
+    ia = m.top.findNode("introAnim")
+    springFade(ia, m.top.findNode("introFade"), 0.0, 1.0, "gentle")
+    springTo(invalid, m.top.findNode("introHero"), [0, -16], [0, 0], "gentle")
+    springTo(invalid, m.top.findNode("introDock"), [0, 640], [0, 540], "smooth")
+    driftLoop(m.top.findNode("breathAnim"), m.top.findNode("breathInterp"), [1.0, 1.0], [1.05, 1.05], 48.0)
     m.top.findNode("wallB").observeField("loadStatus", "onWallLoaded")
     m.top.findNode("noteImg").observeField("loadStatus", "onNoteLoaded")
 
@@ -306,14 +327,14 @@ sub renderNote()
     if kind = "drawing"
         txt.visible = false
         m.top.findNode("noteMask").visible = true
-        bg.blendColor = "0x0B0F22B8"
+        bg.blendColor = "0x1E1A16E6"
         if isNew then img.uri = absUrl(m.server, n.image)
         if not isNew then note.opacity = 1
     else
         m.top.findNode("noteMask").visible = false
         txt.visible = true
         txt.text = n.text
-        txt.color = "0x1D1A10FF"
+        txt.color = "0x1E1A16FF"
         bg.blendColor = rokuColor(n.color, "F2")
         if isNew
             m.top.findNode("noteAnim").control = "start"
@@ -391,9 +412,9 @@ sub renderChips()
         if secsLeft > 0 then items.push({ icon: "pkg:/images/moon.png", text: "Off " + untilText(secsLeft) })
     end if
     if m.server = ""
-        items.push({ dot: "0x8A95ADFF", text: "Set up the Hub server in Settings" })
+        items.push({ dot: pal("dim"), text: "Set up the Hub server in Settings" })
     else if not m.serverOk
-        items.push({ dot: "0xFF6B6BFF", text: "Hub server offline" })
+        items.push({ dot: pal("coral"), text: "Hub server offline" })
     end if
     x = 0
     for i = items.count() - 1 to 0 step -1
@@ -401,7 +422,7 @@ sub renderChips()
         g = CreateObject("roSGNode", "Group")
         lbl = CreateObject("roSGNode", "Label")
         lbl.font = fontFile("regular", 17)
-        lbl.color = "0xFFFFFFFF"
+        lbl.color = pal("cream")
         lbl.text = it.text
         lbl.height = 40
         lbl.vertAlign = "center"
@@ -414,7 +435,7 @@ sub renderChips()
         bg.uri = "pkg:/images/pill.9.png"
         bg.width = pw
         bg.height = 40
-        bg.blendColor = "0x0B0F1EB8"
+        bg.blendColor = "0x1E1A16E0"
         if it.icon <> invalid
             ic = g.createChild("Poster")
             ic.uri = it.icon
@@ -450,8 +471,8 @@ function newRow(id as String, title as String, cardH as Integer, scale as Float)
     t = g.createChild("Label")
     t.text = title
     t.font = m.fRow
-    t.color = "0xFFFFFFE6"
-    t.translation = [80, 0]
+    t.color = "0xF2EADCE6"
+    t.translation = [80, -4]
     clip = g.createChild("Group")
     clip.translation = [80, 46]
     clip.clippingRect = [-80, -70, 1280, cardH + 140]
@@ -460,7 +481,7 @@ function newRow(id as String, title as String, cardH as Integer, scale as Float)
     cap = g.createChild("Label")
     cap.id = "cap_" + id
     cap.font = m.fCaption
-    cap.color = "0xFFFFFFFF"
+    cap.color = pal("cream")
     cap.width = 1100
     cap.translation = [80, 46 + cardH + 18]
     cap.opacity = 0
@@ -480,26 +501,18 @@ sub addCard(row as Object, card as Object, w as Integer, caption as String, item
     row.data.push(item)
 end sub
 
-' card shell: 0 glow, 1 focus ring, 2 face, then content
+' card shell: 0 focus ring, 1 face, then content
 function makeCard(row as Object, w as Integer, h as Integer, faceColor as String) as Object
     g = CreateObject("roSGNode", "Group")
     g.id = "c_" + row.id + "_" + row.cards.count().toStr()
     g.scaleRotateCenter = [w / 2, h / 2]
-    pad = 48
-    glow = g.createChild("Poster")
-    glow.id = g.id + "_glow"
-    glow.uri = "pkg:/images/glow.png"
-    glow.width = w + pad * 2
-    glow.height = h + pad * 2
-    glow.translation = [-pad, -pad + 10]
-    glow.blendColor = rokuColor(m.hub.accent, "FF")
-    glow.opacity = 0
     ring = g.createChild("Poster")
     ring.id = g.id + "_ring"
     ring.uri = "pkg:/images/ring.9.png"
-    ring.width = w + 16
-    ring.height = h + 16
-    ring.translation = [-8, -8]
+    ring.width = w + 14
+    ring.height = h + 14
+    ring.translation = [-7, -7]
+    ring.blendColor = pal("cream")
     ring.opacity = 0
     face = g.createChild("Poster")
     face.uri = "pkg:/images/card.9.png"
@@ -599,18 +612,19 @@ sub buildAll()
     focusCard(m.rowIndex, col, false)
 end sub
 
-' -- the glass dock: channels, then Hub's tools
+' -- the dock: channels, then Hub's tools
 function buildDock() as Object
     m.dockItemsGroup.removeChildrenIndex(m.dockItemsGroup.getChildCount(), 0)
     row = { id: "dock", cardsGroup: m.dockItemsGroup, caption: m.dockLabel, cards: [], xs: [], ws: [], captions: [], data: [], col: 0, offset: 0, cardH: m.DOCK_H, height: 0, scale: 1.18, visible: 1110, gap: m.DOCK_GAP, y: 0 }
     for each c in m.channels
-        card = makeCard(row, m.DOCK_W, m.DOCK_H, "0xFFFFFF26")
+        card = makeCard(row, m.DOCK_W, m.DOCK_H, "0xF2EADC1A")
         addArt(card, channelIcon(c.id), "pkg:/images/mask_dock.png", m.DOCK_W, m.DOCK_H, false)
         addCard(row, card, m.DOCK_W, c.name, { kind: "channel", id: c.id, name: c.name })
     end for
     for each t in m.tools
-        card = makeCard(row, m.DOCK_W, m.DOCK_H, "0x161B36D8")
-        addImage(card, t.icon, (m.DOCK_W - 44) / 2, (m.DOCK_H - 44) / 2, 44, 44)
+        card = makeCard(row, m.DOCK_W, m.DOCK_H, pal("raise"))
+        ic = addImage(card, t.icon, (m.DOCK_W - 44) / 2, (m.DOCK_H - 44) / 2, 44, 44)
+        ic.blendColor = pal("cream")
         if row.cards.count() > 0 and t.id = "pick" and m.channels.count() > 0
             ' a little extra space between channels and tools
             row.gap = 40
@@ -637,31 +651,40 @@ function buildDock() as Object
     return row
 end function
 
-' -- My Shows: the mood picker card first, then your saved shows
+' -- Hub's pick for you first, then your saved shows
 function showsRow() as Object
     shows = m.state.shows
-    if shows = invalid or shows.count() = 0 then return invalid
-    row = newRow("myshows", "My Shows", 225, 1.08)
-    card = makeCard(row, 300, 225, "0x161B36E0")
-    n = shows.count()
-    if n > 3 then n = 3
-    for i = n - 1 to 0 step -1
-        p = CreateObject("roSGNode", "Group")
-        p.rotation = (1 - i) * 0.12
-        p.scaleRotateCenter = [45, 64]
-        addArt(p, thumbUrl(m.server, shows[i].poster), "pkg:/images/mask_poster.png", 90, 128, false)
-        card.appendChild(p)
-        p.translation = [105 + (i - 1) * 50, 22 + Abs(i - 1) * 10]
-    end for
-    l1 = addLabel(card, "Don't have time to browse?", 0, 166, 300, m.fSmallBold, "0xFFFFFFFF")
-    l1.horizAlign = "center"
-    l2 = addLabel(card, "Pick by mood", 0, 190, 300, m.fSmall, "0xFFFFFFA8")
-    l2.horizAlign = "center"
-    addCard(row, card, 300, "Let Hub pick something for you", { kind: "picker" })
+    if shows = invalid then shows = []
+    pick = m.state.pick
+    if shows.count() = 0 and pick = invalid then return invalid
+    title = "My Shows"
+    if shows.count() = 0 then title = "For you"
+    row = newRow("myshows", title, 225, 1.08)
+    card = makeCard(row, 360, 225, pal("panel"))
+    if pick <> invalid
+        addArt(card, thumbUrl(m.server, pick.poster), "pkg:/images/mask_poster.png", 150, 225, false)
+        k = addLabel(card, "Hub recommends", 170, 22, 176, m.fSmallBold, rokuColor(m.hub.accent, "FF"))
+        t = addLabel(card, pick.title, 170, 50, 176, fontFile("title", 24), pal("cream"))
+        t.wrap = true
+        t.maxLines = 3
+        r = addLabel(card, pick.reason, 170, 150, 176, m.fSmall, "0xF2EADCB0")
+        r.wrap = true
+        r.maxLines = 3
+        caption = "Hub recommends " + pick.title + ". OK for more picks"
+    else
+        ic = addImage(card, "pkg:/images/i_pick.png", 148, 46, 64, 64)
+        ic.blendColor = pal("cream")
+        l1 = addLabel(card, "What should I watch?", 0, 130, 360, fontFile("title", 24), pal("cream"))
+        l1.horizAlign = "center"
+        l2 = addLabel(card, "Hub recommends a show or movie", 0, 166, 360, m.fSmall, "0xF2EADCA8")
+        l2.horizAlign = "center"
+        caption = "Get a recommendation"
+    end if
+    addCard(row, card, 360, caption, { kind: "recommend" })
     for each s in shows
-        card = makeCard(row, 150, 225, "0xFFFFFF14")
+        card = makeCard(row, 150, 225, "0xF2EADC14")
         addArt(card, thumbUrl(m.server, s.poster), "pkg:/images/mask_poster.png", 150, 225, true)
-        if s.appName <> invalid and s.appName <> "" then addLabel(card, s.appName, 10, 196, 130, m.fSmallBold, "0xFFFFFFE6")
+        if s.appName <> invalid and s.appName <> "" then addLabel(card, s.appName, 10, 196, 130, m.fSmallBold, "0xF2EADCE6")
         caption = s.title
         if s.appName <> invalid and s.appName <> "" then caption = s.title + "   on " + s.appName
         addCard(row, card, 150, caption, { kind: "show", show: s })
@@ -678,12 +701,12 @@ function youtubeRow() as Object
     if n > 14 then n = 14
     for i = 0 to n - 1
         v = vids[i]
-        card = makeCard(row, 320, 180, "0xFFFFFF14")
+        card = makeCard(row, 320, 180, "0xF2EADC14")
         addArt(card, thumbUrl(m.server, v.thumb), "pkg:/images/mask_thumb.png", 320, 180, true)
-        t = addLabel(card, v.title, 16, 104, 288, m.fSmallBold, "0xFFFFFFFF")
+        t = addLabel(card, v.title, 16, 104, 288, m.fSmallBold, pal("cream"))
         t.wrap = true
         t.maxLines = 2
-        addLabel(card, v.channel, 16, 150, 288, m.fSmall, "0xFFFFFFB0")
+        addLabel(card, v.channel, 16, 150, 288, m.fSmall, "0xF2EADCB0")
         addCard(row, card, 320, v.title, { kind: "video", video: v })
     end for
     return row
@@ -696,7 +719,7 @@ function animeRow() as Object
     row = newRow("anime", "Anime episodes", 212, 1.08)
     now = CreateObject("roDateTime").asSeconds()
     for each a in list
-        card = makeCard(row, 150, 212, "0xFFFFFF14")
+        card = makeCard(row, 150, 212, "0xF2EADC14")
         addArt(card, thumbUrl(m.server, a.cover), "pkg:/images/mask_cover.png", 150, 212, true)
         sub1 = ""
         sub2 = ""
@@ -706,8 +729,8 @@ function animeRow() as Object
         else if a.status <> invalid
             sub1 = LCase(a.status)
         end if
-        addLabel(card, sub1, 12, 158, 128, m.fSmallBold, "0xFFFFFFFF")
-        addLabel(card, sub2, 12, 182, 128, m.fSmall, "0xFFFFFFC0")
+        addLabel(card, sub1, 12, 158, 128, m.fSmallBold, pal("cream"))
+        addLabel(card, sub2, 12, 182, 128, m.fSmall, "0xF2EADCC0")
         caption = a.title
         if a.airingAt <> invalid then caption = a.title + "   " + dayAndTime(a.airingAt, m.hub.clock24 = true, false)
         addCard(row, card, 150, caption, { kind: "anime" })
@@ -725,9 +748,9 @@ function agendaRow() as Object
     clock24 = m.hub.clock24 = true
     for i = 0 to n - 1
         e = list[i]
-        card = makeCard(row, 300, 130, "0x0B0F22C8")
+        card = makeCard(row, 300, 130, pal("panel"))
         addLabel(card, dayAndTime(e.start, clock24, e.allDay = true), 22, 22, 256, m.fSmallBold, rokuColor(m.hub.accent, "FF"))
-        t = addLabel(card, e.title, 22, 50, 256, m.fTitle, "0xFFFFFFF0")
+        t = addLabel(card, e.title, 22, 50, 256, m.fTitle, pal("cream"))
         t.wrap = true
         t.maxLines = 2
         addCard(row, card, 300, "", { kind: "event" })
@@ -744,37 +767,43 @@ sub focusCard(rowIdx as Integer, col as Integer, animate as Boolean)
     s = row.scale
 
     m.focusAnim.control = "stop"
-    if m.shrinking <> invalid
+    if m.shrinking <> invalid and not m.shrinking.isSameNode(card)
         m.shrinking.scale = [1.0, 1.0]
         m.shrinking.getChild(0).opacity = 0
-        m.shrinking.getChild(1).opacity = 0
     end if
     m.shrinking = invalid
     m.shrinkInterp.fieldToInterp = "dummy.scale"
-    m.glowOut.fieldToInterp = "dummy.opacity"
-    if m.focusedCard <> invalid
-        if not m.focusedCard.isSameNode(card)
-            os = m.cardScale[m.focusedCard.id]
-            if os = invalid then os = 1.08
-            m.focusedCard.getChild(1).opacity = 0
-            m.shrinking = m.focusedCard
-            m.shrinkInterp.keyValue = [[os, os], [1.0, 1.0]]
-            m.shrinkInterp.fieldToInterp = m.focusedCard.id + ".scale"
-            m.glowOut.fieldToInterp = m.focusedCard.id + "_glow.opacity"
-        end if
+    m.ringOut.fieldToInterp = "dummy.opacity"
+    if m.focusedCard <> invalid and not m.focusedCard.isSameNode(card)
+        ' the old card springs back from wherever it is right now
+        m.shrinking = m.focusedCard
+        springTo(invalid, m.shrinkInterp, m.focusedCard.scale, [1.0, 1.0], "snappy")
+        springFade(invalid, m.ringOut, m.focusedCard.getChild(0).opacity, 0.0, "snappy")
+        m.shrinkInterp.fieldToInterp = m.focusedCard.id + ".scale"
+        m.ringOut.fieldToInterp = m.focusedCard.id + "_ring.opacity"
     end if
-    m.growInterp.keyValue = [[1.0, 1.0], [s, s]]
-    m.pressInterp.keyValue = [[s, s], [s * 0.9, s * 0.9], [s, s]]
-    m.growInterp.fieldToInterp = card.id + ".scale"
-    m.glowIn.fieldToInterp = card.id + "_glow.opacity"
-    m.ringIn.fieldToInterp = card.id + "_ring.opacity"
-    m.focusAnim.control = "start"
+    if animate
+        springTo(m.focusAnim, m.growInterp, card.scale, [s, s], "snappy")
+        springFade(invalid, m.ringIn, card.getChild(0).opacity, 1.0, "snappy")
+        m.growInterp.fieldToInterp = card.id + ".scale"
+        m.ringIn.fieldToInterp = card.id + "_ring.opacity"
+        m.focusAnim.control = "start"
+    else
+        if m.shrinking <> invalid
+            m.shrinking.scale = [1.0, 1.0]
+            m.shrinking.getChild(0).opacity = 0
+            m.shrinking = invalid
+        end if
+        card.scale = [s, s]
+        card.getChild(0).opacity = 1
+    end if
 
     rowChanged = rowIdx <> m.rowIndex
     if rowChanged and m.rowIndex < m.rows.count() then m.rows[m.rowIndex].caption.opacity = 0
     row.caption.text = row.captions[col]
     if row.captions[col] <> ""
         m.captionAnim.control = "stop"
+        springFade(m.captionAnim, m.captionInterp, 0.0, 1.0, "gentle")
         m.captionInterp.fieldToInterp = row.caption.id + ".opacity"
         m.captionAnim.control = "start"
     else
@@ -802,7 +831,7 @@ sub scrollRowTo(row as Object, col as Integer, animate as Boolean)
     if animate
         m.scrollAnim.control = "stop"
         m.scrollInterp.fieldToInterp = row.cardsGroup.id + ".translation"
-        m.scrollInterp.keyValue = [row.cardsGroup.translation, [base + target, 0]]
+        springTo(m.scrollAnim, m.scrollInterp, row.cardsGroup.translation, [base + target, 0], "smooth")
         m.scrollAnim.control = "start"
     else
         row.cardsGroup.translation = [base + target, 0]
@@ -822,9 +851,9 @@ sub scrollPage(rowIdx as Integer, animate as Boolean)
     end if
     if animate
         m.pageAnim.control = "stop"
-        m.pageInterp.keyValue = [m.page.translation, target]
-        m.heroInterp.keyValue = [m.top.findNode("hero").opacity, hero]
-        m.veilInterp.keyValue = [m.top.findNode("deckVeil").opacity, veil]
+        springTo(m.pageAnim, m.pageInterp, m.page.translation, target, "smooth")
+        springFade(invalid, m.heroInterp, m.top.findNode("hero").opacity, hero, "smooth")
+        springFade(invalid, m.veilInterp, m.top.findNode("deckVeil").opacity, veil, "smooth")
         m.pageAnim.control = "start"
     else
         m.page.translation = target
@@ -861,6 +890,9 @@ sub pressFocused()
     if m.pressing or m.focusedCard = invalid then return
     m.pressing = true
     m.focusAnim.control = "finish"
+    s = m.cardScale[m.focusedCard.id]
+    if s = invalid then s = 1.08
+    springPress(m.pressAnim, m.pressInterp, s)
     m.pressInterp.fieldToInterp = m.focusedCard.id + ".scale"
     m.pressAnim.control = "start"
 end sub
@@ -880,7 +912,7 @@ sub activate()
         launchApp(item.id, invalid, "Opening " + item.name)
     else if item.kind = "tool"
         openTool(item.id)
-    else if item.kind = "picker"
+    else if item.kind = "recommend"
         openTool("pick")
     else if item.kind = "show"
         playShow(item.show)
@@ -897,7 +929,7 @@ sub openTool(id as String)
         return
     end if
     if id = "pick"
-        openApp("PickerApp", { shows: m.state.shows, moods: m.state.moodCards, wallpaper: m.wallUrl, accent: m.hub.accent })
+        openApp("RecommendApp", { accent: m.hub.accent, pick: m.state.pick })
     else if id = "ask"
         openApp("AskApp", { accent: m.hub.accent })
     else if id = "browser"
@@ -996,11 +1028,11 @@ sub onServerEvent()
     else if ev.type = "toast"
         showToast(ev.text)
     else if ev.type = "ask"
-        ' a question asked from the phone: show the answer with the orb
+        ' a question asked from the phone: show it with its answer
         if m.current <> invalid and m.current.subtype() = "AskApp"
             m.current.remoteAsk = ev
         else
-            openApp("AskApp", { accent: m.hub.accent, q: ev.q, answer: ev.answer, pick: ev.pick })
+            openApp("AskApp", { accent: m.hub.accent, q: ev.q, answer: ev.answer, rec: ev.rec })
         end if
     else if ev.type = "pointer" or ev.type = "click" or ev.type = "scroll"
         if m.current <> invalid and m.current.subtype() = "BrowserApp" then m.current.remote = ev
@@ -1020,8 +1052,18 @@ sub showToast(text as String)
     bg.translation = [-w / 2, 0]
     lbl.width = w
     lbl.translation = [-w / 2, 0]
-    a = m.top.findNode("toastAnim")
+    m.top.findNode("toastOut").control = "stop"
+    a = m.top.findNode("toastIn")
     a.control = "stop"
+    springFade(a, m.top.findNode("toastInFade"), m.top.findNode("toast").opacity, 1.0, "smooth")
+    a.control = "start"
+    m.toastTimer.control = "stop"
+    m.toastTimer.control = "start"
+end sub
+
+sub onToastTimer()
+    a = m.top.findNode("toastOut")
+    springFade(a, m.top.findNode("toastOutFade"), m.top.findNode("toast").opacity, 0.0, "gentle")
     a.control = "start"
 end sub
 
@@ -1076,10 +1118,10 @@ sub showSettings()
     else
         dlg.message = [
             "Hub server: " + m.server,
-            "Change wallpapers, quotes, shows, moods and widgets from the Hub Remote app or " + serverUrl(m.server) + "."
+            "Change wallpapers, quotes, shows and widgets from the Hub Remote app or " + serverUrl(m.server) + "."
         ]
     end if
-    dlg.buttons = ["Set server address", "Reload everything", "Close"]
+    dlg.buttons = ["Set server address", "Reload everything", "Privacy and terms", "Remove Hub from this TV", "Close"]
     openDialog(dlg, "settings")
 end sub
 
@@ -1090,6 +1132,61 @@ sub askServer()
     dlg.text = m.server
     dlg.buttons = ["Save", "Cancel"]
     openDialog(dlg, "server")
+end sub
+
+sub showLegal()
+    if m.server = ""
+        showToast("Set the Hub server address first")
+        return
+    end if
+    startRequest(serverUrl(m.server) + "/api/legal", "GET", "", "onLegal")
+end sub
+
+sub onLegal(msg as Object)
+    releaseTask(msg.getRoSGNode())
+    r = msg.getData()
+    data = invalid
+    if r.ok then data = ParseJson(r.body)
+    if data = invalid
+        showToast("Couldn't load that. Check the Hub server.")
+        return
+    end if
+    lines = []
+    for each part in data.privacy
+        lines.push(part[0] + ". " + part[1])
+    end for
+    for each part in data.terms
+        lines.push(part[0] + ". " + part[1])
+    end for
+    lines.push("Updated " + data.updated + ".")
+    dlg = CreateObject("roSGNode", "StandardMessageDialog")
+    dlg.title = "Privacy and terms"
+    dlg.message = lines
+    dlg.buttons = ["Close"]
+    openDialog(dlg, "legal")
+end sub
+
+' Deleting a sideloaded channel goes through the TV's developer installer, which needs the
+' password you set when you turned on developer mode. The Hub server sends the request.
+sub askRemove()
+    dlg = CreateObject("roSGNode", "StandardKeyboardDialog")
+    dlg.title = "Remove Hub from this TV"
+    dlg.message = ["Type your TV's developer password. Hub closes and disappears from the home screen. To remove the Hub server and its data too, use Settings > Remove Hub on the control page."]
+    editBox = dlg.textEditBox
+    if editBox <> invalid then editBox.secureMode = true
+    dlg.buttons = ["Remove Hub", "Cancel"]
+    openDialog(dlg, "remove")
+end sub
+
+sub onRemoved(msg as Object)
+    releaseTask(msg.getRoSGNode())
+    r = msg.getData()
+    if not r.ok
+        data = ParseJson(r.body)
+        err = "Couldn't remove Hub."
+        if data <> invalid and data.error <> invalid then err = data.error
+        showToast(err)
+    end if
 end sub
 
 sub showCastHelp()
@@ -1108,7 +1205,7 @@ sub onDialogButton()
     kind = m.dialogKind
     idx = m.dialog.buttonSelected
     text = ""
-    if kind = "server" then text = m.dialog.text.trim()
+    if kind = "server" or kind = "remove" then text = m.dialog.text.trim()
     closeDialog()
     if kind = "settings"
         if idx = 0
@@ -1116,6 +1213,17 @@ sub onDialogButton()
         else if idx = 1
             loadChannels()
             loadState()
+        else if idx = 2
+            showLegal()
+        else if idx = 3
+            askRemove()
+        end if
+    else if kind = "remove" and idx = 0
+        if m.server = ""
+            showToast("Set the Hub server address first")
+        else
+            showToast("Removing Hub...")
+            startRequest(serverUrl(m.server) + "/api/tv/remove-channel", "POST", FormatJson({ "password": text }), "onRemoved")
         end if
     else if kind = "server" and idx = 0
         m.server = text

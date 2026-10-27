@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hub recommends a show or movie, says why, and opens it.
+     Left / Right: buttons. Up: Anything / Shows / Movies. Fast-forward: next pick. -->
+<component name="RecommendApp" extends="Group">
+  <interface>
+    <field id="done" type="boolean" alwaysNotify="true" />
+    <field id="server" type="string" />
+    <field id="params" type="assocarray" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/common.brs" />
+  <script type="text/brightscript" uri="pkg:/components/RecommendApp.brs" />
+  <children>
+    <Rectangle width="1280" height="720" color="0x14120FFF" />
+    <!-- backdrop, or the poster stretched into a soft color wash when there is no backdrop -->
+    <Poster id="bgA" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" />
+    <Poster id="bgB" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" />
+    <Poster uri="pkg:/images/side.png" width="1280" height="720" />
+
+    <Group id="chips" translation="[80,44]" />
+
+    <Group id="skeleton" opacity="0">
+      <Poster uri="pkg:/images/bar.9.png" width="200" height="22" translation="[80,150]" blendColor="0x2A251FFF" />
+      <Poster uri="pkg:/images/bar.9.png" width="560" height="56" translation="[80,186]" blendColor="0x2A251FFF" />
+      <Poster uri="pkg:/images/bar.9.png" width="300" height="22" translation="[80,262]" blendColor="0x2A251FFF" />
+      <Poster uri="pkg:/images/bar.9.png" width="600" height="18" translation="[80,330]" blendColor="0x2A251FFF" />
+      <Poster uri="pkg:/images/bar.9.png" width="580" height="18" translation="[80,360]" blendColor="0x2A251FFF" />
+      <Poster uri="pkg:/images/bar.9.png" width="420" height="18" translation="[80,390]" blendColor="0x2A251FFF" />
+      <Poster uri="pkg:/images/bar.9.png" width="560" height="52" translation="[80,470]" blendColor="0x2A251FFF" />
+      <Poster uri="pkg:/images/card.9.png" width="300" height="450" translation="[880,130]" blendColor="0x2A251FFF" />
+    </Group>
+
+    <Group id="content" opacity="0">
+      <Label id="kicker" translation="[80,150]" />
+      <Label id="title" translation="[80,178]" width="700" wrap="true" maxLines="2" color="0xF2EADCFF" />
+      <Label id="meta" translation="[82,0]" width="700" color="0xBDB3A3FF" />
+      <Label id="reason" translation="[82,0]" width="700" />
+      <Label id="summary" translation="[82,0]" width="640" wrap="true" maxLines="4" lineSpacing="4" color="0xF2EADCD8" />
+      <Group id="buttons" translation="[80,0]" />
+      <MaskGroup id="posterMask" maskUri="pkg:/images/mask_poster.png" maskSize="[300,450]" translation="[880,130]">
+        <Poster id="poster" width="300" height="450" loadWidth="300" loadHeight="450" loadDisplayMode="scaleToFill" />
+      </MaskGroup>
+    </Group>
+
+    <Label id="empty" translation="[80,300]" width="760" wrap="true" color="0xF2EADCFF" visible="false" />
+    <Label id="status" translation="[80,654]" width="900" color="0xF2EADCFF" opacity="0" />
+    <Label id="hint" translation="[0,684]" width="1200" horizAlign="right" color="0xF2EADC88"
+      text="Fast-forward for another pick     Up for shows or movies     Back to Hub" />
+
+    <Animation id="contentAnim" duration="0.4" easeFunction="linear">
+      <FloatFieldInterpolator id="contentFade" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="content.opacity" />
+      <Vector2DFieldInterpolator id="contentMove" key="[0.0, 1.0]" keyValue="[[40,0],[0,0]]" fieldToInterp="content.translation" />
+    </Animation>
+    <Animation id="bgAnim" duration="0.8" easeFunction="linear">
+      <FloatFieldInterpolator id="bgInterp" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="bgB.opacity" />
+    </Animation>
+    <Animation id="skelAnim" duration="1.4" repeat="true" easeFunction="linear">
+      <FloatFieldInterpolator id="skelInterp" key="[0.0, 1.0]" keyValue="[0.5, 0.9]" fieldToInterp="skeleton.opacity" />
+    </Animation>
+    <Animation id="statusIn" duration="0.4" easeFunction="linear">
+      <FloatFieldInterpolator id="statusInFade" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="status.opacity" />
+    </Animation>
+    <Animation id="statusOut" duration="0.4" easeFunction="linear">
+      <FloatFieldInterpolator id="statusOutFade" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="status.opacity" />
+    </Animation>
+    <Animation id="pressAnim" duration="0.3" easeFunction="linear">
+      <Vector2DFieldInterpolator id="pressInterp" key="[0.0, 1.0]" keyValue="[[1,1],[1,1]]" fieldToInterp="buttons.scale" />
+    </Animation>
+    <Timer id="statusTimer" duration="5" />
+  </children>
+</component>

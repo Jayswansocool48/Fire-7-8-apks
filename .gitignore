@@ -8,3 +8,5 @@ codeling/web-dist/
 codeling/src/main/cpp/llama.cpp/
 codeling/.cxx/
 kiln/web-src/web/vendor/
+
+__pycache__/

@@ -11,30 +11,37 @@
   <script type="text/brightscript" uri="pkg:/components/common.brs" />
   <script type="text/brightscript" uri="pkg:/components/AskApp.brs" />
   <children>
-    <Rectangle width="1280" height="720" color="0x04050DFF" />
-    <Poster id="aura" uri="pkg:/images/blob.png" width="760" height="760" translation="[260,-90]" opacity="0.32" />
-    <Group id="orb" translation="[640,282]" scaleRotateCenter="[0,0]">
-      <Poster id="orbBack" uri="pkg:/images/orb.png" width="340" height="340" translation="[-170,-170]" scaleRotateCenter="[170,170]" opacity="0.45" />
-      <Poster id="orbFront" uri="pkg:/images/orb.png" width="300" height="300" translation="[-150,-150]" scaleRotateCenter="[150,150]" />
+    <Rectangle width="1280" height="720" color="0x14120FFF" />
+    <!-- five bars that move like a voice level: slow while listening, quick while thinking -->
+    <Group id="voice" translation="[640,250]">
+      <Poster id="bar0" uri="pkg:/images/bar.9.png" width="18" height="56" translation="[-86,-28]" scaleRotateCenter="[9,28]" blendColor="0xF2EADCFF" />
+      <Poster id="bar1" uri="pkg:/images/bar.9.png" width="18" height="96" translation="[-46,-48]" scaleRotateCenter="[9,48]" blendColor="0xF2EADCFF" />
+      <Poster id="bar2" uri="pkg:/images/bar.9.png" width="18" height="132" translation="[-6,-66]" scaleRotateCenter="[9,66]" blendColor="0xF2EADCFF" />
+      <Poster id="bar3" uri="pkg:/images/bar.9.png" width="18" height="96" translation="[34,-48]" scaleRotateCenter="[9,48]" blendColor="0xF2EADCFF" />
+      <Poster id="bar4" uri="pkg:/images/bar.9.png" width="18" height="56" translation="[74,-28]" scaleRotateCenter="[9,28]" blendColor="0xF2EADCFF" />
     </Group>
-    <Label id="question" translation="[140,478]" width="1000" horizAlign="center" wrap="true" maxLines="2" color="0xFFFFFF90" />
-    <Label id="answer" translation="[140,522]" width="1000" horizAlign="center" wrap="true" maxLines="4" color="0xFFFFFFFF" />
-    <Label id="hint" translation="[0,668]" width="1280" horizAlign="center" color="0xFFFFFF80" />
+    <Label id="question" translation="[140,370]" width="1000" horizAlign="center" wrap="true" maxLines="2" color="0xBDB3A3FF" />
+    <Label id="answer" translation="[140,414]" width="1000" horizAlign="center" wrap="true" maxLines="4" lineSpacing="6" color="0xF2EADCFF" />
+    <Label id="hint" translation="[0,668]" width="1280" horizAlign="center" color="0xF2EADC88" />
 
-    <Animation id="spinAnim" duration="30" repeat="true" easeFunction="linear">
-      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 6.2832]" fieldToInterp="orbFront.rotation" />
-      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[6.2832, 0.0]" fieldToInterp="orbBack.rotation" />
+    <Animation id="barAnim0" duration="2" repeat="true" easeFunction="linear">
+      <Vector2DFieldInterpolator id="barInterp0" key="[0.0, 1.0]" keyValue="[[1,1],[1,1]]" fieldToInterp="bar0.scale" />
     </Animation>
-    <Animation id="breathAnim" duration="4" repeat="true" easeFunction="inOutQuad">
-      <Vector2DFieldInterpolator key="[0.0, 0.5, 1.0]" keyValue="[[1.0,1.0],[1.05,1.05],[1.0,1.0]]" fieldToInterp="orb.scale" />
+    <Animation id="barAnim1" duration="2" repeat="true" easeFunction="linear">
+      <Vector2DFieldInterpolator id="barInterp1" key="[0.0, 1.0]" keyValue="[[1,1],[1,1]]" fieldToInterp="bar1.scale" />
     </Animation>
-    <Animation id="thinkAnim" duration="0.9" repeat="true" easeFunction="inOutQuad">
-      <Vector2DFieldInterpolator key="[0.0, 0.5, 1.0]" keyValue="[[0.92,0.92],[1.1,1.1],[0.92,0.92]]" fieldToInterp="orb.scale" />
-      <FloatFieldInterpolator key="[0.0, 0.5, 1.0]" keyValue="[0.25, 0.55, 0.25]" fieldToInterp="aura.opacity" />
+    <Animation id="barAnim2" duration="2" repeat="true" easeFunction="linear">
+      <Vector2DFieldInterpolator id="barInterp2" key="[0.0, 1.0]" keyValue="[[1,1],[1,1]]" fieldToInterp="bar2.scale" />
     </Animation>
-    <Animation id="answerAnim" duration="0.5" easeFunction="outCubic">
-      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="answer.opacity" />
-      <Vector2DFieldInterpolator key="[0.0, 1.0]" keyValue="[[140,540],[140,522]]" fieldToInterp="answer.translation" />
+    <Animation id="barAnim3" duration="2" repeat="true" easeFunction="linear">
+      <Vector2DFieldInterpolator id="barInterp3" key="[0.0, 1.0]" keyValue="[[1,1],[1,1]]" fieldToInterp="bar3.scale" />
+    </Animation>
+    <Animation id="barAnim4" duration="2" repeat="true" easeFunction="linear">
+      <Vector2DFieldInterpolator id="barInterp4" key="[0.0, 1.0]" keyValue="[[1,1],[1,1]]" fieldToInterp="bar4.scale" />
+    </Animation>
+    <Animation id="answerAnim" duration="0.5" easeFunction="linear">
+      <FloatFieldInterpolator id="answerFade" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="answer.opacity" />
+      <Vector2DFieldInterpolator id="answerMove" key="[0.0, 1.0]" keyValue="[[140,432],[140,414]]" fieldToInterp="answer.translation" />
     </Animation>
     <Timer id="startTimer" duration="0.1" />
     <Timer id="idleTimer" duration="40" />

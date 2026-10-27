@@ -7,51 +7,52 @@
   <script type="text/brightscript" uri="pkg:/components/common.brs" />
   <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
   <children>
-    <!-- Photo wallpaper that slowly breathes -->
+    <Rectangle width="1280" height="720" color="0x14120FFF" />
+    <!-- Photo wallpaper that drifts a little -->
     <Group id="wall" scaleRotateCenter="[640,360]">
       <Poster id="wallA" uri="pkg:/images/bg.jpg" width="1280" height="720" loadDisplayMode="scaleToFill" />
       <Poster id="wallB" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" />
     </Group>
-    <Poster id="scrim" uri="pkg:/images/scrim4.png" width="1280" height="720" />
-    <Poster id="deckVeil" uri="pkg:/images/veil.png" width="1280" height="720" opacity="0" />
+    <Poster id="scrim" uri="pkg:/images/scrim.png" width="1280" height="720" />
+    <Poster id="deckVeil" uri="pkg:/images/veil.png" width="1280" height="720" opacity="0" blendColor="0x14120FFF" />
 
     <Group id="page" opacity="0">
       <Group id="hero">
-        <Label id="clock" translation="[60,8]" color="0xFFFFFFFF" />
-        <Label id="ampm" color="0xFFFFFFD0" />
-        <Label id="date" translation="[68,170]" color="0xFFFFFFFF" />
+        <Label id="clock" translation="[60,0]" color="0xF2EADCFF" />
+        <Label id="ampm" color="0xF2EADCC0" />
+        <Label id="date" translation="[68,170]" color="0xF2EADCFF" />
         <Group id="weather" translation="[68,208]">
-          <Poster id="wIcon" width="30" height="30" translation="[0,0]" />
-          <Label id="wText" translation="[40,0]" height="30" vertAlign="center" color="0xFFFFFFE0" />
+          <Poster id="wIcon" width="30" height="30" translation="[0,0]" blendColor="0xF2EADCFF" />
+          <Label id="wText" translation="[40,0]" height="30" vertAlign="center" color="0xF2EADCE0" />
         </Group>
         <Group id="tip" translation="[68,250]">
-          <Poster id="tipBg" uri="pkg:/images/pill.9.png" height="36" blendColor="0xFFFFFF26" />
-          <Label id="tipText" translation="[16,0]" height="36" vertAlign="center" color="0xFFFFFFF0" />
+          <Poster id="tipBg" uri="pkg:/images/pill.9.png" height="36" blendColor="0x1E1A16D0" />
+          <Label id="tipText" translation="[16,0]" height="36" vertAlign="center" color="0xF2EADCFF" />
         </Group>
 
         <Group id="chips" translation="[1220,36]" />
 
         <Group id="note" translation="[880,96]" opacity="0">
-          <Poster id="noteBg" uri="pkg:/images/card.9.png" width="340" height="232" translation="[-20,-20]" blendColor="0x0B0F22A8" />
+          <Poster id="noteBg" uri="pkg:/images/card.9.png" width="340" height="232" translation="[-20,-20]" blendColor="0x1E1A16E6" />
           <MaskGroup id="noteMask" maskUri="pkg:/images/mask_note.png" maskSize="[300,192]">
             <Poster id="noteImg" width="300" height="192" loadDisplayMode="scaleToFit" />
           </MaskGroup>
-          <Label id="noteText" width="300" height="192" wrap="true" maxLines="6" vertAlign="center" color="0xFFFFFFFF" />
-          <Label id="noteCaption" translation="[0,200]" width="300" horizAlign="right" color="0xFFFFFFA8" />
+          <Label id="noteText" width="300" height="192" wrap="true" maxLines="6" vertAlign="center" color="0xF2EADCFF" />
+          <Label id="noteCaption" translation="[0,200]" width="300" horizAlign="right" color="0xF2EADCA8" />
         </Group>
 
         <Group id="quote" translation="[68,428]">
-          <Label id="quoteText" width="1000" wrap="true" maxLines="2" color="0xFFFFFFFF" />
-          <Label id="quoteBy" color="0xFFFFFFA8" />
+          <Label id="quoteText" width="1000" wrap="true" maxLines="2" color="0xF2EADCFF" />
+          <Label id="quoteBy" color="0xF2EADCA8" />
         </Group>
       </Group>
 
       <Group id="dock" translation="[0,540]">
-        <Poster id="dockBg" uri="pkg:/images/pill.9.png" height="126" blendColor="0x0E1226B8" />
+        <Poster id="dockBg" uri="pkg:/images/panel.9.png" height="126" blendColor="0x1E1A16EB" />
         <Group id="dockClip" translation="[0,18]" clippingRect="[0,-60,1280,220]">
           <Group id="dockItems" />
         </Group>
-        <Label id="dockLabel" translation="[0,140]" width="240" horizAlign="center" color="0xFFFFFFFF" opacity="0" />
+        <Label id="dockLabel" translation="[0,140]" width="240" horizAlign="center" color="0xF2EADCFF" opacity="0" />
       </Group>
 
       <Group id="rail" translation="[0,760]" />
@@ -60,65 +61,68 @@
     <Group id="appLayer" />
 
     <Group id="toast" translation="[640,28]" opacity="0">
-      <Poster id="toastBg" uri="pkg:/images/pill.9.png" height="50" blendColor="0x0B0F1EF0" />
-      <Label id="toastText" height="50" vertAlign="center" horizAlign="center" color="0xFFFFFFFF" />
+      <Poster id="toastBg" uri="pkg:/images/pill.9.png" height="50" blendColor="0x1E1A16F5" />
+      <Label id="toastText" height="50" vertAlign="center" horizAlign="center" color="0xF2EADCFF" />
     </Group>
     <Group id="dummy" />
 
-    <Animation id="introAnim" duration="1.3" easeFunction="linear">
-      <FloatFieldInterpolator key="[0.0, 0.25, 1.0]" keyValue="[0.0, 1.0, 1.0]" fieldToInterp="page.opacity" />
-      <Vector2DFieldInterpolator key="[0.0, 0.5, 1.0]" keyValue="[[0,-16],[0,0],[0,0]]" fieldToInterp="hero.translation" />
-      <Vector2DFieldInterpolator key="[0.0, 0.25, 0.8, 1.0]" keyValue="[[0,640],[0,640],[0,540],[0,540]]" fieldToInterp="dock.translation" />
-      <Vector2DFieldInterpolator key="[0.0, 1.0]" keyValue="[[1.08,1.08],[1.0,1.0]]" fieldToInterp="wall.scale" />
+    <!-- Every animation below gets spring keyframes from springTo() in common.brs. -->
+    <Animation id="introAnim" duration="1" easeFunction="linear">
+      <FloatFieldInterpolator id="introFade" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="page.opacity" />
+      <Vector2DFieldInterpolator id="introHero" key="[0.0, 1.0]" keyValue="[[0,-16],[0,0]]" fieldToInterp="hero.translation" />
+      <Vector2DFieldInterpolator id="introDock" key="[0.0, 1.0]" keyValue="[[0,640],[0,540]]" fieldToInterp="dock.translation" />
     </Animation>
-    <Animation id="breathAnim" duration="48" repeat="true" easeFunction="inOutQuad">
-      <Vector2DFieldInterpolator key="[0.0, 0.5, 1.0]" keyValue="[[1.0,1.0],[1.06,1.06],[1.0,1.0]]" fieldToInterp="wall.scale" />
+    <Animation id="breathAnim" duration="48" repeat="true" easeFunction="linear">
+      <Vector2DFieldInterpolator id="breathInterp" key="[0.0, 1.0]" keyValue="[[1.0,1.0],[1.0,1.0]]" fieldToInterp="wall.scale" />
     </Animation>
 
-    <Animation id="focusAnim" duration="0.22" easeFunction="outCubic">
+    <Animation id="focusAnim" duration="0.3" easeFunction="linear">
       <Vector2DFieldInterpolator id="growInterp" key="[0.0, 1.0]" keyValue="[[1.0, 1.0], [1.08, 1.08]]" fieldToInterp="dummy.scale" />
       <Vector2DFieldInterpolator id="shrinkInterp" key="[0.0, 1.0]" keyValue="[[1.08, 1.08], [1.0, 1.0]]" fieldToInterp="dummy.scale" />
-      <FloatFieldInterpolator id="glowIn" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="dummy.opacity" />
-      <FloatFieldInterpolator id="glowOut" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="dummy.opacity" />
       <FloatFieldInterpolator id="ringIn" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="dummy.opacity" />
+      <FloatFieldInterpolator id="ringOut" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="dummy.opacity" />
     </Animation>
-    <Animation id="pressAnim" duration="0.2" easeFunction="linear">
-      <Vector2DFieldInterpolator id="pressInterp" key="[0.0, 0.4, 1.0]" keyValue="[[1.08,1.08],[0.96,0.96],[1.08,1.08]]" fieldToInterp="dummy.scale" />
+    <Animation id="pressAnim" duration="0.3" easeFunction="linear">
+      <Vector2DFieldInterpolator id="pressInterp" key="[0.0, 1.0]" keyValue="[[1.08,1.08],[1.08,1.08]]" fieldToInterp="dummy.scale" />
     </Animation>
-    <Animation id="scrollAnim" duration="0.28" easeFunction="outCubic">
+    <Animation id="scrollAnim" duration="0.4" easeFunction="linear">
       <Vector2DFieldInterpolator id="scrollInterp" key="[0.0, 1.0]" keyValue="[[0,0],[0,0]]" fieldToInterp="dummy.translation" />
     </Animation>
-    <Animation id="pageAnim" duration="0.42" easeFunction="outCubic">
+    <Animation id="pageAnim" duration="0.4" easeFunction="linear">
       <Vector2DFieldInterpolator id="pageInterp" key="[0.0, 1.0]" keyValue="[[0,0],[0,0]]" fieldToInterp="page.translation" />
       <FloatFieldInterpolator id="heroInterp" key="[0.0, 1.0]" keyValue="[1.0, 1.0]" fieldToInterp="hero.opacity" />
       <FloatFieldInterpolator id="veilInterp" key="[0.0, 1.0]" keyValue="[0.0, 0.0]" fieldToInterp="deckVeil.opacity" />
     </Animation>
-    <Animation id="captionAnim" duration="0.25" easeFunction="outCubic">
+    <Animation id="captionAnim" duration="0.4" easeFunction="linear">
       <FloatFieldInterpolator id="captionInterp" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="dummy.opacity" />
     </Animation>
-    <Animation id="quoteAnim" duration="0.9" easeFunction="outCubic">
-      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="quote.opacity" />
-      <Vector2DFieldInterpolator key="[0.0, 1.0]" keyValue="[[68,442],[68,428]]" fieldToInterp="quote.translation" />
+    <Animation id="quoteAnim" duration="0.8" easeFunction="linear">
+      <FloatFieldInterpolator id="quoteFade" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="quote.opacity" />
+      <Vector2DFieldInterpolator id="quoteMove" key="[0.0, 1.0]" keyValue="[[68,442],[68,428]]" fieldToInterp="quote.translation" />
     </Animation>
-    <Animation id="noteAnim" duration="0.7" easeFunction="outBack">
-      <FloatFieldInterpolator key="[0.0, 0.4, 1.0]" keyValue="[0.0, 1.0, 1.0]" fieldToInterp="note.opacity" />
-      <Vector2DFieldInterpolator key="[0.0, 1.0]" keyValue="[[880,60],[880,96]]" fieldToInterp="note.translation" />
+    <Animation id="noteAnim" duration="0.6" easeFunction="linear">
+      <FloatFieldInterpolator id="noteFade" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="note.opacity" />
+      <Vector2DFieldInterpolator id="noteMove" key="[0.0, 1.0]" keyValue="[[880,60],[880,96]]" fieldToInterp="note.translation" />
     </Animation>
-    <Animation id="wallAnim" duration="0.9" easeFunction="inOutCubic">
-      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="wallB.opacity" />
+    <Animation id="wallAnim" duration="0.8" easeFunction="linear">
+      <FloatFieldInterpolator id="wallFade" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="wallB.opacity" />
     </Animation>
-    <Animation id="openAnim" duration="0.3" easeFunction="outCubic">
-      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="page.opacity" />
-      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="appLayer.opacity" />
+    <Animation id="openAnim" duration="0.4" easeFunction="linear">
+      <FloatFieldInterpolator id="openPage" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="page.opacity" />
+      <FloatFieldInterpolator id="openLayer" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="appLayer.opacity" />
     </Animation>
-    <Animation id="closeAnim" duration="0.34" easeFunction="outCubic">
-      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="page.opacity" />
+    <Animation id="closeAnim" duration="0.4" easeFunction="linear">
+      <FloatFieldInterpolator id="closePage" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="page.opacity" />
     </Animation>
-    <Animation id="toastAnim" duration="4.2" easeFunction="linear">
-      <FloatFieldInterpolator key="[0.0, 0.06, 0.9, 1.0]" keyValue="[0.0, 1.0, 1.0, 0.0]" fieldToInterp="toast.opacity" />
-      <Vector2DFieldInterpolator key="[0.0, 0.06, 1.0]" keyValue="[[640,8],[640,28],[640,28]]" fieldToInterp="toast.translation" />
+    <Animation id="toastIn" duration="0.4" easeFunction="linear">
+      <FloatFieldInterpolator id="toastInFade" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="toast.opacity" />
+      <Vector2DFieldInterpolator id="toastInMove" key="[0.0, 1.0]" keyValue="[[640,8],[640,28]]" fieldToInterp="toast.translation" />
+    </Animation>
+    <Animation id="toastOut" duration="0.4" easeFunction="linear">
+      <FloatFieldInterpolator id="toastOutFade" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="toast.opacity" />
     </Animation>
 
+    <Timer id="toastTimer" duration="3.6" />
     <Timer id="clockTimer" duration="1" repeat="true" />
     <Timer id="stateTimer" duration="90" repeat="true" />
     <Timer id="idleTimer" duration="30" repeat="true" />

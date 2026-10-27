@@ -107,7 +107,7 @@ jobs:
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew --no-daemon :inkwell:assembleRelease :codeling:assembleRelease :deskmate:assembleRelease :gamecodex:assembleRelease :kiln:assembleRelease :glow:assembleRelease :hubremote:assembleRelease :haven:assembleRelease :havenremote:assembleRelease 2>&1 | tee build.log
+          ./gradlew --no-daemon :inkwell:assembleRelease :codeling:assembleRelease :deskmate:assembleRelease :gamecodex:assembleRelease :kiln:assembleRelease :glow:assembleRelease :hub-remote:assembleRelease :haven:assembleRelease :havenremote:assembleRelease 2>&1 | tee build.log
           cp inkwell/build/outputs/apk/release/inkwell-release.apk Inkwell.apk
           cp codeling/build/outputs/apk/release/codeling-release.apk Codeling.apk
           cp deskmate/build/outputs/apk/release/deskmate-release.apk Deskmate.apk
@@ -119,7 +119,7 @@ jobs:
           cat GameCodex.json
           cp kiln/build/outputs/apk/release/kiln-release.apk Kiln.apk
           cp glow/build/outputs/apk/release/glow-release.apk Glow.apk
-          cp hubremote/build/outputs/apk/release/hubremote-release.apk HubRemote.apk
+          cp hub-remote/build/outputs/apk/release/hub-remote-release.apk HubRemote.apk
           cp haven/build/outputs/apk/release/haven-release.apk Haven.apk
           cp havenremote/build/outputs/apk/release/havenremote-release.apk HavenRemote.apk
           ls -la *.apk

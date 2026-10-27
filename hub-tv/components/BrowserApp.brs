@@ -15,6 +15,7 @@ sub init()
     m.statusBar = m.top.findNode("statusBar")
     m.status = m.top.findNode("status")
     m.status.font = makeFont(false, 19)
+    springFade(m.top.findNode("statusAnim"), m.top.findNode("statusFade"), 1.0, 0.0, "gentle")
     m.cx = 640
     m.cy = 360
     m.heldKey = ""
