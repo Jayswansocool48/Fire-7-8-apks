@@ -5,7 +5,12 @@ import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.window.BackEvent
+import android.window.OnBackAnimationCallback
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -26,6 +31,8 @@ import java.io.IOException
 class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var ai: AiBridge
+    private var backCallback: Any? = null // OnBackInvokedCallback on Android 13+
+    private var backRegistered = false
 
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,6 +63,44 @@ class MainActivity : Activity() {
             web.loadUrl(START_URL)
         }
         warnIfWebViewIsOld()
+        setUpPredictiveBack()
+    }
+
+    /**
+     * Android 14 predictive back: while you drag the back gesture, the app slides its current screen
+     * aside and shows where Back goes (window.__codelingBack in the web app). Releasing goes back;
+     * letting go early springs the screen back. With nothing to go back to, Android's own
+     * back-to-home preview takes over.
+     */
+    private fun setUpPredictiveBack() {
+        if (Build.VERSION.SDK_INT >= 34) {
+            backCallback = object : OnBackAnimationCallback {
+                override fun onBackStarted(e: BackEvent) = backJs("start", 0f, e.swipeEdge)
+                override fun onBackProgressed(e: BackEvent) = backJs("progress", e.progress, e.swipeEdge)
+                override fun onBackCancelled() = backJs("cancel", 0f, 0)
+                override fun onBackInvoked() {
+                    backJs("commit", 1f, 0)
+                    if (web.canGoBack()) web.goBack()
+                }
+            }
+        } else if (Build.VERSION.SDK_INT >= 33) {
+            backCallback = OnBackInvokedCallback { if (web.canGoBack()) web.goBack() }
+        }
+        // Android 12 and older use onBackPressed below
+        syncBackCallback()
+    }
+
+    private fun backJs(phase: String, progress: Float, edge: Int) {
+        web.evaluateJavascript("window.__codelingBack&&window.__codelingBack('$phase',$progress,$edge)", null)
+    }
+
+    private fun syncBackCallback() {
+        if (Build.VERSION.SDK_INT < 33) return
+        val cb = backCallback as? OnBackInvokedCallback ?: return
+        val want = web.canGoBack()
+        if (want && !backRegistered) onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, cb)
+        if (!want && backRegistered) onBackInvokedDispatcher.unregisterOnBackInvokedCallback(cb)
+        backRegistered = want
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -106,6 +151,11 @@ class MainActivity : Activity() {
     }
 
     private inner class AssetClient : WebViewClient() {
+        override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+            super.doUpdateVisitedHistory(view, url, isReload)
+            syncBackCallback()
+        }
+
         override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
             val url = request.url
             if (url.host != HOST) return null

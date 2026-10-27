@@ -49,9 +49,20 @@ class AiBridge(private val activity: Activity, private val web: WebView) {
         get() = prefs.getString("pc", "") ?: ""
         set(v) { prefs.edit().putString("pc", v).apply() }
 
+    // Idempotency keys: a request sent twice with the same key (a double tap, a retry) runs once.
+    private val seenKeys = java.util.Collections.synchronizedSet(java.util.LinkedHashSet<String>())
+
+    private fun firstTime(key: String): Boolean = synchronized(seenKeys) {
+        if (key.isEmpty()) return true
+        if (!seenKeys.add(key)) return false
+        if (seenKeys.size > 200) seenKeys.remove(seenKeys.first())
+        true
+    }
+
     @JavascriptInterface
     fun post(json: String) {
         val msg = try { JSONObject(json) } catch (e: Exception) { return }
+        if (!firstTime(msg.optString("key"))) return
         when (msg.optString("type")) {
             "ai-status" -> io.execute { sendStatus() }
             "ai-chat" -> chat(msg)

@@ -11,8 +11,8 @@ android {
         applicationId = "io.github.jayswansocool48.codeling"
         minSdk = 23
         targetSdk = 35
-        versionCode = 2
-        versionName = "2.2.0"
+        versionCode = 3
+        versionName = "2.3.0"
 
         ndk {
             // 64-bit and 32-bit ARM, so the tablet AI runs whichever way LineageOS was built
