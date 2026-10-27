@@ -1,0 +1,17 @@
+== keys the TV received
+POST /keypress/Right
+POST /keypress/Right
+POST /keypress/Right
+POST /keypress/Select
+== app
+connect: running
+remote: running
+channels: running
+browser: running
+send: running
+hub: running
+10-27 15:41:37.686  4995  4995 D AndroidRuntime: Shutting down VM
+10-27 15:41:39.916  5010  5010 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-27 15:41:39.918  5010  5010 D AndroidRuntime: CheckJNI is OFF
+10-27 15:41:39.955  5010  5010 D AndroidRuntime: Calling main entry com.android.commands.am.Am
+10-27 15:41:39.968  5010  5010 D AndroidRuntime: Shutting down VM
