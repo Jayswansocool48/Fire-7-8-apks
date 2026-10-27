@@ -1195,7 +1195,7 @@ sub showCastHelp()
     dlg.message = [
         "This TV supports screen mirroring (Miracast).",
         "On Pop!_OS: install GNOME Network Displays from the app store, open it, and pick this TV.",
-        "Accept the request when it shows up here. To send just a photo, video or link, use Send in the Hub Remote app."
+        "Accept the request when it shows up here. For a photo, video or link, use the Send tab in Hub Remote."
     ]
     dlg.buttons = ["Got it"]
     openDialog(dlg, "cast")
