@@ -358,6 +358,13 @@ sub onLaunchParams()
         openTool("pick")
     else if p.app = "ask"
         openTool("ask")
+    else if p.app = "details" and p.title <> invalid
+        it = { title: p.title, kind: "tv" }
+        if p.kind <> invalid then it.kind = p.kind
+        if p.year <> invalid then it.year = p.year
+        if p.tvmaze <> invalid then it.tvmaze = p.tvmaze
+        if p.anilist <> invalid then it.anilist = p.anilist
+        openApp("DetailsApp", { item: it, accent: m.hub.accent })
     end if
 end sub
 

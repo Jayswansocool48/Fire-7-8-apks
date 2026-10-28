@@ -2954,6 +2954,8 @@ class Handler(BaseHTTPRequestHandler):
                 if b.get("url"):
                     S.proxy.call("goto", b["url"])
                 params = {"app": b["app"]} if b.get("app") else None
+                if params and b["app"] == "details":  # open one title's page on the TV
+                    params.update({k: str(b[k])[:120] for k in ("title", "kind", "year", "tvmaze", "anilist") if b.get(k)})
                 self._tv(lambda: S.roku.open_hub(params))
             elif path == "/api/tv/favorite":
                 favs = [f for f in S.cfg["hub"]["favorites"] if f != b.get("id")]

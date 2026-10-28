@@ -49,7 +49,9 @@ jobs:
           for i in $(seq 1 40); do n=$(curl -s localhost:8765/api/hub/state | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('foryou') or []))"); [ "$n" -gt 0 ] && break; sleep 3; done
           curl -s "localhost:8765/api/title?title=Stranger%20Things&kind=tv&year=2016" | head -c 1500; echo
       - name: Run Hub in the simulator
-        run: python3 hub-tv/tests/simulate.py hub-tv screens
+        run: |
+          (cd hub-tv && zip -qr ../Hub.zip manifest source components images fonts)
+          python3 hub-tv/tests/simulate.py Hub.zip screens
       - name: Publish screenshots
         if: always()
         run: |

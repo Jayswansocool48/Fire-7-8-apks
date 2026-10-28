@@ -174,6 +174,26 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
 .star[aria-pressed=true]{color:#E3B04B}
 
 /* ---------- what to watch ---------- */
+@media (max-width:480px){#whoname{display:none}.who{padding:0 4px}}
+.who{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 10px 0 4px;border-radius:99px;border:1px solid var(--line);background:var(--deep)}
+.ava{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font:650 15px var(--font);color:var(--ink);flex:none}
+.people{display:flex;flex-wrap:wrap;gap:12px}
+.person{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:88px;padding:10px;border-radius:var(--r-md);border:1px solid transparent}
+.person[aria-pressed=true]{border-color:var(--accent)}
+.person .ava{width:64px;height:64px;font-size:26px}
+.nowcard{display:flex;align-items:center;gap:14px;background:var(--deep);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;margin-bottom:6px}
+.nowcard .grow b{font:500 20px/1.2 var(--serif)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;background:var(--accent);transform-origin:left;width:100%}
+.hist .pic{width:96px;aspect-ratio:16/9;border-radius:var(--r-sm)}
+.tsheet .head{display:grid;grid-template-columns:110px 1fr;gap:14px}
+.tsheet .pic{width:110px;aspect-ratio:2/3;border-radius:var(--r-sm)}
+.tsheet h4{font:500 24px/1.2 var(--serif);margin:0 0 6px}
+.prov{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.prov .chip.on{background:var(--cream);color:var(--ink);border-color:var(--cream)}
+.cast{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px}
+.cast div{min-width:84px;text-align:center;font-size:12.5px;color:var(--mist)}
+.cast img,.cast .ph{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--raise);display:block;margin:0 auto 6px}
+.eps .item{cursor:pointer}
 .rec{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:start;background:var(--deep);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px}
 .rec .pic{width:120px;aspect-ratio:2/3;border-radius:var(--r-sm)}
 .rec h4{font:500 22px/1.2 var(--serif);margin:2px 0 4px}
@@ -269,6 +289,7 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
     <svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><path d="M7 21a10 10 0 0 1 20 0Z" fill="var(--accent)"/><rect x="3" y="22.5" width="28" height="2.6" rx="1.3" fill="var(--cream)"/><rect x="9" y="27.5" width="16" height="2.2" rx="1.1" fill="var(--cream)" opacity=".6"/></svg>
     <div class="now"><b id="nowapp">Connecting to your TV</b><span><span class="dot" id="tvdot"></span><span id="tvline">Checking</span></span></div>
     <span class="updating" id="updating">Updating</span>
+    <button class="who press" id="whobtn" aria-label="Who's watching"><span class="ava" id="whoava">?</span><span id="whoname">Profile</span></button>
     <button class="iconbtn press" id="cmdbtn" title="All actions (Ctrl+K)" aria-label="All actions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
     <button class="iconbtn press" id="sleepbtn" title="Sleep timer" aria-label="Sleep timer"><svg><use href="#i-moon"/></svg></button>
     <button class="iconbtn power press" data-key="PowerOff" title="Turn TV off" aria-label="Turn TV off"><svg><use href="#i-power"/></svg></button>
@@ -311,11 +332,16 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
       <h2>Watch and send</h2>
       <p class="lede">Get something to watch, ask the TV a question, draw it a note, or send photos and links.</p>
 
+      <div id="nowbox"></div>
       <h3>What to watch</h3>
       <div class="chips" id="reckinds" role="group" aria-label="Kind of pick">
         <button class="chip press" data-kind="any" aria-pressed="true">Anything</button><button class="chip press" data-kind="tv" aria-pressed="false">Shows</button><button class="chip press" data-kind="movie" aria-pressed="false">Movies</button>
       </div>
       <div id="rec" style="margin-top:12px"></div>
+      <h3>Keep watching</h3>
+      <p class="small">What you opened from Hub, newest first. Tap to open it again, hold the title for details.</p>
+      <div class="list hist" id="histlist"></div>
+      <div class="links" id="histclear"></div>
 
       <h3>Ask the TV</h3>
       <form class="field" id="askform"><input id="askq" placeholder="Recommend a funny movie. Will it rain tomorrow?" autocomplete="off"><button class="btn primary press" type="submit">Ask</button></form>
@@ -349,6 +375,21 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
       <h3>Wallpaper</h3>
       <div class="walls" id="walls"></div>
       <input type="file" id="wallfile" accept="image/*" class="sr">
+
+      <h3>Home screen look</h3>
+      <div class="chips" id="themechips" role="group" aria-label="Home screen look">
+        <button class="chip press" data-theme="hub" aria-pressed="true">Hub: picks and rows</button><button class="chip press" data-theme="console" aria-pressed="false">Console: tiles and artwork</button>
+      </div>
+      <div class="list" style="margin-top:12px">
+        <div class="item"><div class="grow"><b>Morning and night looks</b><span>Mornings lead with weather and your day. Nights dim the TV and add a sleep timer.</span></div><input type="checkbox" class="switch" id="modeauto"></div>
+        <div class="item"><div class="grow"><b>Morning starts</b></div><select class="input" id="modemorning" style="max-width:120px"></select></div>
+        <div class="item"><div class="grow"><b>Night starts</b></div><select class="input" id="modenight" style="max-width:120px"></select></div>
+      </div>
+
+      <h3>People</h3>
+      <p class="small">Each profile keeps its own shows, Keep watching, picks and look. The TV asks who's watching when Hub opens.</p>
+      <div class="people" id="peoplelist"></div>
+      <form class="field" id="personform" style="margin-top:10px"><input id="personname" placeholder="Add a person" maxlength="24"><button class="btn press" type="submit">Add</button></form>
 
       <h3>Accent color</h3>
       <div class="swatches" id="swatches"></div>
@@ -429,6 +470,7 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
         <div class="item"><div class="grow"><b>Keep Hub open</b><span>Return to Hub after 45 s on the Roku home screen</span></div><input type="checkbox" class="switch" data-set="kiosk"></div>
         <div class="item"><div class="grow"><b>Updates</b><span id="ver">Hub server</span></div><button class="btn press" id="updbtn">Check for updates</button></div>
       </div>
+      <div class="list" style="margin-top:10px"><div class="item"><div class="grow"><b>TMDB key (optional)</b><span>A free key from themoviedb.org adds movie backdrops, cast and where-to-watch for more titles. It stays on the server.</span></div><input class="input" id="tmdbkey" type="password" style="max-width:190px" placeholder="Not set" autocomplete="off"></div></div>
       <form class="field" id="tvipform" style="margin-top:10px"><input id="tvip" placeholder="TV address"><button class="btn press" type="submit">Save</button></form>
       <div class="links"><button id="legalbtn">Privacy and terms</button><button id="removebtn" style="color:var(--coral)">Remove Hub</button></div>
     </section>
@@ -487,6 +529,15 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
   <p class="small">Goes into whatever text box is open on the TV, like a search screen.</p>
   <form class="field" id="tvtype"><input id="tvtext" placeholder="Text to send" autocomplete="off"><button class="btn primary press" type="submit">Send</button></form>
   <div class="chips" style="margin-top:10px"><button class="chip press" data-key="Backspace">Delete</button><button class="chip press" data-key="Enter">Enter</button><button class="chip press" data-key="Search">Search</button></div>
+</div>
+<div class="sheet tsheet" id="titlesheet" role="dialog" aria-label="Title details">
+  <span class="grab" aria-hidden="true"></span>
+  <div id="titlebody"><div class="skel line"></div><div class="skel line" style="width:70%"></div></div>
+</div>
+<div class="sheet" id="whosheet" role="dialog" aria-label="Who's watching">
+  <span class="grab" aria-hidden="true"></span>
+  <h3 style="margin-top:0">Who's watching?</h3>
+  <div class="people" id="whopeople"></div>
 </div>
 <div class="sheet" id="legalsheet" role="dialog" aria-label="Privacy and terms">
   <span class="grab" aria-hidden="true"></span>
@@ -734,6 +785,8 @@ $("#cmdscrim").onclick = closeCmd; $("#cmdbtn").onclick = openCmd;
 let hub = null;
 function fmtLeft(s) { const m = Math.ceil(s / 60); return m >= 60 ? Math.floor(m / 60) + " h " + (m % 60) + " min" : m + " min"; }
 function applyStatus(s) { hub = s.hub; applyAccent(s.hub.accent); window.__status = s;
+  renderProfiles(s.profiles); renderNow(s.nowPlaying); if (JSON.stringify(s.history || []) !== JSON.stringify(histCache)) renderHistory(s.history);
+  $("#tmdbkey").placeholder = s.hasTmdb ? "Key saved" : "Not set";
   $("#adstats").textContent = s.adblock.blocked.toLocaleString() + " ads blocked so far, " + s.adblock.domains.toLocaleString() + " sites on the list";
   $("#sleepbtn").classList.toggle("lit", !!s.sleep); $("#sleepline").textContent = s.sleep ? "The TV turns off in " + fmtLeft(s.sleep) + "." : "The TV turns itself off when the timer ends.";
   if (!updateInfo) $("#ver").textContent = "Hub server " + s.version;
@@ -802,7 +855,7 @@ function renderRec(animate) { const box = $("#rec"); const it = recItems[recInde
   const watch = it.appName ? "Watch on " + it.appName : "Find it on the TV";
   const meta = [it.year, it.kind === "movie" ? "Movie" : "Show", (it.genres || []).slice(0, 2).join(", ")].filter(Boolean).join("  ·  ");
   const card = h("div", { class: "rec sq" }, pic(it.poster, "", it.title + " poster"),
-    h("div", {}, h("div", { class: "small" }, "Hub recommends"), h("h4", {}, it.title), h("div", { class: "meta" }, meta), h("div", { class: "why" }, it.reason), it.summary ? h("p", {}, it.summary) : null),
+    h("div", {}, h("div", { class: "small" }, "Hub recommends"), h("h4", { style: "cursor:pointer", onclick: () => openTitle(it) }, it.title), h("div", { class: "meta" }, meta), h("div", { class: "why" }, it.reason), it.summary ? h("p", {}, it.summary) : null),
     h("div", { class: "acts" },
       h("button", { class: "btn primary", onclick: () => api("/api/recommend/watch", it).then(() => toast("Opening " + it.title + " on the TV")).catch(e => toast(e.message, true)) }, watch),
       h("button", { class: "btn", onclick: nextRec }, "Another pick"),
@@ -860,7 +913,7 @@ function renderHubFrom(s) { hub = s.hub; if (s.accents) ACCENTS = s.accents;
   $("#place").value = hub.location || ""; $("#placeinfo").textContent = s.place ? "Showing weather for " + s.place.name + (s.place.region ? ", " + s.place.region : "") : "";
   $("#ssmin").value = String(hub.screensaver?.minutes ?? 5); $("#sssrc").value = hub.screensaver?.source || "gallery";
   $("#cal").value = s.settings.calendar_url || ""; renderYT(s.youtube); renderAnime(s.anime); renderEvents(s.events); renderNotes(s.notes);
-  renderShows(s.shows); renderPassed(s.passed || 0); renderQuotes(s.quotes); renderAI(s.ai); }
+  renderShows(s.shows); renderPassed(s.passed || 0); renderQuotes(s.quotes); renderAI(s.ai); renderLook(); }
 async function loadHub() { const cached = window.__status || store.get("status");
   if (cached) { renderHubFrom(cached); $("#updating").classList.add("show"); }
   await status(); if (window.__status) renderHubFrom(window.__status); }
@@ -980,7 +1033,7 @@ async function renderShows(shows) { const apps = await appsList();
     const sel = h("select", { class: "input", "aria-label": "App for " + sh.title }, h("option", { value: "" }, "Any app (search)"), ...apps.map(a => h("option", { value: a.id }, a.name)));
     sel.value = sh.app || ""; sel.onchange = () => { const a = apps.find(x => x.id === sel.value); api("/api/shows/update", { id: sh.id, app: sel.value, appName: a ? a.name : "" }).then(() => toast("Saved")).catch(e => toast(e.message, true)); };
     const row = h("div", { class: "item show-row" }, pic(sh.poster, "poster", ""),
-      h("div", { class: "grow" }, h("b", {}, sh.title), h("span", {}, [sh.year, sh.kind === "movie" ? "Movie" : "TV show"].filter(Boolean).join(" ")),
+      h("div", { class: "grow", style: "cursor:pointer", onclick: () => openTitle(sh) }, h("b", {}, sh.title), h("span", {}, [sh.year, sh.kind === "movie" ? "Movie" : "TV show"].filter(Boolean).join(" ")),
         (sh.genres || []).length ? h("div", { class: "genres" }, sh.genres.join(", ")) : null));
     row.append(h("div", { style: "display:flex;flex-direction:column;gap:6px;align-items:flex-end" }, sel,
       h("button", { class: "btn danger", onclick: () => removable(row, "Removed " + sh.title, () => api("/api/shows/delete", { id: sh.id })) }, "Remove")));
@@ -1040,6 +1093,89 @@ $("#rmgo").onclick = async () => { if ($("#rmconfirm").value.trim() !== "REMOVE"
     $("#rmdone").textContent = (j.tv === "removed" ? "Hub is off the TV. " : j.tv.startsWith("failed") ? "The TV channel stayed (" + j.tv.slice(8) + "). " : "") +
       "The server deleted Hub's files. Last step on CasaOS: open the Hub Server app's menu and choose Uninstall.";
   } catch (e) { $("#rmgo").disabled = false; toast(e.message, true); } };
+
+
+/* ---------------- profiles ---------------- */
+function ava(p, cls) { const a = h("span", { class: "ava " + (cls || "") }, (p.name || "?").slice(0, 1).toUpperCase()); a.style.background = p.color || "var(--accent)"; return a; }
+function renderProfiles(list) { list = list || []; const cur = list.find(p => p.current) || list[0];
+  if (cur) { $("#whoava").replaceWith(Object.assign(ava(cur), { id: "whoava" })); $("#whoname").textContent = cur.name; }
+  const person = (p, onclick) => h("button", { class: "person press", "aria-pressed": !!p.current, onclick }, ava(p), h("span", {}, p.name));
+  $("#whopeople").replaceChildren(...list.map(p => person(p, () => switchProfile(p))));
+  $("#peoplelist").replaceChildren(...list.map(p => { const el = person(p, () => switchProfile(p));
+    if (!p.current) el.append(h("span", { class: "small", style: "color:var(--coral);padding:8px", onclick: ev => { ev.stopPropagation();
+      removable(el, "Removed " + p.name, () => api("/api/profiles/delete", { id: p.id })); } }, "Remove")); return el; })); }
+async function switchProfile(p) { if (p.current) return closeSheets();
+  try { const j = await api("/api/profiles/switch", { id: p.id }); toast("Switched to " + p.name); closeSheets(); renderProfiles(j.profiles);
+    recItems = []; recIndex = 0; loadRec(true); await status(); if (window.__status) renderHubFrom(window.__status); } catch (e) { toast(e.message, true); } }
+$("#whobtn").onclick = () => openSheet("whosheet");
+$("#personform").onsubmit = async e => { e.preventDefault(); const n = $("#personname").value.trim(); if (!n) return;
+  try { const j = await api("/api/profiles/add", { name: n }); $("#personname").value = ""; renderProfiles(j.profiles); toast("Added " + n); } catch (er) { toast(er.message, true); } };
+
+/* ---------------- now playing ---------------- */
+const mmss = ms => { const t = Math.floor((ms || 0) / 1000), hh = Math.floor(t / 3600), mm = Math.floor(t / 60) % 60, ss = t % 60;
+  return (hh ? hh + ":" + String(mm).padStart(2, "0") : mm) + ":" + String(ss).padStart(2, "0"); };
+function renderNow(np) { const box = $("#nowbox");
+  if (!np || !np.appName) { box.replaceChildren(); return; }
+  const state = np.state === "play" ? "Playing" : np.state === "pause" ? "Paused" : "Open";
+  const timeLine = np.duration ? mmss(np.position) + " of " + mmss(np.duration) : np.position ? mmss(np.position) + " in" : "";
+  const bar = h("div", { class: "bar" }, h("i", { style: "transform:scaleX(" + (np.duration ? Math.min(1, np.position / np.duration) : 0) + ")" }));
+  const k = (key, icon, label) => h("button", { class: "iconbtn press", "aria-label": label, onclick: () => api("/api/tv/key", { key }).catch(e => toast(e.message, true)) }, h("svg", {}, h("use", { href: "#" + icon })));
+  box.replaceChildren(h("div", { class: "nowcard sq" }, h("div", { class: "grow" }, h("div", { class: "small" }, "Now on the TV  ·  " + state),
+      h("b", {}, np.appName), h("div", { class: "small tnum" }, timeLine), np.duration ? bar : null),
+    k("Rev", "i-rew", "Rewind"), k("Play", "i-play", "Play or pause"), k("Fwd", "i-ff", "Fast forward"))); }
+
+/* ---------------- keep watching ---------------- */
+let histCache = [];
+function renderHistory(list) { histCache = list || [];
+  $("#histlist").replaceChildren(...(histCache.length ? histCache.slice(0, 12).map(it => { const row = h("div", { class: "item" }, pic(it.backdrop || it.poster, "", ""),
+      h("div", { class: "grow", style: "cursor:pointer", onclick: () => openTitle(it) }, h("b", {}, it.title), h("span", {}, [it.appName, ago(it.at)].filter(Boolean).join("  ·  "))),
+      h("button", { class: "btn primary press", onclick: () => playTitle(it) }, "Open"),
+      h("button", { class: "btn press", "aria-label": "Remove " + it.title, onclick: () => removable(row, "Removed " + it.title, () => api("/api/history/remove", { key: it.key })) }, "×"));
+    return row; }) : [empty("Nothing yet. Shows and movies you open from Hub land here.")]));
+  $("#histclear").replaceChildren(...(histCache.length ? [h("button", { onclick: () => removable($("#histlist"), "Cleared Keep watching", () => api("/api/history/clear", {})) }, "Clear Keep watching")] : [])); }
+function ago(t) { if (!t) return ""; const s = Date.now() / 1000 - t; if (s < 3600) return Math.max(1, Math.round(s / 60)) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago"; if (s < 172800) return "yesterday"; return Math.round(s / 86400) + " days ago"; }
+
+/* ---------------- one title: details, where to watch, open it ---------------- */
+function titleQS(it) { const q = new URLSearchParams({ title: it.title, kind: it.kind || "tv" });
+  for (const k of ["year", "tvmaze", "anilist"]) if (it[k]) q.set(k, it[k]); if (it.anime) q.set("anime", "1"); return q.toString(); }
+async function playTitle(it, provider, episode) { toast("Opening " + it.title + " on the TV");
+  try { const j = await api("/api/title/play", { item: it, provider, episode }); if (j.how === "search") toast("Searching your channels for " + it.title); status(); } catch (e) { toast(e.message, true); } }
+async function openTitle(it) { openSheet("titlesheet"); const body = $("#titlebody");
+  body.replaceChildren(h("div", { class: "head" }, pic(it.poster, "", ""), h("div", {}, h("h4", {}, it.title), h("div", { class: "skel line" }), h("div", { class: "skel line", style: "width:60%" }))));
+  let d; try { d = (await api("/api/title?" + titleQS(it))).title; } catch (e) { body.append(h("p", { class: "small" }, e.message)); return; }
+  const meta = [d.year, d.kind === "movie" ? "Movie" : d.anime ? "Anime" : "Show", d.seasons && d.seasons.length ? d.seasons.length + (d.seasons.length === 1 ? " season" : " seasons") : "",
+    d.runtime ? d.runtime + " min" : "", d.rating ? "★ " + d.rating : ""].filter(Boolean).join("  ·  ");
+  const prov = h("div", { class: "prov" }, ...(d.providers.length ? d.providers.map(p => p.installed
+      ? h("button", { class: "chip on press", onclick: () => playTitle(it, p.name) }, (p.contentId ? "▶ " : "") + "Watch on " + p.appName)
+      : h("span", { class: "chip" }, p.name + " (not on your TV)"))
+    : [h("button", { class: "chip on press", onclick: () => playTitle(it) }, "Find it on the TV")]));
+  const save = h("button", { class: "btn press" }, d.saved ? "In My Shows" : "Save to My Shows");
+  save.onclick = async () => { try { if (d.saved) await api("/api/shows/remove-title", { title: d.title, kind: d.kind }); else await api("/api/shows/add", { title: d.title, kind: d.kind, year: d.year, poster: d.poster, backdrop: d.backdrop, genres: d.genres, network: d.network, tvmaze: d.ids?.tvmaze });
+    d.saved = !d.saved; save.textContent = d.saved ? "In My Shows" : "Save to My Shows"; toast(d.saved ? "Saved" : "Removed"); } catch (e) { toast(e.message, true); } };
+  const parts = [h("div", { class: "head" }, pic(d.poster, "", d.title + " poster"), h("div", {}, h("h4", {}, d.title), h("div", { class: "small" }, meta),
+      d.genres?.length ? h("div", { class: "small" }, d.genres.join(", ")) : null)), prov,
+    d.summary ? h("p", { style: "margin:0 0 12px" }, d.summary) : null, h("div", { class: "toolbar" }, save,
+      h("button", { class: "btn press", onclick: () => api("/api/tv/hub", { app: "details", title: d.title, kind: d.kind, year: d.year, tvmaze: d.ids?.tvmaze, anilist: d.ids?.anilist }).then(() => toast("Showing it on the TV")).catch(e => toast(e.message, true)) }, "Show on the TV"))];
+  if (d.cast?.length) parts.push(h("h3", {}, "Cast"), h("div", { class: "cast" }, ...d.cast.slice(0, 12).map(c => h("div", {}, c.photo ? h("img", { src: thumb(c.photo), alt: "" }) : h("span", { class: "ph" }), h("b", { style: "display:block;color:var(--cream)" }, c.name), c.role))));
+  if (d.anime && d.episodes?.length) parts.push(h("h3", {}, "Episodes"), h("div", { class: "list eps" }, ...d.episodes.slice(0, 40).map(e =>
+    h("div", { class: "item", onclick: () => playTitle(it, e.provider, e.contentId ? { contentId: e.contentId, provider: e.provider } : undefined) }, pic(e.image, "", ""), h("div", { class: "grow" }, h("b", {}, e.name), h("span", {}, e.provider || ""))))));
+  else if (d.seasons?.length) { const eps = h("div", { class: "list eps" }); const chips = h("div", { class: "chips" });
+    const load = async (s, btn) => { $$(".chip", chips).forEach(c => c.setAttribute("aria-pressed", c === btn)); eps.replaceChildren(h("div", { class: "item" }, h("div", { class: "skel line" })));
+      try { const j = await api("/api/title/episodes?season=" + s.id); eps.replaceChildren(...j.episodes.map(e => h("div", { class: "item" }, h("div", { class: "grow" }, h("b", {}, "E" + e.number + "  " + e.name), h("span", {}, [e.airdate, e.runtime ? e.runtime + " min" : ""].filter(Boolean).join("  ·  ")))))); } catch (er) { eps.replaceChildren(empty(er.message)); } };
+    d.seasons.forEach(s => { const b = h("button", { class: "chip press", "aria-pressed": "false" }, "Season " + s.number); b.onclick = () => load(s, b); chips.append(b); });
+    parts.push(h("h3", {}, "Seasons"), chips, eps); load(d.seasons[d.seasons.length - 1], chips.lastChild); }
+  if (d.similar?.length) parts.push(h("h3", {}, "More like this"), h("div", { class: "list" }, ...d.similar.slice(0, 8).map(x => h("div", { class: "item", style: "cursor:pointer", onclick: () => openTitle(x) }, pic(x.poster, "poster", ""), h("div", { class: "grow" }, h("b", {}, x.title), h("span", {}, x.year || ""))))));
+  body.replaceChildren(...parts.filter(Boolean)); }
+
+/* ---------------- look and modes ---------------- */
+for (const [id, from, to] of [["#modemorning", 3, 12], ["#modenight", 17, 24]]) for (let i = from; i <= to; i++) $(id).append(h("option", { value: i }, (i % 12 || 12) + (i < 12 || i === 24 ? " AM" : " PM")));
+function renderLook() { $$("#themechips .chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.theme === (hub.theme || "hub")));
+  const md = hub.modes || {}; $("#modeauto").checked = md.auto !== false; syncSwitch($("#modeauto")); $("#modemorning").value = md.morning || 5; $("#modenight").value = md.night || 21; }
+$$("#themechips .chip").forEach(c => c.onclick = () => { hub.theme = c.dataset.theme; renderLook(); saveHub({ theme: c.dataset.theme }, c.dataset.theme === "console" ? "The TV switches to the Console look" : "The TV switches to the Hub look"); });
+const saveModes = () => saveHub({ modes: { auto: $("#modeauto").checked, morning: +$("#modemorning").value, night: +$("#modenight").value } }, "Saved");
+$("#modeauto").onchange = () => { syncSwitch($("#modeauto")); saveModes(); }; $("#modemorning").onchange = saveModes; $("#modenight").onchange = saveModes;
+$("#tmdbkey").onchange = () => api("/api/settings", { tmdb_key: $("#tmdbkey").value.trim() }).then(() => { $("#tmdbkey").value = ""; toast("TMDB key saved"); status(); }).catch(e => toast(e.message, true));
 
 /* ---------------- start ---------------- */
 (function () { const cached = store.get("status"); if (cached) { applyStatus(cached); $("#updating").classList.add("show"); } })();
