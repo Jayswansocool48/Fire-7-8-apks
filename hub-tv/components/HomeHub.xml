@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The "Hub" home look: tabs at the top, a big featured title, then rows of what to watch,
+     your apps and today's widgets. Focusing anything shows its details at the top. -->
+<component name="HomeHub" extends="Group">
+  <interface>
+    <!-- everything to draw: {hub, state, channels, server, mode, tools} -->
+    <field id="data" type="assocarray" onChange="onData" />
+    <!-- what the person picked: {kind: "channel" | "title" | "details" | "tool" | "profile" | ...} -->
+    <field id="action" type="assocarray" alwaysNotify="true" />
+    <field id="clock" type="string" onChange="onClockText" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/common.brs" />
+  <script type="text/brightscript" uri="pkg:/components/ui.brs" />
+  <script type="text/brightscript" uri="pkg:/components/homecommon.brs" />
+  <script type="text/brightscript" uri="pkg:/components/HomeHub.brs" />
+  <children>
+    <!-- the focused title's backdrop, crossfading between two posters -->
+    <Poster id="bgA" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" loadWidth="1280" loadHeight="720" />
+    <Poster id="bgB" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" loadWidth="1280" loadHeight="720" />
+    <Poster id="bgScrim" uri="pkg:/images/backdrop_scrim.png" width="1280" height="720" />
+    <Rectangle id="deck" width="1280" height="720" color="0x14120FFF" opacity="0" />
+
+    <Group id="page">
+      <!-- featured title / details of whatever is focused -->
+      <Group id="info" translation="[80,118]">
+        <Label id="kicker" translation="[0,0]" />
+        <Label id="title" translation="[0,30]" width="720" wrap="true" maxLines="2" color="0xF2EADCFF" />
+        <Label id="meta" width="760" color="0xBDB3A3FF" />
+        <Group id="avail" />
+        <Label id="summary" width="620" wrap="true" maxLines="3" lineSpacing="4" color="0xF2EADCD8" />
+        <Group id="heroButtons" />
+        <Group id="dots" />
+      </Group>
+      <Group id="rows" />
+    </Group>
+
+    <!-- top bar stays put -->
+    <Group id="topbar" translation="[0,26]">
+      <Group id="profileBtn" translation="[64,0]" />
+      <Group id="tabs" />
+      <Group id="weather" />
+      <Label id="clockLbl" translation="[1040,6]" width="176" horizAlign="right" color="0xF2EADCFF" />
+    </Group>
+
+    <Timer id="heroTimer" duration="9" repeat="true" />
+    <Timer id="settleTimer" duration="0.35" />
+  </children>
+</component>

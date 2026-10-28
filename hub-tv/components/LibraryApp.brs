@@ -13,18 +13,32 @@ sub init()
     m.player = invalid
     m.started = false
     m.top.observeField("server", "onServer")
+    m.top.observeField("params", "onLibParams")
     onServer()
 end sub
 
 sub onServer()
     if m.started or m.top.server = "" then return
     m.started = true
-    load("")
+    start = ""
+    p = m.top.params
+    if p <> invalid and p.start <> invalid and p.start = "music" then start = "::music"
+    load(start)
+end sub
+
+sub onLibParams()
+    p = m.top.params
+    if p <> invalid and p.start <> invalid and p.start = "music" and m.top.server <> "" and m.path <> "::music" then load("::music")
 end sub
 
 sub load(path as String)
     m.path = path
     crumb = "Your server"
+    if path = "::music"
+        m.top.findNode("crumb").text = "Music on your server"
+        startRequest(serverUrl(m.top.server) + "/api/music", "GET", "", "onListing")
+        return
+    end if
     if path <> "" then crumb = crumb + " / " + path.replace("/", " / ")
     m.top.findNode("crumb").text = crumb
     startRequest(serverUrl(m.top.server) + "/api/library?path=" + urlEncode(path, false), "GET", "", "onListing")

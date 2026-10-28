@@ -47,7 +47,7 @@ try:
 except ImportError:  # Python < 3.9
     ZoneInfo = None
 
-VERSION = "4.1.0"
+VERSION = "5.0.0"
 # Where "Check for updates" looks for newer server files.
 UPDATE_BASE = "https://raw.githubusercontent.com/Jayswansocool48/Fire-7-8-apks/main/hub-server/"
 UPDATE_FILES = ["hub_server.py", "hub_control.html", "start.sh", "install.sh", "VERSION", "fonts/manrope.woff", "fonts/fraunces.woff",
@@ -69,8 +69,15 @@ DEFAULT_HUB = {
     "name": "",
     "units": "F",
     "location": "",
-    # Rows below the dock on the home screen ("lower deck").
+    # Home screen look: "hub" (rows of picks and apps) or "console" (game-console style).
+    "theme": "hub",
+    # Morning and night looks switch on by the clock: hours when each starts.
+    "modes": {"auto": True, "morning": 5, "night": 21},
+    # Rows on the home screen, top to bottom.
     "rows": [
+        {"id": "continue", "on": True},
+        {"id": "foryou", "on": True},
+        {"id": "apps", "on": True},
         {"id": "myshows", "on": True},
         {"id": "youtube", "on": True},
         {"id": "anime", "on": True},
@@ -82,7 +89,7 @@ DEFAULT_HUB = {
         {"id": "note", "on": True},
         {"id": "quote", "on": True},
     ],
-    "layout": 4,
+    "layout": 5,
     "screensaver": {"minutes": 5, "source": "gallery"},
     "favorites": [],
 }
@@ -109,12 +116,17 @@ DEFAULTS = {
     "quotes": [],
     "shows": [],
     "passed": [],  # titles you marked "Not for me"
+    "history": [],  # what you opened from Hub, for Keep watching
+    "profiles": [],  # people who use this TV; each keeps their own shows, history and look
+    "profile": "",
+    "recent_apps": [],  # channels in the order you last used them
+    "tmdb_key": "",  # optional free TMDB key: better movie details and where-to-watch
     # Ask the TV: "ollama" (on your PC) or "claude" (API key). "share" sends the weather,
     # calendar and your saved shows along with questions; it stays off until you turn it on.
     "ai": {"provider": "ollama", "key": "", "model": "", "url": "", "share": False},
 }
 
-ROW_IDS = ["myshows", "youtube", "anime", "agenda"]
+ROW_IDS = ["continue", "foryou", "apps", "myshows", "youtube", "anime", "agenda"]
 # Accent colors offered on the control page and in Hub Remote.
 ACCENTS = ["#D9894A", "#C9A44C", "#8FB38A", "#5FA3A0", "#C46F5E", "#7E97C9", "#C58A9B", "#B9A58F"]
 WIDGET_IDS = ["weather", "note", "quote"]
@@ -231,14 +243,23 @@ class Config:
             have = {i["id"] for i in items}
             items += [dict(d) for d in defaults if d["id"] not in have]
             return items
-        if hub.get("layout") != 4:
+        if hub.get("layout") not in (4, 5):
             # first run after Hub 3: new order, but keep YouTube/anime switched off if they were
             was = {r.get("id"): r.get("on", True) for r in hub.get("rows") or [] if isinstance(r, dict)}
             hub["rows"] = [{"id": d["id"], "on": was.get(d["id"], True)} for d in DEFAULT_HUB["rows"]]
             hub["widgets"] = [dict(d) for d in DEFAULT_HUB["widgets"]]
         hub["rows"] = fix(hub.get("rows"), ROW_IDS, DEFAULT_HUB["rows"])
         hub["widgets"] = fix(hub.get("widgets"), WIDGET_IDS, DEFAULT_HUB["widgets"])
-        hub["layout"] = 4
+        if hub.get("layout") == 4:  # Hub 5 adds Keep watching, For you and Apps at the top
+            hub["rows"] = [{"id": i, "on": True} for i in ("continue", "foryou", "apps")] + \
+                [r for r in hub["rows"] if r["id"] not in ("continue", "foryou", "apps")]
+        hub["layout"] = 5
+        if hub.get("theme") not in ("hub", "console"):
+            hub["theme"] = "hub"
+        m = hub.get("modes") if isinstance(hub.get("modes"), dict) else {}
+        hub["modes"] = {"auto": m.get("auto", True) is not False,
+                        "morning": min(12, max(3, int(m.get("morning", 5) or 5))),
+                        "night": min(24, max(17, int(m.get("night", 21) or 21)))}
         if str(hub.get("accent", "")).upper() not in ACCENTS:
             hub["accent"] = DEFAULT_HUB["accent"]
         wall = hub.get("wallpaper") or {}
@@ -793,6 +814,27 @@ class Library:
                 if k:
                     files.append({"name": e.name, "path": p, "kind": k, "size": e.stat().st_size})
         return {"path": vpath, "dirs": dirs, "files": files[:2000]}
+
+    def music(self, limit=800):
+        """Every song in your media folders, newest folders first, for Music on the TV."""
+        found = []
+        for root_name, base in self.roots().items():
+            for dirpath, dirnames, filenames in os.walk(base):
+                dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+                for f in sorted(filenames):
+                    if os.path.splitext(f)[1].lower() in AUDIO:
+                        full = os.path.join(dirpath, f)
+                        rel = os.path.relpath(full, base).replace(os.sep, "/")
+                        folder = os.path.basename(dirpath) if dirpath != base else root_name
+                        try:
+                            size = os.path.getsize(full)
+                        except OSError:
+                            size = 0
+                        found.append({"name": os.path.splitext(f)[0], "path": root_name + "/" + rel, "kind": "audio",
+                                      "size": size, "album": folder})
+                if len(found) >= limit:
+                    break
+        return {"path": "::music", "dirs": [], "files": found[:limit]}
 
     def photos(self, root_name, limit=60):
         roots = self.roots()
@@ -1624,6 +1666,7 @@ class Recommender:
         self.recent = []      # keys shown lately, so "Another" moves on
         self.ai_pool = {}     # kind -> (time, [items]) from the AI
         self.top = None       # the current first pick, for the TV home card
+        self.feed = []        # the For you row on the TV
 
     # -- what you like
     def _genres_of(self, show):
@@ -1698,12 +1741,22 @@ class Recommender:
             self.top = out[0]
         return out
 
+    def refresh_soon(self):
+        """Rebuilds the For you row in the background (after a profile switch or a new show)."""
+        def run():
+            try:
+                self.feed = self.pick("any", None, n=12)
+                self.app.events.publish(type="widgets")
+            except Exception as e:  # noqa: BLE001
+                log("Pick refresh:", e)
+        threading.Thread(target=run, daemon=True).start()
+
     def warm(self):
         """Keeps a fresh pick ready for the TV home screen."""
         while True:
             try:
                 had = (self.top or {}).get("key")
-                self.pick("any", None, n=1)
+                self.feed = self.pick("any", None, n=12)
                 if (self.top or {}).get("key") != had:
                     self.app.events.publish(type="widgets")
             except Exception as e:  # noqa: BLE001
@@ -1803,6 +1856,539 @@ class Recommender:
         except Exception as e:  # noqa: BLE001
             log("Title lookup:", item["title"], e)
             return None
+
+
+# ---------------------------------------------------------------- title details and where to watch
+
+# Streaming services Hub knows how to deep link into. "words" match the Roku app's name;
+# "wd" are the Wikidata properties that hold that service's own ID for a title.
+PROVIDERS = [
+    {"name": "Netflix", "words": ["netflix"], "wd": {"tv": ["P1874"], "movie": ["P1874"]}},
+    {"name": "Crunchyroll", "words": ["crunchyroll"], "wd": {"tv": ["P11330"], "movie": ["P11330"]}},
+    {"name": "Hulu", "words": ["hulu"], "wd": {"tv": ["P6467"], "movie": ["P6466"]}},
+    {"name": "Disney+", "words": ["disney"], "wd": {"tv": ["P7596"], "movie": ["P7595"]}},
+    {"name": "Max", "words": ["max", "hbo"], "wd": {"tv": ["P8298"], "movie": ["P8298"]}},
+    {"name": "Prime Video", "words": ["prime video", "amazon"], "wd": {"tv": ["P8055", "P14440"], "movie": ["P8055", "P14440"]}},
+    {"name": "Peacock", "words": ["peacock"], "wd": {}},
+    {"name": "Paramount+", "words": ["paramount"], "wd": {}},
+    {"name": "Apple TV", "words": ["apple tv"], "wd": {}},
+    {"name": "YouTube", "words": ["youtube"], "wd": {}},
+    {"name": "Tubi", "words": ["tubi"], "wd": {}},
+    {"name": "Pluto TV", "words": ["pluto"], "wd": {}},
+    {"name": "HIDIVE", "words": ["hidive"], "wd": {}},
+]
+# Network names on TVmaze and AniList link sites -> the service that streams them.
+NETWORK_TO_PROVIDER = {
+    "netflix": "Netflix", "crunchyroll": "Crunchyroll", "hulu": "Hulu", "disney+": "Disney+", "disney plus": "Disney+",
+    "hbo": "Max", "hbo max": "Max", "max": "Max", "prime video": "Prime Video", "amazon": "Prime Video",
+    "peacock": "Peacock", "paramount+": "Paramount+", "apple tv+": "Apple TV", "apple tv": "Apple TV",
+    "youtube": "YouTube", "tubi": "Tubi", "pluto tv": "Pluto TV", "hidive": "HIDIVE", "fx": "Hulu", "adult swim": "Max",
+    "nbc": "Peacock", "cbs": "Paramount+", "abc": "Hulu", "amc": "AMC+", "showtime": "Paramount+",
+}
+UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
+ANILIST = "https://graphql.anilist.co"
+ANILIST_Q = """query ($s: String, $id: Int) { Media(search: $s, id: $id, type: ANIME) {
+  id title { english romaji } description(asHtml: false) episodes duration status seasonYear format averageScore genres
+  studios(isMain: true) { nodes { name } } coverImage { extraLarge } bannerImage
+  nextAiringEpisode { episode airingAt }
+  externalLinks { site url type }
+  streamingEpisodes { title thumbnail url site }
+  characters(sort: [ROLE, RELEVANCE], perPage: 10) { edges { role node { name { full } image { medium } } } }
+  recommendations(perPage: 8, sort: RATING_DESC) { nodes { mediaRecommendation { id title { english romaji } coverImage { extraLarge } seasonYear } } }
+} }"""
+
+
+def provider_named(name):
+    n = (name or "").strip().lower()
+    for p in PROVIDERS:
+        if p["name"].lower() == n:
+            return p
+    return None
+
+
+def content_id(provider, value):
+    """The ID a Roku app expects for a deep link, from the service's own ID or page URL."""
+    v = str(value or "").strip()
+    if not v:
+        return ""
+    if provider == "Netflix":
+        m = re.search(r"(\d{6,})", v)
+        return m.group(1) if m else ""
+    if provider == "Crunchyroll":
+        m = re.search(r"/(?:series|watch)/([A-Z0-9]{6,})", v) or re.fullmatch(r"([A-Z0-9]{6,})", v)
+        return m.group(1) if m else ""
+    if provider in ("Hulu", "Max"):
+        m = UUID_RE.search(v)
+        return m.group(0) if m else v.rsplit("/", 1)[-1]
+    if provider == "Disney+":
+        return v.rstrip("/").rsplit("/", 1)[-1]
+    if provider == "Prime Video":
+        m = re.search(r"/detail/(?:[^/]+/)?([A-Z0-9]{10,})", v) or re.fullmatch(r"([A-Z0-9.\-]{10,})", v)
+        return m.group(1) if m else ""
+    return ""
+
+
+class Titles:
+    """Full details for a show or movie, which of your channels have it, and opening it
+    straight to that title. Sources: TVmaze, AniList, Apple's catalog and Wikidata (no keys),
+    plus TMDB when you add a free TMDB key."""
+
+    def __init__(self, app):
+        self.app = app
+        self.lock = threading.Lock()
+        self.path = os.path.join(app.cache, "details.json")
+        try:
+            with open(self.path) as f:
+                self.cache = json.load(f)
+        except (OSError, ValueError):
+            self.cache = {}
+
+    def _save(self):
+        with self.lock:
+            try:
+                tmp = self.path + ".tmp"
+                with open(tmp, "w") as f:
+                    json.dump(self.cache, f)
+                os.replace(tmp, self.path)
+            except OSError:
+                pass
+
+    # -- the Roku apps you have, matched to services
+    def installed(self):
+        try:
+            apps = self.app.roku.apps()
+        except Exception:  # noqa: BLE001
+            apps = []
+        out = {}
+        for p in PROVIDERS:
+            for a in apps:
+                n = a["name"].lower()
+                if any(w == n or w in n for w in p["words"]) and not (p["name"] == "Max" and "maxx" in n):
+                    out[p["name"]] = a
+                    break
+        return out
+
+    # -- details
+    def details(self, q, fresh=False):
+        kind = "movie" if q.get("kind") == "movie" else "tv"
+        title = str(q.get("title") or "").strip()
+        year = str(q.get("year") or "")[:4]
+        ck = q.get("key") or title_key(kind, title, year)
+        hit = self.cache.get(ck)
+        if hit and not fresh and time.time() - hit.get("_at", 0) < 3 * 86400:
+            return self._with_apps(hit)
+        info = {"key": ck, "kind": kind, "title": title, "year": year, "genres": [], "summary": "", "poster": "",
+                "backdrop": "", "rating": None, "runtime": None, "status": "", "network": "", "cast": [],
+                "seasons": [], "episodes": [], "similar": [], "providers": {}, "ids": {}, "anime": False}
+        anime = q.get("anime") in (True, "1", "true") or "Anime" in (q.get("genres") or []) or bool(q.get("anilist"))
+        def step(fn, *args):
+            try:
+                fn(info, *args)
+            except Exception as e:  # noqa: BLE001  one source failing shouldn't lose the others
+                log("Details:", title, fn.__name__, e)
+        if kind == "tv" and not anime:
+            step(self._tvmaze, q.get("tvmaze"))
+            anime = anime or "Anime" in norm_genres(info["genres"]) or bool(info.get("_jp"))
+        if anime:
+            step(self._anilist, q.get("anilist"))
+        if kind == "movie" and not anime:
+            step(self._itunes, q.get("itunes"))
+        step(self._wikidata)
+        step(self._tmdb)
+        if not info["title"]:
+            raise ValueError("Couldn't find that title")
+        info["genres"] = norm_genres(info["genres"]) or info["genres"][:4]
+        if info["anime"] and "Anime" not in info["genres"]:
+            info["genres"].insert(0, "Anime")
+        info["_at"] = time.time()
+        info.pop("_jp", None)
+        if info["summary"] or info["poster"] or info["providers"]:  # don't keep a lookup that failed
+            self.cache[ck] = info
+            self._save()
+        return self._with_apps(info)
+
+    def _add(self, info, name, value="", url="", source=""):
+        if not name:
+            return
+        p = info["providers"].setdefault(name, {"name": name, "contentId": "", "url": "", "source": source})
+        cid = content_id(name, value) or content_id(name, url)
+        if cid and not p["contentId"]:
+            p["contentId"] = cid
+        if url and not p["url"]:
+            p["url"] = url
+
+    def _tvmaze(self, info, tvmaze_id):
+        if tvmaze_id:
+            sh = fetch_json(f"https://api.tvmaze.com/shows/{int(tvmaze_id)}?embed[]=cast&embed[]=seasons", timeout=12)
+        else:
+            sh = fetch_json("https://api.tvmaze.com/singlesearch/shows?embed[]=cast&embed[]=seasons&q=" + quote(info["title"]), timeout=12)
+        if not sh:
+            return
+        img = sh.get("image") or {}
+        net = (sh.get("webChannel") or {}).get("name") or (sh.get("network") or {}).get("name") or ""
+        info.update(title=sh.get("name") or info["title"], year=(sh.get("premiered") or "")[:4] or info["year"],
+                    summary=strip_html(sh.get("summary")), poster=img.get("original") or img.get("medium") or "",
+                    genres=sh.get("genres") or [], rating=(sh.get("rating") or {}).get("average"),
+                    runtime=sh.get("runtime") or sh.get("averageRuntime"), status=sh.get("status") or "", network=net)
+        info["ids"].update(tvmaze=sh["id"], imdb=(sh.get("externals") or {}).get("imdb"))
+        info["_jp"] = (sh.get("language") == "Japanese" and sh.get("type") == "Animation")
+        emb = sh.get("_embedded") or {}
+        info["cast"] = [{"name": c["person"]["name"], "role": (c.get("character") or {}).get("name", ""),
+                         "photo": ((c["person"].get("image") or {}).get("medium") or "")} for c in (emb.get("cast") or [])[:12]]
+        info["seasons"] = [{"id": s["id"], "number": s.get("number"), "episodes": s.get("episodeOrder"),
+                            "year": (s.get("premiereDate") or "")[:4]} for s in emb.get("seasons") or [] if s.get("number")]
+        info["backdrop"] = self.app.shows._backdrop(sh["id"]) or ""
+        prov = NETWORK_TO_PROVIDER.get(net.lower())
+        if prov:
+            self._add(info, prov, source="network")
+
+    def episodes(self, season_id):
+        eps = fetch_json(f"https://api.tvmaze.com/seasons/{int(season_id)}/episodes", timeout=12)
+        return [{"number": e.get("number"), "name": e.get("name") or f"Episode {e.get('number')}",
+                 "airdate": e.get("airdate") or "", "runtime": e.get("runtime"),
+                 "summary": short_summary(e.get("summary"), 160),
+                 "image": ((e.get("image") or {}).get("medium") or "")} for e in eps]
+
+    def _anilist(self, info, anilist_id):
+        variables = {"id": int(anilist_id)} if anilist_id else {"s": info["title"]}
+        res = fetch_json(ANILIST, {"query": ANILIST_Q, "variables": variables}, timeout=12)
+        m = (res.get("data") or {}).get("Media")
+        if not m:
+            return
+        t = m.get("title") or {}
+        info["anime"] = True
+        info.update(title=info["title"] or t.get("english") or t.get("romaji"),
+                    year=info["year"] or str(m.get("seasonYear") or ""),
+                    summary=info["summary"] or strip_html((m.get("description") or "").replace("<br>", "\n")),
+                    poster=info["poster"] or (m.get("coverImage") or {}).get("extraLarge") or "",
+                    backdrop=info["backdrop"] or m.get("bannerImage") or "",
+                    rating=info["rating"] or (round(m["averageScore"] / 10, 1) if m.get("averageScore") else None),
+                    runtime=info["runtime"] or m.get("duration"),
+                    status=info["status"] or (m.get("status") or "").replace("_", " ").title())
+        info["genres"] = list(dict.fromkeys((info["genres"] or []) + (m.get("genres") or [])))
+        info["ids"]["anilist"] = m["id"]
+        studios = [s["name"] for s in (m.get("studios") or {}).get("nodes") or []]
+        if studios:
+            info["studio"] = ", ".join(studios[:2])
+        nxt = m.get("nextAiringEpisode")
+        if nxt:
+            info["nextEpisode"] = {"episode": nxt["episode"], "airingAt": nxt["airingAt"]}
+        if not info["cast"]:
+            info["cast"] = [{"name": e["node"]["name"]["full"], "role": (e.get("role") or "").title(),
+                             "photo": (e["node"].get("image") or {}).get("medium") or ""}
+                            for e in ((m.get("characters") or {}).get("edges") or [])[:10]]
+        for link in m.get("externalLinks") or []:
+            if link.get("type") == "STREAMING":
+                name = NETWORK_TO_PROVIDER.get((link.get("site") or "").lower(), link.get("site"))
+                self._add(info, name, url=link.get("url") or "", source="anilist")
+        # episode pages on the service (Crunchyroll lists them) open the exact episode
+        eps = []
+        for e in (m.get("streamingEpisodes") or [])[:60]:
+            prov = NETWORK_TO_PROVIDER.get((e.get("site") or "").lower(), e.get("site"))
+            eps.append({"name": e.get("title") or "", "image": e.get("thumbnail") or "", "provider": prov,
+                        "contentId": content_id(prov, e.get("url"))})
+        if eps and not info["episodes"]:
+            info["episodes"] = eps
+        sim = []
+        for n in (m.get("recommendations") or {}).get("nodes") or []:
+            r = n.get("mediaRecommendation")
+            if r:
+                rt = r.get("title") or {}
+                sim.append({"title": rt.get("english") or rt.get("romaji"), "year": str(r.get("seasonYear") or ""),
+                            "kind": "tv", "poster": (r.get("coverImage") or {}).get("extraLarge") or "",
+                            "anilist": r["id"], "anime": True})
+        info["similar"] = info["similar"] or sim
+
+    def _itunes(self, info, itunes_id):
+        if itunes_id:
+            res = fetch_json(f"https://itunes.apple.com/lookup?id={int(itunes_id)}", timeout=12)
+        else:
+            res = fetch_json("https://itunes.apple.com/search?media=movie&entity=movie&limit=6&term=" + quote(info["title"]), timeout=12)
+        hits = res.get("results", [])
+        y = info["year"]
+        m = next((h for h in hits if y and (h.get("releaseDate") or "").startswith(y)), hits[0] if hits else None)
+        if not m:
+            return
+        info.update(title=m.get("trackName") or info["title"], year=(m.get("releaseDate") or "")[:4] or y,
+                    summary=strip_html(m.get("longDescription") or m.get("shortDescription")),
+                    poster=(m.get("artworkUrl100") or "").replace("100x100bb", "800x1200bb"),
+                    genres=[m.get("primaryGenreName", "")], runtime=round((m.get("trackTimeMillis") or 0) / 60000) or None)
+        info["rated"] = m.get("contentAdvisoryRating") or ""
+        info["director"] = m.get("artistName") or ""
+
+    def _wikidata(self, info):
+        """Wikidata holds each service's own ID for many titles; those IDs make the deep links."""
+        api = "https://www.wikidata.org/w/api.php?format=json&"
+        qid = None
+        imdb = info["ids"].get("imdb")
+        if imdb:
+            r = fetch_json(api + "action=query&list=search&srlimit=1&srsearch=" + quote(f"haswbstatement:P345={imdb}"), timeout=12)
+            hits = (r.get("query") or {}).get("search") or []
+            qid = hits[0]["title"] if hits else None
+        cands = [qid] if qid else []
+        if not cands:
+            r = fetch_json(api + "action=wbsearchentities&language=en&type=item&limit=6&search=" + quote(info["title"]), timeout=12)
+            cands = [h["id"] for h in r.get("search", [])]
+        if not cands:
+            return
+        r = fetch_json(api + "action=wbgetentities&props=claims&ids=" + "|".join(cands[:6]), timeout=15)
+        ents = r.get("entities") or {}
+        work = {"Q11424", "Q5398426", "Q24856", "Q506240", "Q1259759", "Q63952888", "Q20650540", "Q581714", "Q1107"}
+
+        def vals(e, pid):
+            return [c["mainsnak"].get("datavalue", {}).get("value") for c in e.get("claims", {}).get(pid, [])]
+
+        best = None
+        for q in cands:
+            e = ents.get(q) or {}
+            kinds = {v.get("id") for v in vals(e, "P31") if isinstance(v, dict)}
+            if qid and q == qid:
+                best = e
+                break
+            if not kinds & work:
+                continue
+            dates = [v.get("time", "")[1:5] for v in vals(e, "P577") + vals(e, "P580") if isinstance(v, dict)]
+            if info["year"] and dates and info["year"] not in dates:
+                continue
+            best = e
+            break
+        if not best:
+            return
+        for p in PROVIDERS:
+            for pid in p["wd"].get(info["kind"], []):
+                for v in vals(best, pid):
+                    if isinstance(v, str):
+                        self._add(info, p["name"], value=v, source="wikidata")
+        for pid, key in (("P345", "imdb"), ("P4947", "tmdbMovie"), ("P4983", "tmdbTv")):
+            v = vals(best, pid)
+            if v and isinstance(v[0], str):
+                info["ids"].setdefault(key, v[0])
+
+    def _tmdb(self, info):
+        key = (self.app.cfg.get("tmdb_key") or "").strip()
+        if not key:
+            return
+        kind = "movie" if info["kind"] == "movie" else "tv"
+        tid = info["ids"].get("tmdbMovie" if kind == "movie" else "tmdbTv")
+        base = "https://api.themoviedb.org/3/"
+        auth = ("api_key=" + quote(key)) if len(key) < 40 else ""
+        hdr = {"Authorization": "Bearer " + key} if len(key) >= 40 else {}
+
+        def get(path):
+            sep = "&" if "?" in path else "?"
+            return json.loads(fetch(base + path + (sep + auth if auth else ""), headers=hdr, timeout=12))
+
+        if not tid:
+            r = get(f"search/{kind}?query={quote(info['title'])}" + (f"&year={info['year']}" if info["year"] and kind == "movie" else ""))
+            res = r.get("results") or []
+            if not res:
+                return
+            tid = res[0]["id"]
+        d = get(f"{kind}/{tid}?append_to_response=credits,watch/providers,similar")
+        img = "https://image.tmdb.org/t/p/"
+        if d.get("backdrop_path") and not info["backdrop"]:
+            info["backdrop"] = img + "w1280" + d["backdrop_path"]
+        if d.get("poster_path") and not info["poster"]:
+            info["poster"] = img + "w500" + d["poster_path"]
+        info["summary"] = info["summary"] or d.get("overview") or ""
+        info["rating"] = info["rating"] or (round(d["vote_average"], 1) if d.get("vote_average") else None)
+        info["runtime"] = info["runtime"] or d.get("runtime") or ((d.get("episode_run_time") or [None])[0])
+        info["tagline"] = d.get("tagline") or ""
+        if not info["cast"]:
+            info["cast"] = [{"name": c["name"], "role": c.get("character", ""),
+                             "photo": (img + "w185" + c["profile_path"]) if c.get("profile_path") else ""}
+                            for c in ((d.get("credits") or {}).get("cast") or [])[:12]]
+        us = ((d.get("watch/providers") or {}).get("results") or {}).get("US") or {}
+        for group in ("flatrate", "free", "ads"):
+            for p in us.get(group) or []:
+                name = NETWORK_TO_PROVIDER.get(p.get("provider_name", "").lower()) or p.get("provider_name")
+                for known in PROVIDERS:
+                    if known["name"].lower() in name.lower() or name.lower().startswith(known["name"].lower().split()[0]):
+                        name = known["name"]
+                self._add(info, name, source="tmdb")
+        if not info["similar"]:
+            for s in ((d.get("similar") or {}).get("results") or [])[:8]:
+                info["similar"].append({"title": s.get("title") or s.get("name"), "kind": info["kind"],
+                                        "year": (s.get("release_date") or s.get("first_air_date") or "")[:4],
+                                        "poster": (img + "w342" + s["poster_path"]) if s.get("poster_path") else ""})
+
+    def _with_apps(self, info):
+        """Marks which services are on your TV, best first: on your TV with a direct link,
+        on your TV, then the ones you'd need to install."""
+        have = self.installed()
+        out = []
+        for p in info.get("providers", {}).values():
+            a = have.get(p["name"])
+            out.append({**p, "installed": bool(a), "app": a["id"] if a else "", "appName": a["name"] if a else p["name"]})
+        out.sort(key=lambda p: (not p["installed"], not p["contentId"], p["name"]))
+        saved = any(base_key(title_key(s.get("kind"), s.get("title"))) == base_key(info["key"]) for s in self.app.cfg["shows"])
+        res = {k: v for k, v in info.items() if not k.startswith("_") and k != "providers"}
+        res.update(providers=out, saved=saved, watchOn=next((p for p in out if p["installed"]), None))
+        return res
+
+    # -- opening a title in its app
+    def play(self, item, provider=None, episode=None):
+        """Opens the show or movie itself (not just the app). Uses the service's own ID when
+        Hub knows it, otherwise asks Roku search to find it in that app."""
+        kind = "movie" if item.get("kind") == "movie" else "tv"
+        title = item.get("title") or ""
+        try:
+            info = self.details(item)
+        except Exception:  # noqa: BLE001
+            info = {"providers": [], "title": title, "kind": kind, "key": title_key(kind, title, item.get("year"))}
+        provs = info.get("providers") or []
+        pick = None
+        if provider:
+            pick = next((p for p in provs if p["name"] == provider or p.get("app") == provider), None)
+        pick = pick or next((p for p in provs if p["installed"] and p["contentId"]), None) \
+            or next((p for p in provs if p["installed"]), None)
+        app_id = (pick or {}).get("app") or item.get("app") or ""
+        app_name = (pick or {}).get("appName") or item.get("appName") or ""
+        how = "search"
+        if episode and episode.get("contentId") and pick and episode.get("provider") == pick["name"]:
+            self.app.roku.launch(app_id, {"contentId": episode["contentId"], "mediaType": "episode"})
+            how = "episode"
+        elif pick and pick.get("contentId") and app_id:
+            self.app.roku.launch(app_id, {"contentId": pick["contentId"], "mediaType": "movie" if kind == "movie" else "series"})
+            how = "direct"
+        else:
+            params = {"keyword": title, "title": title, "type": "movie" if kind == "movie" else "tv-show"}
+            if app_id:
+                params["provider-id"] = app_id
+                params["launch"] = "true"
+            self.app.roku._req("/search/browse?" + urlencode(params), "POST")
+        self.app.history.add(info if info.get("title") else item, app_id, app_name, (pick or {}).get("name", ""))
+        return {"ok": True, "app": app_name, "how": how}
+
+
+# ---------------------------------------------------------------- watch history
+
+class History:
+    """What you opened from Hub, newest first, for Keep watching. Kept per profile."""
+
+    def __init__(self, app):
+        self.app = app
+
+    def add(self, info, app_id, app_name, provider):
+        kind = "movie" if info.get("kind") == "movie" else "tv"
+        key = base_key(info.get("key") or title_key(kind, info.get("title"), info.get("year")))
+        entry = {"key": key, "title": info.get("title", ""), "kind": kind, "year": str(info.get("year") or ""),
+                 "poster": info.get("poster", ""), "backdrop": info.get("backdrop", ""), "app": app_id,
+                 "appName": app_name, "provider": provider, "anime": bool(info.get("anime")),
+                 "tvmaze": (info.get("ids") or {}).get("tvmaze") or info.get("tvmaze"),
+                 "anilist": (info.get("ids") or {}).get("anilist") or info.get("anilist"), "at": int(time.time())}
+        items = [h for h in self.app.cfg.get("history") or [] if h.get("key") != key]
+        self.app.cfg.update(history=([entry] + items)[:60])
+        self.app.events.publish(type="widgets")
+
+    def remove(self, key):
+        self.app.cfg.update(history=[h for h in self.app.cfg.get("history") or [] if h.get("key") != key])
+        self.app.events.publish(type="widgets")
+
+    def clear(self):
+        self.app.cfg.update(history=[])
+        self.app.events.publish(type="widgets")
+
+
+# ---------------------------------------------------------------- profiles
+
+PROFILE_COLORS = ["#D9894A", "#8FB38A", "#7E97C9", "#C58A9B", "#C9A44C", "#5FA3A0"]
+# Kept separately for each person. Everything else (notes, calendar, apps) is shared.
+PROFILE_FIELDS = ["shows", "history", "passed", "quotes"]
+PROFILE_HUB_FIELDS = ["wallpaper", "accent", "theme", "name"]
+
+
+class Profiles:
+    def __init__(self, app):
+        self.app = app
+        cfg = app.cfg
+        if not cfg.get("profiles"):
+            me = {"id": new_id(), "name": cfg["hub"].get("name") or "Me", "color": PROFILE_COLORS[0], "data": {}}
+            cfg.update(profiles=[me], profile=me["id"])
+        elif cfg.get("profile") not in {p["id"] for p in cfg["profiles"]}:
+            cfg.update(profile=cfg["profiles"][0]["id"])
+
+    def current(self):
+        return next(p for p in self.app.cfg["profiles"] if p["id"] == self.app.cfg["profile"])
+
+    def public(self):
+        return [{"id": p["id"], "name": p["name"], "color": p["color"], "current": p["id"] == self.app.cfg["profile"]}
+                for p in self.app.cfg["profiles"]]
+
+    def _snapshot(self):
+        cfg = self.app.cfg
+        data = {k: cfg.get(k) for k in PROFILE_FIELDS}
+        data["hub"] = {k: cfg["hub"].get(k) for k in PROFILE_HUB_FIELDS}
+        return data
+
+    def switch(self, pid):
+        cfg = self.app.cfg
+        profiles = cfg["profiles"]
+        target = next((p for p in profiles if p["id"] == pid), None)
+        if not target:
+            raise ValueError("No such profile")
+        if pid == cfg["profile"]:
+            return self.public()
+        for p in profiles:
+            if p["id"] == cfg["profile"]:
+                p["data"] = self._snapshot()
+        data = target.get("data") or {}
+        changes = {k: data.get(k) if data.get(k) is not None else [] for k in PROFILE_FIELDS}
+        cfg.update(profiles=profiles, profile=pid, **changes)
+        hub = {k: v for k, v in (data.get("hub") or {}).items() if v is not None}
+        hub.setdefault("name", target["name"])
+        cfg.update_hub(hub)
+        self.app.recommender.top = None
+        self.app.recommender.feed = []
+        self.app.recommender.refresh_soon()
+        self.app.events.publish(type="config")
+        return self.public()
+
+    def add(self, name, color=None):
+        name = str(name or "").strip()[:24]
+        if not name:
+            raise ValueError("Give the profile a name")
+        profiles = self.app.cfg["profiles"]
+        if len(profiles) >= 6:
+            raise ValueError("Hub keeps up to 6 profiles")
+        color = color if color in PROFILE_COLORS else PROFILE_COLORS[len(profiles) % len(PROFILE_COLORS)]
+        p = {"id": new_id(), "name": name, "color": color,
+             "data": {"shows": [], "history": [], "passed": [], "quotes": [], "hub": {"name": name}}}
+        self.app.cfg.update(profiles=profiles + [p])
+        return self.public()
+
+    def rename(self, pid, name, color=None):
+        profiles = self.app.cfg["profiles"]
+        for p in profiles:
+            if p["id"] == pid:
+                if name:
+                    p["name"] = str(name).strip()[:24]
+                if color in PROFILE_COLORS:
+                    p["color"] = color
+        self.app.cfg.update(profiles=profiles)
+        return self.public()
+
+    def delete(self, pid):
+        cfg = self.app.cfg
+        if pid == cfg["profile"]:
+            raise ValueError("Switch to another profile first")
+        cfg.update(profiles=[p for p in cfg["profiles"] if p["id"] != pid])
+        return self.public()
+
+
+def media_player(roku):
+    """What the TV is playing in another app, from Roku's own player status."""
+    body, _ = roku._req("/query/media-player", timeout=3)
+    root = ET.fromstring(body)
+    plugin = root.find("plugin")
+
+    def ms(tag):
+        n = root.find(tag)
+        m = re.match(r"(\d+)", (n.text or "") if n is not None else "")
+        return int(m.group(1)) if m else None
+
+    return {"state": root.get("state") or "", "app": plugin.get("id") if plugin is not None else "",
+            "appName": plugin.get("name") if plugin is not None else "", "position": ms("position"), "duration": ms("duration")}
 
 
 # ---------------------------------------------------------------- Ask the TV
@@ -1928,7 +2514,7 @@ class Assistant:
             except Exception:  # noqa: BLE001
                 pass
         try:
-            self.app.shows.play(show)
+            self.app.titles.play(show)
         except Exception:  # noqa: BLE001
             return {"answer": "I can't reach the TV right now."}
         where = f" on {show['appName']}" if show.get("appName") else ""
@@ -2016,7 +2602,7 @@ class Sleep:
         return max(0, int(self.at - time.time())) if self.at else None
 
 
-def watch_tv(roku, cfg, events, sleep, stop):
+def watch_tv(app, roku, cfg, events, sleep, stop):
     last_power = None
     first = True
     home_since = None
@@ -2042,6 +2628,25 @@ def watch_tv(roku, cfg, events, sleep, stop):
         except Exception:  # noqa: BLE001
             last_power, home_since = None, None
             continue
+        try:
+            if power == "PowerOn":
+                act = roku.active()
+                if act["id"] and act["id"] != "dev":
+                    recent = [a for a in cfg.get("recent_apps") or [] if a != act["id"]]
+                    if (cfg.get("recent_apps") or [None])[0] != act["id"]:
+                        cfg.update(recent_apps=([act["id"]] + recent)[:20])
+                    try:
+                        np = media_player(roku)
+                        np["appName"] = np["appName"] or act["name"]
+                        app.nowplaying = {**np, "at": int(time.time())}
+                    except Exception:  # noqa: BLE001
+                        app.nowplaying = {"state": "open", "app": act["id"], "appName": act["name"], "at": int(time.time())}
+                else:
+                    app.nowplaying = None
+            else:
+                app.nowplaying = None
+        except Exception:  # noqa: BLE001
+            pass
         try:
             on = power == "PowerOn"
             if on and last_power != "PowerOn" and not first and cfg["autolaunch"]:
@@ -2213,6 +2818,16 @@ class Handler(BaseHTTPRequestHandler):
                            "font/woff" if name.endswith(".woff") else None)
             elif path == "/api/legal":
                 self._json(200, {"ok": True, **LEGAL})
+            elif path == "/api/title":
+                self._json(200, {"ok": True, "title": S.titles.details(q, fresh=bool(q.get("fresh")))})
+            elif path == "/api/title/episodes":
+                self._json(200, {"ok": True, "episodes": S.titles.episodes(q.get("season", "0"))})
+            elif path == "/api/history":
+                self._json(200, {"ok": True, "history": S.cfg.get("history") or []})
+            elif path == "/api/profiles":
+                self._json(200, {"ok": True, "profiles": S.profiles.public()})
+            elif path == "/api/nowplaying":
+                self._json(200, {"ok": True, "nowPlaying": S.nowplaying})
             elif path == "/api/recommend":
                 items = S.recommender.pick(q.get("kind", "any"), q.get("genre"), max(1, min(10, int(q.get("n", 6)))),
                                            bool(q.get("fresh")))
@@ -2255,6 +2870,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._file(S.image(q.get("src", ""), int(q.get("w", 1280)), int(q.get("h", 720)), q.get("fit", "contain")), "image/jpeg")
             elif path == "/api/screensaver":
                 self._json(200, {"ok": True, "photos": S.screensaver_photos()})
+            elif path == "/api/music":
+                self._json(200, S.library.music())
             elif path == "/api/library":
                 self._json(200, {"ok": True, **S.library.list(q.get("path", ""))})
             elif path.startswith("/media/"):
@@ -2352,6 +2969,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._ok()
             elif path == "/api/hub/config":
                 allowed = {k: v for k, v in b.items() if k in DEFAULT_HUB}
+                if "theme" in allowed or "modes" in allowed:
+                    merged = Config._migrate({**S.cfg["hub"], **allowed})
+                    allowed.update({k: merged[k] for k in ("theme", "modes") if k in allowed})
                 if "accent" in allowed and str(allowed["accent"]).upper() not in ACCENTS:
                     raise ValueError("Pick one of Hub's accent colors")
                 if "rows" in allowed:
@@ -2406,6 +3026,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._ok()
             elif path == "/api/shows/add":
                 self._ok(show=S.shows.add(b), shows=S.cfg["shows"])
+                S.recommender.refresh_soon()
+            elif path == "/api/shows/remove-title":
+                k = base_key(title_key(b.get("kind"), b.get("title")))
+                S.cfg.update(shows=[x for x in S.cfg["shows"] if base_key(title_key(x.get("kind"), x.get("title"))) != k])
+                S.events.publish(type="widgets")
+                self._ok(shows=S.cfg["shows"])
             elif path == "/api/shows/update":
                 S.shows.update(b)
                 self._ok(shows=S.cfg["shows"])
@@ -2417,13 +3043,32 @@ class Handler(BaseHTTPRequestHandler):
                                                                         "app": b.get("app", ""), "appName": b.get("appName", "")}
                 if not show or not show.get("title"):
                     raise ValueError("Unknown show")
-                self._tv(lambda: S.shows.play(show))
+                self._tv(lambda: S.titles.play(show, b.get("provider")))
+            elif path == "/api/title/play":
+                item = b.get("item") or b
+                if not item.get("title"):
+                    raise ValueError("Nothing to watch")
+                self._tv(lambda: S.titles.play(item, b.get("provider"), b.get("episode")))
+            elif path == "/api/history/remove":
+                S.history.remove(str(b.get("key", "")))
+                self._ok()
+            elif path == "/api/history/clear":
+                S.history.clear()
+                self._ok()
+            elif path == "/api/profiles/switch":
+                self._ok(profiles=S.profiles.switch(str(b.get("id", ""))))
+            elif path == "/api/profiles/add":
+                self._ok(profiles=S.profiles.add(b.get("name"), b.get("color")))
+            elif path == "/api/profiles/rename":
+                self._ok(profiles=S.profiles.rename(str(b.get("id", "")), b.get("name"), b.get("color")))
+            elif path == "/api/profiles/delete":
+                self._ok(profiles=S.profiles.delete(str(b.get("id", ""))))
             elif path == "/api/recommend/watch":
                 item = {"title": str(b.get("title", ""))[:120], "kind": b.get("kind", "tv"), "app": b.get("app", ""),
                         "appName": b.get("appName", "")}
                 if not item["title"]:
                     raise ValueError("Nothing to watch")
-                self._tv(lambda: S.shows.play(item))
+                self._tv(lambda: S.titles.play({**item, **{k: b[k] for k in ("year", "tvmaze", "anilist", "anime", "key") if k in b}}, b.get("provider")))
             elif path == "/api/recommend/pass":
                 S.recommender.passed(str(b.get("key", ""))[:200], undo=bool(b.get("undo")))
                 self._ok()
@@ -2510,6 +3155,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._ok(remaining=S.sleep.remaining())
             elif path == "/api/settings":
                 allowed = {k: b[k] for k in ("tv_ip", "home", "adblock", "autolaunch", "kiosk", "quality", "media") if k in b}
+                if "tmdb_key" in b:
+                    allowed["tmdb_key"] = re.sub(r"[^A-Za-z0-9._\-]", "", str(b["tmdb_key"]))[:400]
                 S.cfg.update(**allowed)
                 self._json(200, S.status())
             else:
@@ -2540,6 +3187,10 @@ class App:
         self.shows = Shows(cfg, self.roku, self.events)
         self.assistant = Assistant(self)
         self.recommender = Recommender(self)
+        self.titles = Titles(self)
+        self.history = History(self)
+        self.profiles = Profiles(self)
+        self.nowplaying = None
         self.notes_dir = os.path.join(data_dir, "notes")
         os.makedirs(self.notes_dir, exist_ok=True)
         self.browser = None
@@ -2558,6 +3209,8 @@ class App:
             "hub": c["hub"], "place": c.get("place"), "youtube": c["youtube"], "anime": c["anime"],
             "events": c["events"], "notes": c["notes"], "quotes": c["quotes"], "shows": c["shows"],
             "passed": len(c.get("passed") or []), "accents": ACCENTS,
+            "history": (c.get("history") or [])[:30], "profiles": self.profiles.public(),
+            "nowPlaying": self.nowplaying, "hasTmdb": bool(c.get("tmdb_key")),
             "ai": {"provider": (c["ai"] or {}).get("provider", ""), "model": (c["ai"] or {}).get("model", ""),
                    "url": (c["ai"] or {}).get("url", ""), "hasKey": bool((c["ai"] or {}).get("key")),
                    "share": bool((c["ai"] or {}).get("share"))},
@@ -2567,6 +3220,9 @@ class App:
         return {"ok": True, "hub": self.cfg["hub"], "wallpaper": "/api/wallpaper.jpg?v=" + self.wallpaper_key(),
                 "widgets": self.widgets.snapshot(), "sleep": self.sleep.remaining(),
                 "quotes": self.cfg["quotes"], "shows": self.cfg["shows"], "pick": self.recommender.top,
+                "foryou": self.recommender.feed, "history": (self.cfg.get("history") or [])[:16],
+                "profiles": self.profiles.public(), "recentApps": (self.cfg.get("recent_apps") or [])[:12],
+                "nowPlaying": self.nowplaying,
                 "adblock": {"enabled": self.cfg["adblock"], "blocked": self.adblock.blocked},
                 "server_time": int(time.time())}
 
@@ -2847,7 +3503,7 @@ def main():
     Handler.S = app
 
     stop = threading.Event()
-    threading.Thread(target=watch_tv, args=(app.roku, cfg, app.events, app.sleep, stop), daemon=True).start()
+    threading.Thread(target=watch_tv, args=(app, app.roku, cfg, app.events, app.sleep, stop), daemon=True).start()
     threading.Thread(target=app.recommender.warm, daemon=True).start()
 
     server = ThreadingHTTPServer(("0.0.0.0", int(cfg["port"])), FullHandler)

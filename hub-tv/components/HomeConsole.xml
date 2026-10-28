@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The "Console" home look, in the style of a game console: a row of square tiles at the top,
+     the focused one's artwork filling the screen, its details and buttons below, and
+     activity cards at the bottom. Media and Apps switch at the top left. -->
+<component name="HomeConsole" extends="Group">
+  <interface>
+    <field id="data" type="assocarray" onChange="onData" />
+    <field id="action" type="assocarray" alwaysNotify="true" />
+    <field id="clock" type="string" onChange="onClockText" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/common.brs" />
+  <script type="text/brightscript" uri="pkg:/components/ui.brs" />
+  <script type="text/brightscript" uri="pkg:/components/homecommon.brs" />
+  <script type="text/brightscript" uri="pkg:/components/HomeConsole.brs" />
+  <children>
+    <Rectangle width="1280" height="720" color="0x14120FFF" />
+    <Poster id="bgA" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" loadWidth="1280" loadHeight="720" />
+    <Poster id="bgB" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" loadWidth="1280" loadHeight="720" />
+    <Poster uri="pkg:/images/backdrop_scrim.png" width="1280" height="720" />
+
+    <Group id="content">
+      <Group id="cats" translation="[64,30]" />
+      <Group id="strip" translation="[64,92]" />
+      <Label id="tileName" color="0xF2EADCFF" opacity="0" />
+
+      <Group id="info" translation="[64,292]">
+        <Label id="kicker" />
+        <Label id="title" translation="[0,26]" width="900" maxLines="1" color="0xF2EADCFF" />
+        <Label id="meta" width="900" color="0xBDB3A3FF" />
+        <Group id="avail" />
+        <Label id="summary" width="640" wrap="true" maxLines="2" lineSpacing="4" color="0xF2EADCD8" />
+        <Group id="buttons" />
+      </Group>
+
+      <Label id="cardsTitle" translation="[64,640]" color="0xF2EADCC0" text="Today" />
+      <Group id="cards" translation="[64,680]" />
+    </Group>
+
+    <Group id="corner" translation="[1216,30]">
+      <Group id="avatar" />
+      <Label id="clockLbl" translation="[-260,4]" width="200" horizAlign="right" color="0xF2EADCFF" />
+    </Group>
+
+    <Timer id="settleTimer" duration="0.3" />
+  </children>
+</component>

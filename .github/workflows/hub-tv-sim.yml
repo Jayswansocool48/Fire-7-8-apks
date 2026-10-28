@@ -1,0 +1,66 @@
+name: Hub TV in the simulator
+
+# Runs the Hub channel in brs-engine (a BrightScript and SceneGraph simulator) against the real
+# Hub server and a fake Roku, presses remote keys, and saves a screenshot after each step.
+# Screenshots and the channel's log go to the "hub-tv-screens" branch.
+on:
+  push:
+    branches: [main]
+    paths: ["hub-tv/**", "hub-server/**", ".github/workflows/hub-tv-sim.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install the simulator and the server's browser
+        run: |
+          npm install -g brs-node@2
+          pip install -q playwright
+          python -m playwright install --with-deps chromium > /dev/null
+      - name: Start a fake TV and the Hub server with sample shows
+        run: |
+          mkdir -p hubdata
+          python3 - <<'PY'
+          import json, time
+          now = int(time.time())
+          shows = [{"id": "s1", "title": "Stranger Things", "kind": "tv", "year": "2016", "genres": ["Sci-Fi", "Horror"], "network": "Netflix", "poster": "", "backdrop": "", "app": "", "appName": ""},
+                   {"id": "s2", "title": "Frieren: Beyond Journey's End", "kind": "tv", "year": "2023", "genres": ["Anime", "Fantasy"], "network": "Crunchyroll", "poster": "", "backdrop": "", "app": "", "appName": ""},
+                   {"id": "s3", "title": "Knives Out", "kind": "movie", "year": "2019", "genres": ["Mystery", "Comedy"], "network": "", "poster": "", "backdrop": "", "app": "", "appName": ""}]
+          hist = [{"key": "tv:jujutsu kaisen", "title": "Jujutsu Kaisen", "kind": "tv", "year": "2020", "anime": True, "poster": "", "backdrop": "", "app": "2595", "appName": "Crunchyroll", "provider": "Crunchyroll", "at": now - 3600},
+                  {"key": "tv:the office", "title": "The Office", "kind": "tv", "year": "2005", "poster": "", "backdrop": "", "app": "", "appName": "", "provider": "", "at": now - 90000}]
+          cfg = {"tv_ip": "127.0.0.1", "shows": shows, "history": hist,
+                 "notes": [{"id": "n1", "text": "Pizza at 7", "color": "#EFE2C4", "created": now - 600, "kind": "text"}]}
+          json.dump(cfg, open("hubdata/config.json", "w"))
+          PY
+          nohup python3 hub-remote/tests/fake_roku.py roku-keys.log > roku.out 2>&1 &
+          nohup python3 hub-server/hub_server.py --config hubdata/config.json > hub.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf localhost:8765/api/status > /dev/null && break; sleep 1; done
+          # let the For you row and the details cache fill in
+          for i in $(seq 1 40); do n=$(curl -s localhost:8765/api/hub/state | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('foryou') or []))"); [ "$n" -gt 0 ] && break; sleep 3; done
+          curl -s "localhost:8765/api/title?title=Stranger%20Things&kind=tv&year=2016" | head -c 1500; echo
+      - name: Run Hub in the simulator
+        run: python3 hub-tv/tests/simulate.py hub-tv screens
+      - name: Publish screenshots
+        if: always()
+        run: |
+          cp hub.log roku-keys.log screens/ 2>/dev/null || true
+          git fetch -q origin hub-tv-screens:hub-tv-screens 2>/dev/null || true
+          mkdir -p pub && cd pub && git init -q && git checkout -q -b hub-tv-screens
+          rm -rf ./* && cp -r ../screens/* . && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Hub TV simulator run ${{ github.sha }}" || true
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" hub-tv-screens
+      - name: Result
+        run: |
+          ls screens
+          if grep -aiE "runtime error|type mismatch|syntax error|crash|BRIGHTSCRIPT: ERROR|compile error" screens/brs.log; then echo "::error::The channel hit an error in the simulator"; exit 1; fi
+          test -f screens/01-home.png || { echo "::error::No home screenshot"; exit 1; }

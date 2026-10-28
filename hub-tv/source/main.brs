@@ -11,7 +11,7 @@ sub Main(args as Dynamic)
     inputObj = CreateObject("roInput")
     inputObj.setMessagePort(port)
 
-    if type(args) = "roAssociativeArray" and args.app <> invalid then scene.launchParams = args
+    if type(args) = "roAssociativeArray" and (args.app <> invalid or args.server <> invalid) then scene.launchParams = args
 
     while true
         msg = wait(0, port)

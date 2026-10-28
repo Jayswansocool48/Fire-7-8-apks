@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Who's watching? Each profile keeps its own shows, history, picks and look. -->
+<component name="ProfileApp" extends="Group">
+  <interface>
+    <field id="done" type="boolean" alwaysNotify="true" />
+    <field id="server" type="string" />
+    <field id="params" type="assocarray" onChange="onParams" />
+    <field id="action" type="assocarray" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/common.brs" />
+  <script type="text/brightscript" uri="pkg:/components/ui.brs" />
+  <script type="text/brightscript" uri="pkg:/components/ProfileApp.brs" />
+  <children>
+    <Rectangle width="1280" height="720" color="0x14120FFF" />
+    <Label id="heading" translation="[0,150]" width="1280" horizAlign="center" color="0xF2EADCFF" text="Who's watching?" />
+    <Group id="people" translation="[0,290]" />
+    <Label id="hint" translation="[0,640]" width="1280" horizAlign="center" color="0xF2EADC88" text="Add and edit profiles from Hub Remote or the control page" />
+  </children>
+</component>
