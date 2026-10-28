@@ -23,6 +23,7 @@ class MainActivity : Activity() {
     private lateinit var nowText: TextView
     private lateinit var nowSub: TextView
     private lateinit var sleepBtn: IconButton
+    private lateinit var whoBtn: TextView
     private val screens = LinkedHashMap<String, Screen>()
     private val tabs = LinkedHashMap<String, NavItem>()
     var current = "remote"
@@ -101,6 +102,13 @@ class MainActivity : Activity() {
         now.addView(nowText)
         now.addView(nowSub)
         header.addView(now, lp(0, WRAP, 1f).apply { leftMargin = dpi(12f) })
+        whoBtn = label("?", 17f, Theme.NIGHT, bold = true).apply {
+            gravity = Gravity.CENTER
+            contentDescription = "Who's watching"
+            background = circle(Theme.accent)
+            setOnClickListener { v -> v.tick(); v.press(); whoSheet() }
+        }
+        header.addView(whoBtn, lp(dpi(40f), dpi(40f)).apply { rightMargin = dpi(12f) })
         sleepBtn = IconButton(this, IconButton.MOON) { sleepSheet() }
         header.addView(sleepBtn, lp(dpi(44f), dpi(44f)))
         val power = IconButton(this, IconButton.POWER) { Hub.key("PowerOff"); toast("Turning the TV off") }
@@ -200,12 +208,31 @@ class MainActivity : Activity() {
         }
         nowSub.setTextColor(if (Hub.tvOk) Theme.OK else Theme.DIM)
         sleepBtn.lit = left > 0
+        val cur = Hub.status?.optJSONArray("profiles")?.objects()?.firstOrNull { it.optBoolean("current") }
+        if (cur != null) {
+            whoBtn.text = cur.optString("name").take(1).uppercase()
+            whoBtn.background = circle(parseColor(cur.optString("color")))
+            whoBtn.contentDescription = "Watching as ${cur.optString("name")}. Tap to switch."
+        }
         for (t in tabs.values) t.invalidate()
     }
 
     fun minutes(secs: Int): String {
         val m = (secs + 59) / 60
         return if (m >= 60) "${m / 60} h ${m % 60} min" else "$m min"
+    }
+
+    /** Who's watching: switch profiles (each keeps its own shows, history and look). */
+    private fun whoSheet() {
+        val list = Hub.status?.optJSONArray("profiles")?.objects() ?: emptyList()
+        if (list.isEmpty()) { toast("Connect to your Hub server first"); return }
+        val names = list.map { (if (it.optBoolean("current")) "✓  " else "     ") + it.optString("name") }
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("Who's watching?")
+            .setItems(names.toTypedArray()) { _, i ->
+                val p = list[i]
+                if (!p.optBoolean("current")) Hub.post("/api/profiles/switch", json("id" to p.optString("id"))) { _, e -> toast(e ?: "Switched to ${p.optString("name")}"); Hub.refresh() }
+            }
+            .setNeutralButton("Add people on the Hub tab", null).show()
     }
 
     private fun sleepSheet() {

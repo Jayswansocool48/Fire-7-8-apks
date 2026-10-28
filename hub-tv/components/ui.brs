@@ -7,8 +7,9 @@
 ' to `target`. A new call on the same node and field picks up from wherever the last one is.
 sub animTo(node as Object, field as String, target as Dynamic, preset as String)
     if node = invalid then return
-    if m.animHost = invalid
-        m.animHost = m.top.createChild("Group")
+    ' Animations live directly under the component: Roku looks up fieldToInterp ids from the
+    ' animation's parent down, so a parent that holds the whole component reaches every node.
+    if m.anims = invalid
         m.anims = {}
         m.animSeq = 0
     end if
@@ -19,7 +20,7 @@ sub animTo(node as Object, field as String, target as Dynamic, preset as String)
     k = node.id + "." + field
     a = m.anims[k]
     if a = invalid
-        a = m.animHost.createChild("Animation")
+        a = m.top.createChild("Animation")
         if type(target) = "roArray"
             interp = a.createChild("Vector2DFieldInterpolator")
         else

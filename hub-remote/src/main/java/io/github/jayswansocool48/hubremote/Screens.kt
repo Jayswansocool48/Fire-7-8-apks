@@ -336,10 +336,15 @@ class SendScreen(act: MainActivity) : Screen(act) {
     private var recIndex = 0
     private var recKind = "any"
     private var recBusy = false
+    private val nowBox = act.vbox()
+    private val histList = ListBox(act)
+    private var histSig = ""
+    private val onHub: () -> Unit = { renderLive() }
 
     init {
         heading("Watch and send", "Get something to watch, ask the TV a question, draw it a note, or send photos and links. You can also use Share › Hub Remote from any app.")
 
+        add(nowBox, 0f)
         section("What to watch")
         val kinds = Chips(act)
         kinds.add("any", "Anything")
@@ -349,6 +354,9 @@ class SendScreen(act: MainActivity) : Screen(act) {
         kinds.onPick = { k -> recKind = k; recItems.clear(); recIndex = 0; loadRec(true) }
         add(kinds, 0f)
         add(recBox, 12f)
+
+        section("Keep watching", "What you opened from Hub. Tap a title for details, Open to start it again.")
+        add(histList, 0f)
 
         section("Ask the TV")
         val asked = act.label("", 13f, Theme.DIM)
@@ -437,6 +445,55 @@ class SendScreen(act: MainActivity) : Screen(act) {
     override fun onShow() {
         load(path)
         if (recItems.isEmpty()) loadRec(false)
+        Hub.onChange(onHub)
+        renderLive()
+    }
+
+    override fun onHide() { Hub.removeChange(onHub) }
+
+    /** What's playing on the TV right now, and Keep watching, from the status Hub polls. */
+    private fun renderLive() {
+        val s = Hub.status ?: return
+        nowBox.removeAllViews()
+        val np = s.optJSONObject("nowPlaying")
+        if (np != null && np.optString("appName").isNotEmpty()) {
+            val card = act.hbox().apply {
+                background = rounded(Theme.DEEP, act.dp(18f), Theme.LINE, act.dpi(1f))
+                val p = act.dpi(14f); setPadding(p, p, p, p)
+            }
+            val txtCol = act.vbox()
+            val state = when (np.optString("state")) { "play" -> "Playing"; "pause" -> "Paused"; else -> "Open" }
+            txtCol.addView(act.label("Now on the TV  ·  $state", 12f, Theme.DIM))
+            txtCol.addView(act.label(np.optString("appName"), 20f, Theme.SNOW, serif = true))
+            val pos = np.optLong("position", 0); val dur = np.optLong("duration", 0)
+            fun mmss(ms: Long): String { val t = ms / 1000; return if (t >= 3600) String.format(Locale.US, "%d:%02d:%02d", t / 3600, t / 60 % 60, t % 60) else String.format(Locale.US, "%d:%02d", t / 60, t % 60) }
+            if (dur > 0) txtCol.addView(act.label(mmss(pos) + " of " + mmss(dur), 13f, Theme.MIST).apply { fontFeatureSettings = "tnum" })
+            card.addView(txtCol, lp(0, WRAP, 1f))
+            for ((k, label) in listOf("Rev" to "◀◀", "Play" to "▶❚❚", "Fwd" to "▶▶")) card.addView(act.button(label) { Hub.key(k) }, lp(WRAP, WRAP).apply { leftMargin = act.dpi(6f) })
+            nowBox.addView(card, lp(MATCH, WRAP).apply { topMargin = act.dpi(10f) })
+        }
+        val hist = s.optJSONArray("history") ?: JSONArray()
+        if (hist.toString() == histSig) return
+        histSig = hist.toString()
+        histList.clear()
+        val items = hist.objects()
+        if (items.isEmpty()) histList.row("Nothing yet. Shows and movies you open from Hub land here.")
+        for (it in items.take(12)) {
+            val thumb = ImageView(act).apply { scaleType = ImageView.ScaleType.CENTER_CROP; background = rounded(Theme.RAISE, act.dp(8f)); clipToOutline = true }
+            val art = it.optString("backdrop").ifEmpty { it.optString("poster") }
+            if (art.isNotEmpty()) Images.load(thumb, "/api/thumb?u=" + enc(art), 200)
+            val sub = listOf(it.optString("appName"), agoText(it.optLong("at"))).filter { x -> x.isNotEmpty() }.joinToString("  ·  ")
+            lateinit var row: LinearLayout
+            row = histList.row(it.optString("title"), sub, thumb, act.button("Open", primary = true) { Titles.play(act, it) }) { Titles.show(act, it) }
+            (thumb.layoutParams as LinearLayout.LayoutParams).apply { width = act.dpi(80f); height = act.dpi(45f) }
+            row.requestLayout()
+        }
+    }
+
+    private fun agoText(t: Long): String {
+        if (t <= 0) return ""
+        val s = System.currentTimeMillis() / 1000 - t
+        return when { s < 3600 -> "${maxOf(1, s / 60)} min ago"; s < 86400 -> "${s / 3600} h ago"; s < 172800 -> "yesterday"; else -> "${s / 86400} days ago" }
     }
 
     override fun wantsBack() = path.isNotEmpty()
@@ -496,7 +553,7 @@ class SendScreen(act: MainActivity) : Screen(act) {
         row.addView(poster, lp(act.dpi(96f), act.dpi(144f)))
         val col = act.vbox()
         col.addView(act.label("Hub recommends", 12f, Theme.DIM))
-        col.addView(act.label(it.optString("title"), 22f, Theme.SNOW, serif = true), lp(MATCH, WRAP).apply { topMargin = act.dpi(4f) })
+        col.addView(act.label(it.optString("title"), 22f, Theme.SNOW, serif = true).apply { setOnClickListener { _ -> Titles.show(act, it) } }, lp(MATCH, WRAP).apply { topMargin = act.dpi(4f) })
         val genres = it.optJSONArray("genres")?.let { g -> (0 until minOf(2, g.length())).joinToString(", ") { i -> g.getString(i) } } ?: ""
         val meta = listOf(it.optString("year"), if (it.optString("kind") == "movie") "Movie" else "Show", genres).filter { s -> s.isNotEmpty() }.joinToString("  ·  ")
         col.addView(act.label(meta, 13f, Theme.MIST), lp(MATCH, WRAP).apply { topMargin = act.dpi(6f) })
@@ -506,9 +563,8 @@ class SendScreen(act: MainActivity) : Screen(act) {
 
         val acts = Flow(act)
         val app = it.optString("appName")
-        acts.addView(act.button(if (app.isNotEmpty()) "Watch on $app" else "Find it on the TV", primary = true) {
-            Hub.post("/api/recommend/watch", it) { _, e -> act.toast(e ?: "Opening ${it.optString("title")} on the TV") }
-        })
+        acts.addView(act.button(if (app.isNotEmpty()) "Watch on $app" else "Find it on the TV", primary = true) { Titles.play(act, it) })
+        acts.addView(act.button("Details") { Titles.show(act, it) })
         acts.addView(act.button("Another pick") { nextRec() })
         lateinit var save: TextView
         save = act.button("Save") {
@@ -630,6 +686,9 @@ class HubScreen(act: MainActivity) : Screen(act) {
     private val showResults = ListBox(act)
     private val passedLine = act.label("", 13f, Theme.DIM)
     private val about = ListBox(act)
+    private val looks = Chips(act)
+    private val modes = ListBox(act)
+    private val people = ListBox(act)
     private val showList = ListBox(act)
     private val quoteList = ListBox(act)
     private val aiBox = act.vbox()
@@ -640,6 +699,18 @@ class HubScreen(act: MainActivity) : Screen(act) {
         heading("Your Hub", "Changes show up on the TV within a second or two.")
         section("Wallpaper")
         add(HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false; addView(walls) }, 0f)
+        section("Home screen look")
+        looks.add("hub", "Hub: picks and rows")
+        looks.add("console", "Console: tiles and artwork")
+        looks.onPick = { k -> saveHub(json("theme" to k), if (k == "console") "The TV switches to the Console look" else "The TV switches to the Hub look") }
+        add(looks, 0f)
+        add(modes, 10f)
+        section("People", "Each profile keeps its own shows, Keep watching, picks and look.")
+        add(people, 0f)
+        add(act.field("Add a person", "Add") { n, e ->
+            if (n.isEmpty()) return@field
+            Hub.post("/api/profiles/add", json("name" to n)) { _, err -> if (err != null) act.toast(err) else { e.setText(""); act.toast("Added $n"); reload() } }
+        }, 10f)
         section("Accent color")
         add(swatches, 0f)
         section("Top of the home screen")
@@ -800,7 +871,8 @@ class HubScreen(act: MainActivity) : Screen(act) {
             lateinit var row: LinearLayout
             row = showList.row(sh.optString("title"), sub, pv, act.label("Edit", 14f, Theme.accent, bold = true).apply {
                 minHeight = act.dpi(44f); minWidth = act.dpi(44f); gravity = Gravity.CENTER
-            }) { editShow(sh, row) }
+                setOnClickListener { v -> v.tick(); editShow(sh, row) }
+            }) { Titles.show(act, sh) }
             fixPoster(row, pv)
         }
     }
@@ -900,6 +972,45 @@ class HubScreen(act: MainActivity) : Screen(act) {
             Hub.post("/api/ai", b) { _, e -> act.toast(e ?: "Saved. Try asking something on Watch and send."); if (e == null) reload() }
         }, lp(WRAP, WRAP).apply { topMargin = act.dpi(12f) })
         vis()
+    }
+
+    // ---- look, morning and night, people
+
+    private fun hourName(h: Int) = "${if (h % 12 == 0) 12 else h % 12} ${if (h < 12 || h == 24) "AM" else "PM"}"
+
+    private fun renderLook(hub: JSONObject, s: JSONObject) {
+        looks.select(hub.optString("theme", "hub").ifEmpty { "hub" })
+        val md = hub.optJSONObject("modes") ?: JSONObject()
+        val morning = md.optInt("morning", 5)
+        val night = md.optInt("night", 21)
+        fun save(auto: Boolean = md.optBoolean("auto", true), mo: Int = morning, ni: Int = night) =
+            saveHub(json("modes" to json("auto" to auto, "morning" to mo, "night" to ni)))
+        modes.clear()
+        modes.row("Morning and night looks", "Mornings lead with weather and your day. Nights dim the TV and add a sleep timer.", null,
+            Toggle(act).apply { on = md.optBoolean("auto", true); onChange = { v -> save(auto = v) } })
+        modes.row("Morning starts", hourName(morning), null, act.button("Change") {
+            val hours = (3..12).toList()
+            AlertDialog.Builder(act, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("Morning starts at")
+                .setItems(hours.map { hourName(it) }.toTypedArray()) { _, i -> save(mo = hours[i]) }.show()
+        })
+        modes.row("Night starts", hourName(night), null, act.button("Change") {
+            val hours = (17..24).toList()
+            AlertDialog.Builder(act, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("Night starts at")
+                .setItems(hours.map { hourName(it) }.toTypedArray()) { _, i -> save(ni = hours[i]) }.show()
+        })
+        people.clear()
+        for (p in (s.optJSONArray("profiles") ?: JSONArray()).objects()) {
+            val dot = android.view.View(act).apply { background = circle(parseColor(p.optString("color"))) }
+            val current = p.optBoolean("current")
+            lateinit var row: LinearLayout
+            val right = if (current) act.label("Watching", 13f, Theme.accent, bold = true) else act.button("Remove", danger = true) {
+                removable(row, "Removed ${p.optString("name")}") { Hub.post("/api/profiles/delete", json("id" to p.optString("id"))) { _, e -> if (e != null) act.toast(e) } }
+            }
+            row = people.row(p.optString("name"), if (current) null else "Tap to switch", dot, right) {
+                if (!current) Hub.post("/api/profiles/switch", json("id" to p.optString("id"))) { _, e -> act.toast(e ?: "Switched to ${p.optString("name")}"); Hub.refresh(); reload() }
+            }
+            (dot.layoutParams as LinearLayout.LayoutParams).apply { width = act.dpi(28f); height = act.dpi(28f) }
+        }
     }
 
     // ---- About: privacy, updates, removing Hub
@@ -1005,6 +1116,7 @@ class HubScreen(act: MainActivity) : Screen(act) {
         renderShows((s.optJSONArray("shows") ?: JSONArray()).objects())
         renderPassed(s.optInt("passed"))
         renderAbout(s.optString("version"))
+        renderLook(hub, s)
         renderQuotes(s.optJSONArray("quotes") ?: JSONArray())
         renderAI(s.optJSONObject("ai") ?: JSONObject())
 
@@ -1035,6 +1147,10 @@ class HubScreen(act: MainActivity) : Screen(act) {
         server.row("Keep Hub open", "Return to Hub after 45 s on the Roku home screen", null, Toggle(act).apply { on = set.optBoolean("kiosk"); onChange = { v -> setting("kiosk", v) } })
         server.row("TV address", set.optString("tv_ip", "not set"), null, act.button("Change") { askText("TV address", set.optString("tv_ip")) { v -> Hub.post("/api/settings", json("tv_ip" to v)) { _, e -> act.toast(e ?: "Saved"); Hub.refresh() } } })
         server.row("Hub server", "${Hub.server}, version ${s.optString("version")}", null, act.button("Change") { act.show("connect") })
+        server.row("TMDB key (optional)", if (s.optBoolean("hasTmdb")) "Saved. Movie details and where-to-watch use it." else "A free key from themoviedb.org adds backdrops, cast and where-to-watch for more titles.", null,
+            act.button(if (s.optBoolean("hasTmdb")) "Change" else "Add") {
+                askText("TMDB key", "") { v -> Hub.post("/api/settings", json("tmdb_key" to v)) { _, e -> act.toast(e ?: "Saved"); reload() } }
+            })
     }
 
     private fun setting(k: String, v: Boolean) = Hub.post("/api/settings", json(k to v)) { _, e -> act.toast(e ?: "Saved") }
