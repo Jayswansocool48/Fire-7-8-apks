@@ -246,19 +246,35 @@ sub setBackdrop(url as String)
     back = "bgB"
     if m.bgFront = "bgB" then back = "bgA"
     b = m.top.findNode(back)
+    u = thumbUrl(m.server, url)
+    if b.uri = u and b.loadStatus = "ready"
+        swapBackdrop(back)
+        return
+    end if
     b.opacity = 0
-    b.uri = thumbUrl(m.server, url)
+    b.uri = u
 end sub
 
+' The new picture fades in over the old one. If it can't load, the old one fades away so a
+' stale backdrop never sits behind a different title.
 sub onBgLoaded()
+    want = thumbUrl(m.server, m.bgUrl)
     for each id in ["bgA", "bgB"]
         p = m.top.findNode(id)
-        if id <> m.bgFront and p.loadStatus = "ready" and p.uri = thumbUrl(m.server, m.bgUrl)
-            animTo(p, "opacity", 1.0, "gentle")
-            animTo(m.top.findNode(m.bgFront), "opacity", 0.0, "gentle")
-            m.bgFront = id
+        if id <> m.bgFront and p.uri = want
+            if p.loadStatus = "ready"
+                swapBackdrop(id)
+            else if p.loadStatus = "failed"
+                animTo(m.top.findNode(m.bgFront), "opacity", 0.0, "gentle")
+            end if
         end if
     end for
+end sub
+
+sub swapBackdrop(id as String)
+    animTo(m.top.findNode(id), "opacity", 1.0, "gentle")
+    animTo(m.top.findNode(m.bgFront), "opacity", 0.0, "gentle")
+    m.bgFront = id
 end sub
 
 sub act(a as Object)

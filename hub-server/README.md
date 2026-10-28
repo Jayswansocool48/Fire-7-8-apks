@@ -8,6 +8,13 @@ Hub is a home screen for a Roku TV. It has three parts:
 
 The TV gets everything through the server: channels, the browser, weather, recommendations, notes and files you send.
 
+What Hub does:
+
+- **Two looks:** Hub (a featured title, then rows of picks, apps and today's widgets) or Console (square tiles with the focused title's artwork filling the screen). Switch in TV Settings, Hub Remote or the control page.
+- **Details for every show and movie:** summary, seasons and episodes, cast, ratings, more like it, and which of your channels stream it.
+- **Opens the title itself:** Watch goes straight to the show or episode in Netflix, Crunchyroll, Hulu, Disney+, Max or Prime Video when Hub knows that service's ID for it, and searches your channels otherwise.
+- **Keep watching, profiles, music, morning and night looks, Ask the TV, drawn notes, a browser with ads blocked, a media library and a sleep timer.**
+
 ## What you need
 
 - A Roku TV or stick with developer mode on (press Home 3×, Up 2×, Right, Left, Right, Left, Right on the remote).

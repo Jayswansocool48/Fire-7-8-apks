@@ -127,6 +127,7 @@ sub renderHead()
     end if
     summary.translation = [2, y]
     if body <> "" then y = y + summary.boundingRect().height + 24
+    if m.det = invalid then y = y + 130 ' room for the loading bars
     m.top.findNode("buttons").translation = [0, y]
     m.headBottom = 64 + y + 70
     buildButtons()

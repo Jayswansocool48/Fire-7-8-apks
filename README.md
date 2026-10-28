@@ -11,7 +11,7 @@ Every time the code changes, GitHub rebuilds the APKs below automatically.
 | **Deskmate** | [Deskmate.apk](Deskmate.apk) + [desktop program](../../releases/tag/deskmate-desktop) | Turns the tablet into a Stream Deck for your PC, plus a system monitor, media remote, notes/timer and game dev panel |
 | **Kiln** | [Kiln.apk](Kiln.apk) | Game-asset boards, file library, assistant and a Blender-style 3D viewer (**Fire HD 8 only**) |
 | **Glow** | [Glow.apk](Glow.apk) + [PC program](../../releases/tag/glow-desktop) | Controls your 60 ft LEDBLE (Lotus Lantern) strip over Bluetooth and your AITOLED screen-sync light through your PC |
-| **Hub Remote** | [HubRemote.apk](HubRemote.apk) + [Hub server](hub-server/README.md) | Swipe remote for the Roku TV running Hub: what-to-watch picks, Ask the TV, drawn notes, Send to TV, channels, TV browser and Hub settings |
+| **Hub Remote** | [HubRemote.apk](HubRemote.apk) + [Hub server](hub-server/README.md) | Remote for the Roku TV running Hub: show and movie details with where-to-watch, Keep watching, now playing, profiles, picks, Ask the TV, drawn notes, Send to TV and Hub settings |
 | **Haven** | [Haven.apk](Haven.apk) | Pastel home screen for the Insignia Fire TV: favorites row, every installed app, hide apps, five looks, clock, and takes over the Home button (**install on the TV**) |
 | **Haven Remote** | [HavenRemote.apk](HavenRemote.apk) | Phone remote for the Fire TV running Haven: d-pad or swipe pad, media, volume (phone buttons too), typing, and opening any TV app. No server needed (**install on the phone**) |
 

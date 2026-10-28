@@ -145,14 +145,14 @@ PRESETS = {
 
 # Shown on the control page and in Hub Remote (Settings > Privacy and terms).
 LEGAL = {
-    "updated": "October 26, 2026",
+    "updated": "October 28, 2026",
     "privacy": [
-        ["What Hub keeps", "Your settings, notes, drawings, quotes, saved shows, wallpapers and the files you send to the TV. "
+        ["What Hub keeps", "Your settings, notes, drawings, quotes, saved shows, what you opened from Hub (Keep watching), profiles, wallpapers and the files you send to the TV. "
          "All of it stays on your server in the Hub folder (/DATA/AppData/hub-server on CasaOS). Hub has no accounts, "
          "no analytics, no ads and no cookies, and sends nothing to the person who made it."],
         ["Who Hub talks to", "Your Roku TV. Open-Meteo, with the place you typed, for the weather. The calendar link you added. "
-         "YouTube and AniList, with the channels and anime you follow. TVmaze and Apple's iTunes Search, with show and movie titles, "
-         "for posters and summaries. Bing, for the daily photo. GitHub, for the ad block list and the update check. "
+         "YouTube and AniList, with the channels and anime you follow. TVmaze, AniList, Apple's iTunes Search and Wikidata, with show "
+         "and movie titles, for details, cast, episodes and which services stream them; TMDB too if you add a TMDB key. Bing, for the daily photo. GitHub, for the ad block list and the update check. "
          "Any website you open in the TV browser sees that visit like any browser visit."],
         ["Ask the TV and AI picks", "Built-in answers (weather, time, calendar, apps, sleep timer, picks) never leave your server. "
          "Ollama runs on your own computer. If you choose Claude, your question goes to Anthropic, and with "
