@@ -31,7 +31,10 @@
         <Group id="heroButtons" />
         <Group id="dots" />
       </Group>
-      <Group id="rows" />
+      <!-- rows scroll up under the info area; anything above this line is hidden -->
+      <Group id="rowsClip" clippingRect="[0,404,1280,330]">
+        <Group id="rows" />
+      </Group>
     </Group>
 
     <!-- top bar stays put -->

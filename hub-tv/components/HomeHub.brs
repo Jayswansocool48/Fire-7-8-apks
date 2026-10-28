@@ -18,6 +18,7 @@ sub init()
     m.focusedTile = invalid
     m.rowsY = 556
     m.searchSeq = -1
+    m.touched = false
 
     m.fKicker = fontFile("semibold", 18)
     m.fTitle = fontFile("title", 52)
@@ -81,6 +82,11 @@ sub onData()
         keepCol = 0
     end if
     if keepZone >= m.zones.count() then keepZone = m.zones.count() - 1
+    ' until you move, Hub opens on the featured title
+    if not m.touched
+        keepZone = 1
+        keepCol = 0
+    end if
     m.z = keepZone
     if m.zones[m.z].kind = "hero" and m.heroItems.count() = 0 and m.zones.count() > 2 then m.z = 2
     z = m.zones[m.z]
@@ -660,9 +666,12 @@ sub scrollPage(animate as Boolean)
         y = 420 - z.y
         deck = 0.35
     end if
+    clipTop = 404
     if m.tabIdx = 4 or m.tabIdx = -1
         if z.kind = "row" then y = 380 - z.y
+        clipTop = 364
     end if
+    m.top.findNode("rowsClip").clippingRect = [0, clipTop, 1280, 720 - clipTop]
     if animate
         animTo(m.rows, "translation", [0, y], "smooth")
         animTo(m.top.findNode("deck"), "opacity", deck, "smooth")
@@ -771,6 +780,7 @@ end sub
 
 function onKeyEvent(key as String, press as Boolean) as Boolean
     if not press or m.zones.count() = 0 then return false
+    m.touched = true
     z = m.zones[m.z]
     if key = "up"
         moveZone(-1)
