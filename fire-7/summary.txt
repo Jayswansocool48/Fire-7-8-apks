@@ -9,8 +9,8 @@ channels: running
 browser: running
 send: running
 hub: running
-10-29 01:58:22.492  4948  4948 D AndroidRuntime: Shutting down VM
-10-29 01:58:24.716  4964  4964 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
-10-29 01:58:24.717  4964  4964 D AndroidRuntime: CheckJNI is OFF
-10-29 01:58:24.754  4964  4964 D AndroidRuntime: Calling main entry com.android.commands.am.Am
-10-29 01:58:24.765  4964  4964 D AndroidRuntime: Shutting down VM
+10-29 21:06:59.171  4971  4971 D AndroidRuntime: Shutting down VM
+10-29 21:07:01.397  4987  4987 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-29 21:07:01.398  4987  4987 D AndroidRuntime: CheckJNI is OFF
+10-29 21:07:01.436  4987  4987 D AndroidRuntime: Calling main entry com.android.commands.am.Am
+10-29 21:07:01.446  4987  4987 D AndroidRuntime: Shutting down VM
