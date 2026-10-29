@@ -3,19 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#14120F">
+<meta name="theme-color" content="#111419">
 <title>Hub</title>
 <style>
 /* Fonts ship with the server (SIL Open Font License); the page loads nothing from other sites. */
-@font-face{font-family:"Manrope";src:url("/fonts/manrope.woff") format("woff");font-weight:200 800;font-display:swap}
-@font-face{font-family:"Fraunces";src:url("/fonts/fraunces.woff") format("woff");font-weight:500;font-display:swap}
-@font-face{font-family:"Fraunces";src:url("/fonts/fraunces-italic.woff") format("woff");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Geist";src:url("/fonts/geist.woff") format("woff");font-weight:100 900;font-display:swap}
 :root{
-  --ink:#14120F; --deep:#1E1A16; --deeper:#191612; --raise:#2A251F; --line:#3A332B;
-  --mist:#BDB3A3; --dim:#8F8678; --cream:#F2EADC; --coral:#E07A5F; --ok:#8FB38A;
-  --accent:#D9894A; --accent-soft:color-mix(in srgb,var(--accent) 20%,transparent);
+  --ink:#111419; --deep:#191C22; --deeper:#14171C; --raise:#21242B; --line:#30333A;
+  --mist:#B4B7BE; --dim:#898C94; --cream:#ECEDF0; --coral:#FF6467; --ok:#8FB38A;
+  --accent:#6C8DE8; --accent-soft:color-mix(in srgb,var(--accent) 20%,transparent);
   --r-xl:26px; --r-lg:20px; --r-md:14px; --r-sm:10px;
-  --font:"Manrope",ui-sans-serif,system-ui,sans-serif; --serif:"Fraunces",Georgia,serif;
+  --font:"Geist",ui-sans-serif,system-ui,sans-serif; --serif:"Geist",ui-sans-serif,sans-serif;
   --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
   --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
 }
@@ -80,7 +78,7 @@ main{grid-row:2;position:relative;overflow:hidden}
 }
 @media (max-width:979px){.side{display:none}}
 
-h2{font:500 26px/1.2 var(--serif);letter-spacing:-.01em;margin:12px 0 4px}
+h2{font:600 26px/1.2 var(--serif);letter-spacing:-.01em;margin:12px 0 4px}
 h3{font-size:16px;font-weight:700;margin:28px 0 10px}
 .lede{color:var(--mist);margin:0 0 14px;max-width:60ch}
 .small{font-size:13px;color:var(--dim)}
@@ -169,9 +167,9 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
 .app-tile img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--raise)}
 .app-tile span.name{display:block;padding:8px 10px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .star{position:absolute;top:4px;right:4px;width:44px;height:44px;display:grid;place-items:center;color:var(--cream)}
-.star i{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#14120Fcc}
+.star i{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#111419cc}
 .star svg{width:16px;height:16px;display:block}
-.star[aria-pressed=true]{color:#E3B04B}
+.star[aria-pressed=true]{color:#6C8DE8}
 
 /* ---------- what to watch ---------- */
 @media (max-width:480px){#whoname{display:none}.who{padding:0 4px}}
@@ -182,12 +180,12 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
 .person[aria-pressed=true]{border-color:var(--accent)}
 .person .ava{width:64px;height:64px;font-size:26px}
 .nowcard{display:flex;align-items:center;gap:14px;background:var(--deep);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;margin-bottom:6px}
-.nowcard .grow b{font:500 20px/1.2 var(--serif)}
+.nowcard .grow b{font:600 20px/1.2 var(--serif)}
 .bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;background:var(--accent);transform-origin:left;width:100%}
 .hist .pic{width:96px;aspect-ratio:16/9;border-radius:var(--r-sm)}
 .tsheet .head{display:grid;grid-template-columns:110px 1fr;gap:14px}
 .tsheet .pic{width:110px;aspect-ratio:2/3;border-radius:var(--r-sm)}
-.tsheet h4{font:500 24px/1.2 var(--serif);margin:0 0 6px}
+.tsheet h4{font:600 24px/1.2 var(--serif);margin:0 0 6px}
 .prov{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
 .prov .chip.on{background:var(--cream);color:var(--ink);border-color:var(--cream)}
 .cast{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px}
@@ -196,7 +194,7 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
 .eps .item{cursor:pointer}
 .rec{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:start;background:var(--deep);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px}
 .rec .pic{width:120px;aspect-ratio:2/3;border-radius:var(--r-sm)}
-.rec h4{font:500 22px/1.2 var(--serif);margin:2px 0 4px}
+.rec h4{font:600 22px/1.2 var(--serif);margin:2px 0 4px}
 .rec .meta{font-size:13px;color:var(--mist)}
 .rec .why{font-size:14px;font-weight:650;color:var(--accent);margin-top:6px}
 .rec p{font-size:14px;color:var(--mist);margin:8px 0 0;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
@@ -217,7 +215,7 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
 .progress i{display:block;height:100%;width:100%;background:var(--accent);transform-origin:left;transform:scaleX(0)}
 .crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:14px;margin-bottom:10px;color:var(--mist)}
 .crumbs button{color:var(--accent);padding:10px 4px}
-.answer{margin-top:12px;padding:16px 18px;border-radius:var(--r-md);background:var(--deep);border:1px solid var(--line);font:500 18px/1.4 var(--serif);display:none}
+.answer{margin-top:12px;padding:16px 18px;border-radius:var(--r-md);background:var(--deep);border:1px solid var(--line);font:600 18px/1.4 var(--serif);display:none}
 .answer small{display:block;color:var(--dim);font:500 13px var(--font);margin-bottom:4px}
 
 /* ---------- customize ---------- */
@@ -227,13 +225,13 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
 .wall span{position:absolute;left:8px;bottom:6px;font-size:12px;font-weight:600;color:var(--cream)}
 .wall.add{display:grid;place-items:center;background:var(--deep);border:1.5px dashed var(--line);color:var(--mist);font-size:13px}
 .wall .x{position:absolute;top:0;right:0;width:44px;height:44px;display:grid;place-items:center;font-size:16px}
-.wall .x i{width:24px;height:24px;border-radius:50%;background:#14120Fcc;display:grid;place-items:center;font-style:normal}
+.wall .x i{width:24px;height:24px;border-radius:50%;background:#111419cc;display:grid;place-items:center;font-style:normal}
 .swatches{display:flex;gap:12px;flex-wrap:wrap}
 .swatch{width:44px;height:44px;border-radius:50%;border:3px solid transparent}
 .swatch[aria-pressed=true]{border-color:var(--cream)}
-.note{border-radius:var(--r-sm);padding:12px 40px 12px 14px;color:#2A251F;font-weight:600;position:relative;min-height:70px}
+.note{border-radius:var(--r-sm);padding:12px 40px 12px 14px;color:#21242B;font-weight:600;position:relative;min-height:70px}
 .notes{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px}
-.note .del{position:absolute;top:0;right:0;width:44px;height:44px;color:#2A251Fa0;font-size:18px}
+.note .del{position:absolute;top:0;right:0;width:44px;height:44px;color:#21242Ba0;font-size:18px}
 .cover{width:44px!important;height:62px!important;border-radius:8px!important}
 .sketch{position:relative;border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--line);background:var(--deep);aspect-ratio:300/192;touch-action:none;margin-top:6px}
 .sketch canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
@@ -286,7 +284,7 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
 
 <div class="app">
   <header class="top">
-    <svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><path d="M7 21a10 10 0 0 1 20 0Z" fill="var(--accent)"/><rect x="3" y="22.5" width="28" height="2.6" rx="1.3" fill="var(--cream)"/><rect x="9" y="27.5" width="16" height="2.2" rx="1.1" fill="var(--cream)" opacity=".6"/></svg>
+    <svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3F5EC2"/><stop offset="1" stop-color="#6C8DE8"/></linearGradient></defs><rect width="100" height="100" rx="26" fill="url(#mg)"/><rect x="25" y="24" width="13" height="52" rx="6.5" fill="#ECEDF0"/><rect x="62" y="24" width="13" height="52" rx="6.5" fill="#ECEDF0"/><path d="M41 38v24l21-12z" fill="#ECEDF0"/></svg>
     <div class="now"><b id="nowapp">Connecting to your TV</b><span><span class="dot" id="tvdot"></span><span id="tvline">Checking</span></span></div>
     <span class="updating" id="updating">Updating</span>
     <button class="who press" id="whobtn" aria-label="Who's watching"><span class="ava" id="whoava">?</span><span id="whoname">Profile</span></button>
@@ -378,7 +376,7 @@ h3{font-size:16px;font-weight:700;margin:28px 0 10px}
 
       <h3>Home screen look</h3>
       <div class="chips" id="themechips" role="group" aria-label="Home screen look">
-        <button class="chip press" data-theme="hub" aria-pressed="true">Hub: picks and rows</button><button class="chip press" data-theme="console" aria-pressed="false">Console: tiles and artwork</button>
+        <button class="chip press" data-theme="hub" aria-pressed="true">Hub: picks and rows</button><button class="chip press" data-theme="console" aria-pressed="false">PlayStation (PS4): tiles and waves</button>
       </div>
       <div class="list" style="margin-top:12px">
         <div class="item"><div class="grow"><b>Morning and night looks</b><span>Mornings lead with weather and your day. Nights dim the TV and add a sleep timer.</span></div><input type="checkbox" class="switch" id="modeauto"></div>
@@ -711,12 +709,12 @@ function kick() { if (!raf) raf = requestAnimationFrame(frame); }
 function frame() { raf = 0; draw(); if (touch) { touch.a *= 0.92; if (touch.a < 0.02) { touch = null; trail = []; } }
   if (ring) ring = ring > 0.02 ? ring * 0.9 : 0; if (touch || ring) raf = requestAnimationFrame(frame); }
 function draw() { if (!ctx) return; const r = padCanvas.getBoundingClientRect(); ctx.clearRect(0, 0, r.width, r.height);
-  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#D9894A";
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#6C8DE8";
   if (trail.length > 1 && touch) { ctx.strokeStyle = accent; ctx.lineCap = "round"; ctx.lineJoin = "round";
     for (let i = 1; i < trail.length; i++) { ctx.globalAlpha = (i / trail.length) * touch.a; ctx.lineWidth = 2 + (i / trail.length) * 6;
       ctx.beginPath(); ctx.moveTo(trail[i - 1].x, trail[i - 1].y); ctx.lineTo(trail[i].x, trail[i].y); ctx.stroke(); } ctx.globalAlpha = 1; }
-  if (touch) { ctx.globalAlpha = touch.a; ctx.fillStyle = "#F2EADC"; ctx.beginPath(); ctx.arc(touch.x, touch.y, 7, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
-  if (ring && touch) { ctx.strokeStyle = "#F2EADC"; ctx.globalAlpha = ring; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(touch.x, touch.y, 18 + (1 - ring) * 46, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; } }
+  if (touch) { ctx.globalAlpha = touch.a; ctx.fillStyle = "#ECEDF0"; ctx.beginPath(); ctx.arc(touch.x, touch.y, 7, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
+  if (ring && touch) { ctx.strokeStyle = "#ECEDF0"; ctx.globalAlpha = ring; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(touch.x, touch.y, 18 + (1 - ring) * 46, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; } }
 
 /* ---------------- keyboard: remote keys, tab shortcuts, Ctrl+K ---------------- */
 const keymap = { ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right", Enter: "Select", Backspace: "Back", h: "Home", " ": "Play" };
@@ -903,7 +901,7 @@ async function loadLib(path) { libPath = path;
   } catch (e) { $("#lib").replaceChildren(h("div", { class: "item" }, h("span", { class: "small" }, e.message))); } }
 
 /* ---------------- hub customization ---------------- */
-let ACCENTS = ["#D9894A", "#C9A44C", "#8FB38A", "#5FA3A0", "#C46F5E", "#7E97C9", "#C58A9B", "#B9A58F"];
+let ACCENTS = ["#6C8DE8", "#C7CF6A", "#8FB38A", "#4FB3BF", "#B58CE6", "#9AB0E5", "#D88BAE", "#8EA3B8"];
 const ROWNAMES = { myshows: "Hub's pick and My Shows", youtube: "New on YouTube", anime: "Anime episodes", agenda: "Up next (calendar)" };
 const WNAMES = { weather: "Weather and what to wear", note: "Latest note", quote: "Quote over the dock" };
 async function saveHub(patch, msg) { try { const j = await api("/api/hub/config", patch); hub = j.hub; if (patch.accent) applyAccent(patch.accent); if (msg) toast(msg); } catch (e) { toast(e.message, true); } }
@@ -925,7 +923,7 @@ async function renderWalls() { const [p, w] = await Promise.all([api("/api/prese
   const add = h("button", { class: "wall add", onclick: () => $("#wallfile").click() }, "Add a photo");
   $("#walls").replaceChildren(add,
     ...w.wallpapers.map(n => tile(`background-image:url('/api/wallpapers/${encodeURIComponent(n)}')`, "Photo", cur.type === "custom" && cur.value === n, () => pick({ type: "custom", value: n }, "Wallpaper set"), n)),
-    tile("background:linear-gradient(170deg,#3a2f2a,#b7835a)", "Bing daily", cur.type === "bing", () => pick({ type: "bing" }, "A new photo every day")),
+    tile("background:linear-gradient(170deg,#1A2440,#4A6FB5)", "Bing daily", cur.type === "bing", () => pick({ type: "bing" }, "A new photo every day")),
     ...p.presets.map(x => tile("background:" + x.css, x.name[0].toUpperCase() + x.name.slice(1), cur.type === "preset" && cur.value === x.name, () => pick({ type: "preset", value: x.name }, "Wallpaper set")))); }
 $("#wallfile").onchange = e => { const f = e.target.files[0]; if (f) upload(f, "/api/wallpapers/upload", () => { toast("Wallpaper set"); status().then(renderWalls); }); e.target.value = ""; };
 function renderSwatches() { $("#swatches").replaceChildren(...ACCENTS.map(c => h("button", { class: "swatch", style: "background:" + c, "aria-label": "Accent " + c, "aria-pressed": String((hub.accent || "").toUpperCase() === c),
@@ -976,9 +974,9 @@ function renderEvents(list) { $("#evlist").replaceChildren(...list.map(ev => { c
   row.append(h("button", { class: "btn danger", onclick: () => removable(row, "Deleted " + ev.title, () => api("/api/events/delete", { id: ev.id })) }, "Delete")); return row; })); }
 $("#evform").onsubmit = e => { e.preventDefault(); const t = $("#evtitle").value.trim(), w = $("#evwhen").value; if (!t || !w) return toast("Add a title and a time", true);
   api("/api/events/add", { title: t, start: new Date(w).getTime() / 1000 }).then(() => { $("#evtitle").value = ""; status().then(() => renderEvents(window.__status.events)); toast("Added"); }).catch(er => toast(er.message, true)); };
-const NOTECOLORS = ["#EFE2C4", "#E6C9A6", "#CBD8C2", "#D9CBBE", "#C9D6DA"];
+const NOTECOLORS = ["#D9E2F2", "#D6CCF0", "#CBE3CF", "#CFE6E0", "#C9D6EA"];
 function noteCard(n) { const del = h("button", { class: "del", "aria-label": "Delete note" }, "×");
-  const card = n.kind === "drawing" ? h("div", { class: "note", style: "background:#1E1A16;padding:6px 40px 6px 6px" }, h("img", { src: n.image, alt: "Drawn note", style: "width:100%;display:block;border-radius:8px" }), del)
+  const card = n.kind === "drawing" ? h("div", { class: "note", style: "background:#191C22;padding:6px 40px 6px 6px" }, h("img", { src: n.image, alt: "Drawn note", style: "width:100%;display:block;border-radius:8px" }), del)
     : h("div", { class: "note", style: "background:" + n.color }, n.text, del);
   del.onclick = () => removable(card, "Note deleted", () => api("/api/notes/delete", { id: n.id })); return card; }
 function renderNotes(list) { $("#notes").replaceChildren(...list.map(noteCard)); }
@@ -1000,7 +998,7 @@ $("#askform").onsubmit = async e => { e.preventDefault(); const q = $("#askq").v
 /* ---------------- draw a note ---------------- */
 (function () {
   const cv = $("#pad2"), ctx = cv.getContext("2d"); const strokes = []; let cur = null;
-  const PENS = ["#F2EADC", "#E3B04B", "#E07A5F", "#8FB38A", "#7EA6C9", "#C58A9B"]; const SIZES = [6, 12, 22];
+  const PENS = ["#ECEDF0", "#6C8DE8", "#FF6467", "#8FB38A", "#7EA6C9", "#D88BAE"]; const SIZES = [6, 12, 22];
   let color = PENS[0], size = SIZES[1];
   function redraw() { ctx.clearRect(0, 0, cv.width, cv.height); ctx.lineCap = "round"; ctx.lineJoin = "round";
     for (const s of strokes) { ctx.strokeStyle = s.c; ctx.lineWidth = s.w; ctx.beginPath(); const p = s.p;
@@ -1172,7 +1170,7 @@ async function openTitle(it) { openSheet("titlesheet"); const body = $("#titlebo
 for (const [id, from, to] of [["#modemorning", 3, 12], ["#modenight", 17, 24]]) for (let i = from; i <= to; i++) $(id).append(h("option", { value: i }, (i % 12 || 12) + (i < 12 || i === 24 ? " AM" : " PM")));
 function renderLook() { $$("#themechips .chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.theme === (hub.theme || "hub")));
   const md = hub.modes || {}; $("#modeauto").checked = md.auto !== false; syncSwitch($("#modeauto")); $("#modemorning").value = md.morning || 5; $("#modenight").value = md.night || 21; }
-$$("#themechips .chip").forEach(c => c.onclick = () => { hub.theme = c.dataset.theme; renderLook(); saveHub({ theme: c.dataset.theme }, c.dataset.theme === "console" ? "The TV switches to the Console look" : "The TV switches to the Hub look"); });
+$$("#themechips .chip").forEach(c => c.onclick = () => { hub.theme = c.dataset.theme; renderLook(); saveHub({ theme: c.dataset.theme }, c.dataset.theme === "console" ? "The TV switches to the PlayStation look" : "The TV switches to the Hub look"); });
 const saveModes = () => saveHub({ modes: { auto: $("#modeauto").checked, morning: +$("#modemorning").value, night: +$("#modenight").value } }, "Saved");
 $("#modeauto").onchange = () => { syncSwitch($("#modeauto")); saveModes(); }; $("#modemorning").onchange = saveModes; $("#modenight").onchange = saveModes;
 $("#tmdbkey").onchange = () => api("/api/settings", { tmdb_key: $("#tmdbkey").value.trim() }).then(() => { $("#tmdbkey").value = ""; toast("TMDB key saved"); status(); }).catch(e => toast(e.message, true));

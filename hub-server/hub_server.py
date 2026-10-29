@@ -47,11 +47,10 @@ try:
 except ImportError:  # Python < 3.9
     ZoneInfo = None
 
-VERSION = "5.0.0"
+VERSION = "5.1.0"
 # Where "Check for updates" looks for newer server files.
 UPDATE_BASE = "https://raw.githubusercontent.com/Jayswansocool48/Fire-7-8-apks/main/hub-server/"
-UPDATE_FILES = ["hub_server.py", "hub_control.html", "start.sh", "install.sh", "VERSION", "fonts/manrope.woff", "fonts/fraunces.woff",
-                "fonts/fraunces-italic.woff", "fonts/LICENSE-Manrope-OFL.txt", "fonts/LICENSE-Fraunces-OFL.txt"]
+UPDATE_FILES = ["hub_server.py", "hub_control.html", "start.sh", "install.sh", "VERSION", "fonts/geist.woff", "fonts/LICENSE-Geist-OFL.txt"]
 W, H = 1280, 720  # the Roku app's canvas, so clicks map 1:1
 HERE = os.path.dirname(os.path.abspath(__file__))
 LAN = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # never proxy TV traffic
@@ -64,7 +63,7 @@ PHOTO = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".heic"}
 
 DEFAULT_HUB = {
     "wallpaper": {"type": "preset", "value": "dusk"},
-    "accent": "#D9894A",
+    "accent": "#6C8DE8",
     "clock24": False,
     "name": "",
     "units": "F",
@@ -128,17 +127,17 @@ DEFAULTS = {
 
 ROW_IDS = ["continue", "foryou", "apps", "myshows", "youtube", "anime", "agenda"]
 # Accent colors offered on the control page and in Hub Remote.
-ACCENTS = ["#D9894A", "#C9A44C", "#8FB38A", "#5FA3A0", "#C46F5E", "#7E97C9", "#C58A9B", "#B9A58F"]
+ACCENTS = ["#6C8DE8", "#C7CF6A", "#8FB38A", "#4FB3BF", "#B58CE6", "#9AB0E5", "#D88BAE", "#8EA3B8"]
 WIDGET_IDS = ["weather", "note", "quote"]
 
 # Wallpaper presets, as CSS. The server renders them to images for the TV; the control
 # page shows the same CSS as thumbnails, so both always match.
 PRESETS = {
-    "dusk": "linear-gradient(170deg,#3a2f2a 0%,#6b4a3a 55%,#b7835a 100%)",
+    "dusk": "linear-gradient(170deg,#1A2440 0%,#2C3F6E 55%,#4A6FB5 100%)",
     "harbor": "linear-gradient(175deg,#1f2a2e 0%,#2f4a4f 60%,#56756f 100%)",
     "moss": "linear-gradient(165deg,#1c211b 0%,#36432f 60%,#6a7a52 100%)",
-    "clay": "linear-gradient(160deg,#2a1d19 0%,#5a3529 60%,#9a5b43 100%)",
-    "linen": "linear-gradient(180deg,#5e564b 0%,#8f8574 100%)",
+    "clay": "linear-gradient(160deg,#17162a 0%,#2e2a52 60%,#55508f 100%)",
+    "linen": "linear-gradient(180deg,#4D5566 0%,#7C8597 100%)",
     "slate": "linear-gradient(180deg,#1d2024 0%,#3a4048 100%)",
     "night": "linear-gradient(180deg,#121417 0%,#1f232b 100%)",
 }
@@ -172,7 +171,7 @@ LEGAL = {
          "and you can delete them in Library or the notes list at any time."],
         ["Other services", "Roku, the streaming apps, Anthropic, Open-Meteo, TVmaze, Apple, AniList and YouTube each have their own "
          "terms. Hub opens their apps and pages; it doesn't change what they allow."],
-        ["Fonts", "Hub bundles the Fraunces and Manrope fonts under the SIL Open Font License. The license files ship in the fonts folder."],
+        ["Fonts", "Hub bundles the Geist font under the SIL Open Font License. The license files ship in the fonts folder."],
     ],
 }
 
@@ -991,7 +990,7 @@ class Widgets:
 
     def snapshot(self):
         d = dict(self.data)
-        d["notes"] = [{"kind": "text", "text": "", "color": "#FFD166", "created": 0, **n} for n in self.cfg["notes"][:20]]
+        d["notes"] = [{"kind": "text", "text": "", "color": "#F2E28A", "created": 0, **n} for n in self.cfg["notes"][:20]]
         d["agenda"] = self._merge_local(d.get("agenda") or [])
         return d
 
@@ -2292,7 +2291,7 @@ class History:
 
 # ---------------------------------------------------------------- profiles
 
-PROFILE_COLORS = ["#D9894A", "#8FB38A", "#7E97C9", "#C58A9B", "#C9A44C", "#5FA3A0"]
+PROFILE_COLORS = ["#6C8DE8", "#8FB38A", "#9AB0E5", "#D88BAE", "#C7CF6A", "#4FB3BF"]
 # Kept separately for each person. Everything else (notes, calendar, apps) is shared.
 PROFILE_FIELDS = ["shows", "history", "passed", "quotes"]
 PROFILE_HUB_FIELDS = ["wallpaper", "accent", "theme", "name"]
@@ -3009,7 +3008,7 @@ class Handler(BaseHTTPRequestHandler):
                 S.events.publish(type="widgets")
                 self._ok()
             elif path == "/api/notes/add":
-                note = {"id": new_id(), "kind": "text", "text": str(b.get("text", ""))[:500], "color": b.get("color") or "#FFD166",
+                note = {"id": new_id(), "kind": "text", "text": str(b.get("text", ""))[:500], "color": b.get("color") or "#F2E28A",
                         "created": time.time()}
                 S.cfg.update(notes=([note] + S.cfg["notes"])[:30])
                 S.events.publish(type="widgets")
@@ -3383,7 +3382,7 @@ class App:
         dest = os.path.join(self.notes_dir, note_id + ".png")
         os.replace(src, dest)
         note = {"id": note_id, "kind": "drawing", "image": f"/api/notes/img/{note_id}.png", "text": "",
-                "color": "#1B1F3B", "created": time.time()}
+                "color": "#191C22", "created": time.time()}
         keep = ([note] + self.cfg["notes"])[:30]
         for old in self.cfg["notes"]:
             if old not in keep and old.get("kind") == "drawing":

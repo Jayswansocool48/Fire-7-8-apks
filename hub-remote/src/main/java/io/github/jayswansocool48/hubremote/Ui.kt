@@ -36,26 +36,26 @@ fun Context.dpi(v: Float): Int = Math.round(v * resources.displayMetrics.density
 
 /** Same palette as the Hub control page and the TV: warm ink, cream text, one accent. */
 object Theme {
-    val NIGHT = 0xFF14120F.toInt()
-    val DEEP = 0xFF1E1A16.toInt()
-    val DEEPER = 0xFF191612.toInt()
-    val RAISE = 0xFF2A251F.toInt()
-    val LINE = 0xFF3A332B.toInt()
-    val MIST = 0xFFBDB3A3.toInt()
-    val DIM = 0xFF8F8678.toInt()
-    val SNOW = 0xFFF2EADC.toInt()
-    val CORAL = 0xFFE07A5F.toInt()
+    val NIGHT = 0xFF111419.toInt()
+    val DEEP = 0xFF191C22.toInt()
+    val DEEPER = 0xFF14171C.toInt()
+    val RAISE = 0xFF21242B.toInt()
+    val LINE = 0xFF30333A.toInt()
+    val MIST = 0xFFB4B7BE.toInt()
+    val DIM = 0xFF898C94.toInt()
+    val SNOW = 0xFFECEDF0.toInt()
+    val CORAL = 0xFFFF6467.toInt()
     val OK = 0xFF8FB38A.toInt()
-    val ACCENT_DEFAULT = 0xFFD9894A.toInt()
+    val ACCENT_DEFAULT = 0xFF6C8DE8.toInt()
     val accent get() = Hub.accent
 }
 
 /** Same list as the server's ACCENTS. */
-val ACCENTS = listOf("#D9894A", "#C9A44C", "#8FB38A", "#5FA3A0", "#C46F5E", "#7E97C9", "#C58A9B", "#B9A58F")
+val ACCENTS = listOf("#6C8DE8", "#C7CF6A", "#8FB38A", "#4FB3BF", "#B58CE6", "#9AB0E5", "#D88BAE", "#8EA3B8")
 
 fun parseColor(hex: String, fallback: Int = Theme.ACCENT_DEFAULT): Int = try { Color.parseColor(hex) } catch (e: Exception) { fallback }
 
-/** Manrope for text, Fraunces for headings. Both ship in the APK (SIL Open Font License). */
+/** Geist for everything (from the 21st.dev Darkblue-white theme). Ships in the APK under the SIL Open Font License. */
 object Fonts {
     lateinit var regular: Typeface
     lateinit var semibold: Typeface
@@ -63,9 +63,9 @@ object Fonts {
     fun init(ctx: Context) {
         if (::regular.isInitialized) return
         fun load(name: String, fallback: Typeface) = try { Typeface.createFromAsset(ctx.assets, "fonts/$name") } catch (e: Exception) { fallback }
-        regular = load("manrope-regular.ttf", Typeface.DEFAULT)
-        semibold = load("manrope-semibold.ttf", Typeface.DEFAULT_BOLD)
-        serif = load("fraunces.ttf", Typeface.SERIF)
+        regular = load("geist-regular.ttf", Typeface.DEFAULT)
+        semibold = load("geist-semibold.ttf", Typeface.DEFAULT_BOLD)
+        serif = load("geist-semibold.ttf", Typeface.DEFAULT_BOLD)
     }
 }
 

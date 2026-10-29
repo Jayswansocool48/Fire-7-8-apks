@@ -12,25 +12,25 @@
   <script type="text/brightscript" uri="pkg:/components/ui.brs" />
   <script type="text/brightscript" uri="pkg:/components/DetailsApp.brs" />
   <children>
-    <Rectangle width="1280" height="720" color="0x14120FFF" />
+    <Rectangle width="1280" height="720" color="0x111419FF" />
     <Poster id="bg" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" loadWidth="1280" loadHeight="720" />
     <Poster uri="pkg:/images/backdrop_scrim.png" width="1280" height="720" />
-    <Rectangle id="deck" width="1280" height="720" color="0x14120FFF" opacity="0" />
+    <Rectangle id="deck" width="1280" height="720" color="0x111419FF" opacity="0" />
 
     <Group id="page">
       <Group id="head" translation="[80,64]">
         <Label id="kicker" />
-        <Label id="title" translation="[0,28]" width="760" wrap="true" maxLines="2" color="0xF2EADCFF" />
-        <Label id="meta" width="780" color="0xBDB3A3FF" />
-        <Label id="extra" width="780" color="0xBDB3A3FF" />
+        <Label id="title" translation="[0,28]" width="760" wrap="true" maxLines="2" color="0xECEDF0FF" />
+        <Label id="meta" width="780" color="0xB4B7BEFF" />
+        <Label id="extra" width="780" color="0xB4B7BEFF" />
         <Group id="avail" />
-        <Label id="summary" width="720" wrap="true" maxLines="4" lineSpacing="4" color="0xF2EADCD8" />
+        <Label id="summary" width="720" wrap="true" maxLines="4" lineSpacing="4" color="0xECEDF0D8" />
         <Group id="buttons" />
         <Group id="skeleton" />
       </Group>
       <Group id="posterBox" translation="[930,70]" />
       <Group id="sections" />
     </Group>
-    <Label id="hint" translation="[0,684]" width="1200" horizAlign="right" color="0xF2EADC88" />
+    <Label id="hint" translation="[0,684]" width="1200" horizAlign="right" color="0xECEDF088" />
   </children>
 </component>

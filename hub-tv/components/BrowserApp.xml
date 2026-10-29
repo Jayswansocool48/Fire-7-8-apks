@@ -13,13 +13,13 @@
   <script type="text/brightscript" uri="pkg:/components/common.brs" />
   <script type="text/brightscript" uri="pkg:/components/BrowserApp.brs" />
   <children>
-    <Rectangle width="1280" height="720" color="0x14120FFF" />
+    <Rectangle width="1280" height="720" color="0x111419FF" />
     <Poster id="pageA" width="1280" height="720" loadDisplayMode="scaleToFit" />
     <Poster id="pageB" width="1280" height="720" loadDisplayMode="scaleToFit" visible="false" />
     <Poster id="cursor" uri="pkg:/images/cursor.png" width="28" height="40" />
     <Group id="statusBar" translation="[160,650]">
-      <Poster uri="pkg:/images/pill.9.png" width="960" height="48" blendColor="0x1E1A16E8" />
-      <Label id="status" translation="[28,0]" width="904" height="48" vertAlign="center" horizAlign="center" color="0xF2EADCFF" />
+      <Poster uri="pkg:/images/pill.9.png" width="960" height="48" blendColor="0x191C22E8" />
+      <Label id="status" translation="[28,0]" width="904" height="48" vertAlign="center" horizAlign="center" color="0xECEDF0FF" />
     </Group>
     <Animation id="statusAnim" duration="0.3" easeFunction="linear">
       <FloatFieldInterpolator id="statusFade" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="statusBar.opacity" />

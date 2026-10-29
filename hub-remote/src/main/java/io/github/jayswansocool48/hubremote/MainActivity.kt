@@ -403,18 +403,19 @@ class MainActivity : Activity() {
     override fun onBackPressed() = goBack()
 }
 
-/** The Hub mark: a sun setting behind the TV stand, in the accent color. Same as the control page. */
+/** The Hub mark: an H whose crossbar is a play arrow, white on a blue squircle. Same as the control page. */
 class Mark(context: android.content.Context) : View(context) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c: Canvas) {
-        val u = width / 34f
-        p.color = Theme.accent
-        c.drawArc(7 * u, 11 * u, 27 * u, 31 * u, 180f, 180f, true, p)
-        p.color = Theme.SNOW
-        c.drawRoundRect(3 * u, 22.5f * u, 31 * u, 25.1f * u, 1.3f * u, 1.3f * u, p)
-        p.alpha = 153
-        c.drawRoundRect(9 * u, 27.5f * u, 25 * u, 29.7f * u, 1.1f * u, 1.1f * u, p)
-        p.alpha = 255
+        val u = width / 100f
+        p.shader = android.graphics.LinearGradient(0f, 0f, width.toFloat(), height.toFloat(), 0xFF3F5EC2.toInt(), 0xFF6C8DE8.toInt(), android.graphics.Shader.TileMode.CLAMP)
+        c.drawRoundRect(0f, 0f, 100 * u, 100 * u, 26 * u, 26 * u, p)
+        p.shader = null
+        p.color = 0xFFECEDF0.toInt()
+        c.drawRoundRect(25 * u, 24 * u, 38 * u, 76 * u, 6.5f * u, 6.5f * u, p)
+        c.drawRoundRect(62 * u, 24 * u, 75 * u, 76 * u, 6.5f * u, 6.5f * u, p)
+        val tri = Path(); tri.moveTo(41 * u, 38 * u); tri.lineTo(41 * u, 62 * u); tri.lineTo(62 * u, 50 * u); tri.close()
+        c.drawPath(tri, p)
     }
 }
 

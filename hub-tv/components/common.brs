@@ -50,15 +50,14 @@ function absUrl(server as String, path as String) as String
     return serverUrl(server) + path
 end function
 
-' Hub's type: Fraunces for the clock, titles and quotes, Manrope for everything else.
+' Hub's type: Geist (the 21st.dev Darkblue-white theme's font), in several weights.
 ' Both ship in pkg:/fonts under the SIL Open Font License.
 function makeFont(bold as Boolean, size as Integer) as Object
     if bold then return fontFile("semibold", size)
     return fontFile("regular", size)
 end function
 
-' name: "clock" (Fraunces light), "title" (Fraunces), "quote" (Fraunces italic),
-'       "regular", "medium", "semibold" (Manrope)
+'  name: "clock" (thin), "title", "quote", "regular", "medium", "semibold"
 function fontFile(name as String, size as Integer) as Object
     f = CreateObject("roSGNode", "Font")
     f.uri = "pkg:/fonts/" + name + ".ttf"
@@ -196,26 +195,26 @@ function untilText(secs as Dynamic) as String
     return "in " + Int(hrs / 24).toStr() + "d " + (hrs mod 24).toStr() + "h"
 end function
 
-' "#D9894A" -> "0xD9894AFF" (with optional alpha hex "80")
+' "#6C8DE8" -> "0x6C8DE8FF" (with optional alpha hex "80")
 function rokuColor(hexColor as Dynamic, alpha as String) as String
-    if type(hexColor) <> "String" and type(hexColor) <> "roString" then return "0xD9894A" + alpha
+    if type(hexColor) <> "String" and type(hexColor) <> "roString" then return "0x6C8DE8" + alpha
     hc = hexColor
     if Left(hc, 1) = "#" then hc = hc.mid(1)
-    if hc.len() <> 6 then return "0xD9894A" + alpha
+    if hc.len() <> 6 then return "0x6C8DE8" + alpha
     return "0x" + UCase(hc) + alpha
 end function
 
 ' ---------------------------------------------------------------- color
 ' Hub's evening palette: warm ink panels, cream text. The accent comes from Hub settings.
 function pal(name as String) as String
-    if name = "ink" then return "0x14120FFF"
-    if name = "panel" then return "0x1E1A16FF"
-    if name = "raise" then return "0x2A251FFF"
-    if name = "line" then return "0x3A332BFF"
-    if name = "mist" then return "0xBDB3A3FF"
-    if name = "dim" then return "0x8A8174FF"
-    if name = "coral" then return "0xE07A5FFF"
-    return "0xF2EADCFF" ' cream
+    if name = "ink" then return "0x111419FF"
+    if name = "panel" then return "0x191C22FF"
+    if name = "raise" then return "0x21242BFF"
+    if name = "line" then return "0x30333AFF"
+    if name = "mist" then return "0xB4B7BEFF"
+    if name = "dim" then return "0x898C94FF"
+    if name = "coral" then return "0xFF6467FF"
+    return "0xECEDF0FF" ' cream
 end function
 
 ' ---------------------------------------------------------------- motion

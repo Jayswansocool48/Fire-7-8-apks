@@ -1,4 +1,4 @@
-' The "Console" home look.
+' The PlayStation (PS4) look, a skin over the same rows and actions as Hub.
 '   Up top: Media / Apps / Search, then a row of square tiles. The focused tile grows, shows
 '   its name, and its artwork fills the screen.
 '   Below: the focused title's details, where it streams on your TV, and buttons.
@@ -319,7 +319,7 @@ sub showInfo(it as Object)
         end if
         specs = [{ id: "play", text: watch, icon: "pkg:/images/i_play.png" }, { id: "details", text: "Details", icon: "pkg:/images/i_info.png" }, { id: "more", text: "More picks", icon: "" }]
     else if it.kind = "channel" or it.kind = "tool"
-        specs = [{ id: "open", text: "Open", icon: "pkg:/images/i_play.png" }]
+        specs = [{ id: "open", text: "Start", icon: "pkg:/images/i_play.png" }]
     end if
     m.buttons = uiButtons(bg, "cb", specs, m.fButton)
     if m.bcol >= m.buttons.count() then m.bcol = 0

@@ -86,7 +86,7 @@ sub fillWidget(tile as Object, it as Object, w as Integer, h as Integer)
         uiLabel(tile, it.w.text, 20, 86, w - 40, m.fSmallBold, pal("cream"))
         tip = ""
         if it.w.tip <> invalid then tip = it.w.tip
-        t = uiLabel(tile, tip, 20, 112, w - 40, m.fSmall, "0xF2EADCB0")
+        t = uiLabel(tile, tip, 20, 112, w - 40, m.fSmall, "0xECEDF0B0")
         t.maxLines = 1
     else if k = "last"
         uiLabel(tile, "Pick up where you left off", 20, 18, w - 40, m.fSmallBold, accent)
@@ -95,12 +95,12 @@ sub fillWidget(tile as Object, it as Object, w as Integer, h as Integer)
         t.maxLines = 2
         a = "OK to open it again"
         if it.item.appName <> invalid and it.item.appName <> "" then a = "On " + it.item.appName + "  " + Chr(183) + "  " + agoOf(it.item.at)
-        uiLabel(tile, a, 20, h - 36, w - 40, m.fSmall, "0xF2EADCB0")
+        uiLabel(tile, a, 20, h - 36, w - 40, m.fSmall, "0xECEDF0B0")
     else if k = "sleep"
         ic = uiImage(tile, "pkg:/images/moon.png", 20, 20, 40, 40)
         ic.blendColor = pal("cream")
         uiLabel(tile, "Sleep timer", 20, 72, w - 40, fontFile("title", 24), pal("cream"))
-        uiLabel(tile, "OK to turn the TV off in 30 min", 20, 108, w - 40, m.fSmall, "0xF2EADCB0")
+        uiLabel(tile, "OK to turn the TV off in 30 min", 20, 108, w - 40, m.fSmall, "0xECEDF0B0")
     else if k = "next"
         uiLabel(tile, "Up next  " + Chr(183) + "  " + dayAndTime(it.e.start, isTrue(m.hub.clock24), isTrue(it.e.allDay)), 20, 18, w - 40, m.fSmallBold, accent)
         t = uiLabel(tile, it.e.title, 20, 46, w - 40, fontFile("title", 24), pal("cream"))
@@ -116,17 +116,17 @@ sub fillWidget(tile as Object, it as Object, w as Integer, h as Integer)
             t.wrap = true
             t.maxLines = 4
         end if
-        uiLabel(tile, "Note  " + Chr(183) + "  " + agoOf(n.created), 20, h - 30, w - 40, m.fSmall, "0xF2EADCA0")
+        uiLabel(tile, "Note  " + Chr(183) + "  " + agoOf(n.created), 20, h - 30, w - 40, m.fSmall, "0xECEDF0A0")
     else if k = "music"
         ic = uiImage(tile, "pkg:/images/i_music.png", 20, 20, 40, 40)
         ic.blendColor = pal("cream")
         uiLabel(tile, "Music", 20, 72, w - 40, fontFile("title", 24), pal("cream"))
-        uiLabel(tile, "Play songs from your server", 20, 108, w - 40, m.fSmall, "0xF2EADCB0")
+        uiLabel(tile, "Play songs from your server", 20, 108, w - 40, m.fSmall, "0xECEDF0B0")
     else if k = "tool"
         ic = uiImage(tile, it.icon, 20, 20, 40, 40)
         ic.blendColor = pal("cream")
         uiLabel(tile, it.title, 20, 72, w - 40, fontFile("title", 24), pal("cream"))
-        uiLabel(tile, "Ask about the weather, shows, anything", 20, 108, w - 40, m.fSmall, "0xF2EADCB0")
+        uiLabel(tile, "Ask about the weather, shows, anything", 20, 108, w - 40, m.fSmall, "0xECEDF0B0")
     else if k = "hint"
         uiLabel(tile, it.title, 20, 18, w - 40, m.fSmallBold, accent)
         t = uiLabel(tile, it.text, 20, 46, w - 40, m.fSmall, pal("cream"))

@@ -133,7 +133,7 @@ function uiButton(parent as Object, id as String, text as String, icon as String
     ring.opacity = 0
     bg = g.createChild("Poster")
     bg.uri = "pkg:/images/pill.9.png"
-    bg.blendColor = "0xF2EADC26"
+    bg.blendColor = "0xECEDF026"
     lbl = g.createChild("Label")
     lbl.font = font
     lbl.text = text
@@ -175,7 +175,7 @@ sub uiButtonFocus(b as Object, focused as Boolean)
         if ic <> invalid then ic.blendColor = pal("ink")
         animTo(g, "scale", [1.06, 1.06], "snappy")
     else
-        bg.blendColor = "0xF2EADC26"
+        bg.blendColor = "0xECEDF026"
         lbl.color = pal("cream")
         if ic <> invalid then ic.blendColor = pal("cream")
         animTo(g, "scale", [1.0, 1.0], "snappy")

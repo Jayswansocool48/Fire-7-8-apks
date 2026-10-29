@@ -13,7 +13,7 @@ sub init()
     m.fButton = fontFile("semibold", 19)
     m.fChip = fontFile("medium", 17)
 
-    m.accent = "#D9894A"
+    m.accent = "#6C8DE8"
     m.kinds = [{ id: "any", name: "Anything" }, { id: "tv", name: "Shows" }, { id: "movie", name: "Movies" }]
     m.kind = 0
     m.items = []
@@ -231,7 +231,7 @@ sub styleButton(g as Object, active as Boolean)
         bg.blendColor = pal("cream")
         lbl.color = pal("ink")
     else
-        bg.blendColor = "0x2A251FE6"
+        bg.blendColor = "0x21242BE6"
         lbl.color = pal("cream")
     end if
 end sub
@@ -291,7 +291,7 @@ sub renderChips()
             bg.blendColor = rokuColor(m.accent, "FF")
             lbl.color = pal("ink")
         else
-            bg.blendColor = "0x2A251FCC"
+            bg.blendColor = "0x21242BCC"
             lbl.color = pal("cream")
         end if
         g.translation = [x, 0]

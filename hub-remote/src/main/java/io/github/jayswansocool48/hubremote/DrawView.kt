@@ -17,7 +17,7 @@ class DrawView(context: Context) : View(context) {
 
     private val strokes = ArrayList<Stroke>()
     private var cur: Stroke? = null
-    var color = 0xFFF2EADC.toInt()
+    var color = 0xFFECEDF0.toInt()
     var brush = 12f // in export pixels (900 wide)
     var onChange: (() -> Unit)? = null
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

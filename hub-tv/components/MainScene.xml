@@ -8,21 +8,21 @@
   <script type="text/brightscript" uri="pkg:/components/ui.brs" />
   <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
   <children>
-    <Rectangle width="1280" height="720" color="0x14120FFF" />
+    <Rectangle width="1280" height="720" color="0x111419FF" />
     <!-- your wallpaper, behind everything; it dims at night -->
     <Group id="wall" scaleRotateCenter="[640,360]">
       <Poster id="wallA" uri="pkg:/images/bg.jpg" width="1280" height="720" loadDisplayMode="scaleToFill" />
       <Poster id="wallB" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" />
     </Group>
-    <Rectangle id="night" width="1280" height="720" color="0x0E0C0AFF" opacity="0" />
+    <Rectangle id="night" width="1280" height="720" color="0x080A0FFF" opacity="0" />
 
     <!-- the home look (HomeHub or HomeConsole) goes here -->
     <Group id="homeLayer" />
     <Group id="appLayer" />
 
     <Group id="toast" translation="[640,28]" opacity="0">
-      <Poster id="toastBg" uri="pkg:/images/pill.9.png" height="50" blendColor="0x1E1A16F5" />
-      <Label id="toastText" height="50" vertAlign="center" horizAlign="center" color="0xF2EADCFF" />
+      <Poster id="toastBg" uri="pkg:/images/pill.9.png" height="50" blendColor="0x191C22F5" />
+      <Label id="toastText" height="50" vertAlign="center" horizAlign="center" color="0xECEDF0FF" />
     </Group>
 
     <Animation id="breathAnim" duration="48" repeat="true" easeFunction="linear">

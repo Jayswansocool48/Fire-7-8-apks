@@ -11,8 +11,8 @@ android {
         applicationId = "io.github.jayswansocool48.hubremote"
         minSdk = 21
         targetSdk = 35
-        versionCode = 4
-        versionName = "3.0.0"
+        versionCode = 5
+        versionName = "3.1.0"
     }
 
     buildTypes {

@@ -393,11 +393,11 @@ class SendScreen(act: MainActivity) : Screen(act) {
         add(answerBox, 10f)
 
         section("Draw a note", "It shows up in the corner of the TV's home screen.")
-        val draw = DrawView(act).apply { color = 0xFFF2EADC.toInt() }
+        val draw = DrawView(act).apply { color = 0xFFECEDF0.toInt() }
         add(draw, 0f)
         val pens = Chips(act)
-        val penColors = linkedMapOf("Cream" to 0xFFF2EADC.toInt(), "Butter" to 0xFFF0D27A.toInt(), "Ember" to 0xFFE6A15A.toInt(),
-            "Rose" to 0xFFE8A3A8.toInt(), "Sky" to 0xFF9CC3E0.toInt(), "Sage" to 0xFFA9CF9C.toInt())
+        val penColors = linkedMapOf("Cream" to 0xFFECEDF0.toInt(), "Butter" to 0xFFE8E39A.toInt(), "Ember" to 0xFF9AB0E5.toInt(),
+            "Rose" to 0xFFE8A3C8.toInt(), "Sky" to 0xFF9CC3E0.toInt(), "Sage" to 0xFFA9CF9C.toInt())
         for (k in penColors.keys) pens.add(k, k)
         pens.select("Cream")
         pens.onPick = { k -> draw.color = penColors[k]!! }
@@ -701,8 +701,8 @@ class HubScreen(act: MainActivity) : Screen(act) {
         add(HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false; addView(walls) }, 0f)
         section("Home screen look")
         looks.add("hub", "Hub: picks and rows")
-        looks.add("console", "Console: tiles and artwork")
-        looks.onPick = { k -> saveHub(json("theme" to k), if (k == "console") "The TV switches to the Console look" else "The TV switches to the Hub look") }
+        looks.add("console", "PlayStation (PS4): tiles and waves")
+        looks.onPick = { k -> saveHub(json("theme" to k), if (k == "console") "The TV switches to the PlayStation look" else "The TV switches to the Hub look") }
         add(looks, 0f)
         add(modes, 10f)
         section("People", "Each profile keeps its own shows, Keep watching, picks and look.")
@@ -800,7 +800,7 @@ class HubScreen(act: MainActivity) : Screen(act) {
         section("Text notes", "Notes show up on the TV's home screen. To draw one, use Send.")
         add(act.field("Leave a note on the TV", "Post", primary = true) { t, e ->
             if (t.isEmpty()) return@field
-            val colors = listOf("#EFE2C4", "#E6C9A6", "#CBD8C2", "#D9CBBE", "#C9D6DA")
+            val colors = listOf("#D9E2F2", "#D6CCF0", "#CBE3CF", "#CFE6E0", "#C9D6EA")
             Hub.post("/api/notes/add", json("text" to t, "color" to colors.random())) { _, err ->
                 if (err != null) act.toast(err) else { e.setText(""); act.toast("Posted to the TV"); reload() }
             }
@@ -1178,7 +1178,7 @@ class HubScreen(act: MainActivity) : Screen(act) {
                     onDelete = { Hub.post("/api/wallpapers/delete", json("name" to n)) { _, _ -> reload() } }) {
                     saveHub(json("wallpaper" to json("type" to "custom", "value" to n)), "Wallpaper set")
                 })
-                walls.addView(wallTile(null, "Bing daily", cur.optString("type") == "bing", color = 0xFF6B4A32.toInt()) {
+                walls.addView(wallTile(null, "Bing daily", cur.optString("type") == "bing", color = 0xFF2C3F6E.toInt()) {
                     saveHub(json("wallpaper" to json("type" to "bing")), "A new photo every day")
                 })
                 for (pr in p?.optJSONArray("presets")?.objects() ?: emptyList()) {
@@ -1328,7 +1328,7 @@ class HubScreen(act: MainActivity) : Screen(act) {
         notes.removeAllViews()
         for (n in arr.objects()) {
             val card = act.hbox().apply {
-                background = rounded(parseColor(n.optString("color"), 0xFFEFE2C4.toInt()), act.dp(14f))
+                background = rounded(parseColor(n.optString("color"), 0xFFD9E2F2.toInt()), act.dp(14f))
                 val p = act.dpi(14f)
                 setPadding(p, p, act.dpi(6f), p)
             }
@@ -1338,7 +1338,7 @@ class HubScreen(act: MainActivity) : Screen(act) {
                 Images.load(img, n.optString("image"), 600)
                 card.addView(img, lp(0, act.dpi(110f), 1f))
             } else {
-                card.addView(act.label(n.optString("text"), 15f, 0xFF1D1A10.toInt(), bold = true), lp(0, WRAP, 1f))
+                card.addView(act.label(n.optString("text"), 15f, 0xFF151821.toInt(), bold = true), lp(0, WRAP, 1f))
             }
             val drawn = n.optString("kind") == "drawing"
             card.addView(act.label("×", 22f, if (drawn) Theme.MIST else 0x99000000.toInt()).apply {

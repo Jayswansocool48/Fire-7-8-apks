@@ -1,5 +1,5 @@
 ' Hub's frame: loads everything from the Hub server, shows the home look you picked
-' (Hub or Console), opens Hub's own screens on top, and handles settings and messages.
+' (Hub or PlayStation), opens Hub's own screens on top, and handles settings and messages.
 
 sub init()
     m.tools = [
@@ -12,7 +12,7 @@ sub init()
         { id: "settings", name: "Settings", icon: "pkg:/images/gear.png" }
     ]
     m.server = regRead("browserServer", "")
-    m.hub = { accent: "#D9894A", clock24: false, name: "", theme: "hub", rows: [], widgets: [], favorites: [], screensaver: { minutes: 5 }, modes: { auto: true, morning: 5, night: 21 } }
+    m.hub = { accent: "#6C8DE8", clock24: false, name: "", theme: "hub", rows: [], widgets: [], favorites: [], screensaver: { minutes: 5 }, modes: { auto: true, morning: 5, night: 21 } }
     m.state = { widgets: {}, quotes: [], shows: [], history: [], foryou: [], profiles: [] }
     m.serverOk = false
     m.wallUrl = ""
@@ -467,7 +467,7 @@ sub showSettings()
             "Change wallpapers, shows, profiles and widgets from Hub Remote or " + serverUrl(m.server) + "."
         ]
     end if
-    other = "Console"
+    other = "PlayStation"
     if m.homeTheme = "console" then other = "Hub"
     dlg.buttons = ["Switch to the " + other + " look", "Who's watching", "Set server address", "Reload everything", "Privacy and terms", "Remove Hub from this TV", "Close"]
     openDialog(dlg, "settings")

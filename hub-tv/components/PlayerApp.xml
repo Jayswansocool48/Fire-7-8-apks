@@ -16,16 +16,16 @@
     <Poster id="photoB" width="1280" height="720" loadDisplayMode="scaleToFit" opacity="0" />
     <Group id="audioView" visible="false">
       <Poster uri="pkg:/images/library.png" width="140" height="140" translation="[570,170]" />
-      <Label id="audioTitle" translation="[140,350]" width="1000" horizAlign="center" wrap="true" maxLines="2" color="0xF2EADCFF" />
-      <Label id="audioTime" translation="[140,450]" width="1000" horizAlign="center" color="0xF2EADCA0" />
+      <Label id="audioTitle" translation="[140,350]" width="1000" horizAlign="center" wrap="true" maxLines="2" color="0xECEDF0FF" />
+      <Label id="audioTime" translation="[140,450]" width="1000" horizAlign="center" color="0xECEDF0A0" />
     </Group>
     <Video id="video" width="1280" height="720" visible="false" />
     <Audio id="audio" />
     <Group id="caption" translation="[60,640]" opacity="0">
       <Poster uri="pkg:/images/pill.9.png" width="1160" height="50" blendColor="0x000000B0" />
-      <Label id="captionText" translation="[24,0]" width="1112" height="50" vertAlign="center" color="0xF2EADCFF" />
+      <Label id="captionText" translation="[24,0]" width="1112" height="50" vertAlign="center" color="0xECEDF0FF" />
     </Group>
-    <Label id="errorText" translation="[140,330]" width="1000" horizAlign="center" wrap="true" color="0xF2EADCFF" visible="false" />
+    <Label id="errorText" translation="[140,330]" width="1000" horizAlign="center" wrap="true" color="0xECEDF0FF" visible="false" />
     <Animation id="fadeAnim" duration="0.6" easeFunction="linear">
       <FloatFieldInterpolator id="fadeIn" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="photoB.opacity" />
       <FloatFieldInterpolator id="fadeOut" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="photoA.opacity" />

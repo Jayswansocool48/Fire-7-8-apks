@@ -340,7 +340,7 @@ function makeRow(r as Object, y as Integer) as Object
     g.translation = [0, y]
     top = 0
     if r.title <> ""
-        t = uiLabel(g, r.title, 80, 0, 0, m.fRow, "0xF2EADCE6")
+        t = uiLabel(g, r.title, 80, 0, 0, m.fRow, "0xECEDF0E6")
         top = 42
     end if
     clip = g.createChild("Group")
@@ -367,7 +367,7 @@ end function
 function tileFace(card as String) as String
     if card = "widget" or card = "event" then return pal("panel")
     if card = "app" then return pal("raise")
-    return "0xF2EADC14"
+    return "0xECEDF014"
 end function
 
 sub fillTile(tile as Object, card as String, it as Object, sz as Object)
@@ -381,7 +381,7 @@ sub fillTile(tile as Object, card as String, it as Object, sz as Object)
             sub1 = ""
             if it.episode <> invalid then sub1 = "Ep " + it.episode.toStr()
             uiLabel(tile, sub1, 12, h - 54, w - 24, m.fSmallBold, pal("cream"))
-            if it.airingAt <> invalid then uiLabel(tile, untilText(it.airingAt - CreateObject("roDateTime").asSeconds()), 12, h - 30, w - 24, m.fSmall, "0xF2EADCC0")
+            if it.airingAt <> invalid then uiLabel(tile, untilText(it.airingAt - CreateObject("roDateTime").asSeconds()), 12, h - 30, w - 24, m.fSmall, "0xECEDF0C0")
         else if it.poster = invalid or it.poster = ""
             t = uiLabel(tile, it.title, 14, 16, w - 28, fontFile("title", 22), pal("cream"))
             t.wrap = true
@@ -395,13 +395,13 @@ sub fillTile(tile as Object, card as String, it as Object, sz as Object)
         t.maxLines = 1
         sub2 = agoOf(it.at)
         if it.appName <> invalid and it.appName <> "" then sub2 = it.appName + "  " + Chr(183) + "  " + sub2
-        uiLabel(tile, sub2, 16, h - 34, w - 32, m.fSmall, "0xF2EADCC0")
+        uiLabel(tile, sub2, 16, h - 34, w - 32, m.fSmall, "0xECEDF0C0")
     else if card = "video"
         uiArt(tile, thumbUrl(m.server, it.thumb), sz.mask, w, h, true)
         t = uiLabel(tile, it.title, 16, h - 66, w - 32, m.fSmallBold, pal("cream"))
         t.wrap = true
         t.maxLines = 2
-        uiLabel(tile, it.channel, 16, h - 26, w - 32, m.fSmall, "0xF2EADCB0")
+        uiLabel(tile, it.channel, 16, h - 26, w - 32, m.fSmall, "0xECEDF0B0")
     else if card = "app"
         if it.kind = "channel"
             mk = tile.createChild("MaskGroup")
@@ -477,7 +477,7 @@ sub renderHero(animate as Boolean)
     dots.removeChildrenIndex(dots.getChildCount(), 0)
     if m.heroItems.count() > 1
         for i = 0 to m.heroItems.count() - 1
-            c = "0xF2EADC55"
+            c = "0xECEDF055"
             sz = 8
             if i = m.heroIdx
                 c = pal("cream")

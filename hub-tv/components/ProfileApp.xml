@@ -11,9 +11,9 @@
   <script type="text/brightscript" uri="pkg:/components/ui.brs" />
   <script type="text/brightscript" uri="pkg:/components/ProfileApp.brs" />
   <children>
-    <Rectangle width="1280" height="720" color="0x14120FFF" />
-    <Label id="heading" translation="[0,150]" width="1280" horizAlign="center" color="0xF2EADCFF" text="Who's watching?" />
+    <Rectangle width="1280" height="720" color="0x111419FF" />
+    <Label id="heading" translation="[0,150]" width="1280" horizAlign="center" color="0xECEDF0FF" text="Who's watching?" />
     <Group id="people" translation="[0,290]" />
-    <Label id="hint" translation="[0,640]" width="1280" horizAlign="center" color="0xF2EADC88" text="Add and edit profiles from Hub Remote or the control page" />
+    <Label id="hint" translation="[0,640]" width="1280" horizAlign="center" color="0xECEDF088" text="Add and edit profiles from Hub Remote or the control page" />
   </children>
 </component>

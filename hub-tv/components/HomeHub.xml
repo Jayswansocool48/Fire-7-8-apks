@@ -18,16 +18,16 @@
     <Poster id="bgA" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" loadWidth="1280" loadHeight="720" />
     <Poster id="bgB" width="1280" height="720" loadDisplayMode="scaleToFill" opacity="0" loadWidth="1280" loadHeight="720" />
     <Poster id="bgScrim" uri="pkg:/images/backdrop_scrim.png" width="1280" height="720" />
-    <Rectangle id="deck" width="1280" height="720" color="0x14120FFF" opacity="0" />
+    <Rectangle id="deck" width="1280" height="720" color="0x111419FF" opacity="0" />
 
     <Group id="page">
       <!-- featured title / details of whatever is focused -->
       <Group id="info" translation="[80,118]">
         <Label id="kicker" translation="[0,0]" />
-        <Label id="title" translation="[0,30]" width="720" wrap="true" maxLines="2" color="0xF2EADCFF" />
-        <Label id="meta" width="760" color="0xBDB3A3FF" />
+        <Label id="title" translation="[0,30]" width="720" wrap="true" maxLines="2" color="0xECEDF0FF" />
+        <Label id="meta" width="760" color="0xB4B7BEFF" />
         <Group id="avail" />
-        <Label id="summary" width="620" wrap="true" maxLines="3" lineSpacing="4" color="0xF2EADCD8" />
+        <Label id="summary" width="620" wrap="true" maxLines="3" lineSpacing="4" color="0xECEDF0D8" />
         <Group id="heroButtons" />
         <Group id="dots" />
       </Group>
@@ -42,7 +42,7 @@
       <Group id="profileBtn" translation="[64,0]" />
       <Group id="tabs" />
       <Group id="weather" />
-      <Label id="clockLbl" translation="[1040,6]" width="176" horizAlign="right" color="0xF2EADCFF" />
+      <Label id="clockLbl" translation="[1040,6]" width="176" horizAlign="right" color="0xECEDF0FF" />
     </Group>
 
     <Timer id="heroTimer" duration="9" repeat="true" />

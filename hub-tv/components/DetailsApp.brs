@@ -309,7 +309,7 @@ function addRow(parent as Object, id as String, title as String, items as Object
     if n > 30 then n = 30
     for i = 0 to n - 1
         it = items[i]
-        face = "0xF2EADC14"
+        face = "0xECEDF014"
         t = uiTile(cards, "d_" + id + "_" + i.toStr(), w, h, face)
         if card = "episode"
             img = txt(it.image)
