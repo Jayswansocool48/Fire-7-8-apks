@@ -1,3 +1,13 @@
-01:55:36 Ad blocker loaded 76,149 domains
-01:55:37 Hub server 5.1.0 running. Control page: http://10.1.1.79:8765
-01:55:37 On the TV: Hub > Settings > Server address > 10.1.1.79
+21:04:06 Ad blocker loaded 76,738 domains
+21:04:06 Art lookup: Moneyball anilist HTTP Error 400: Bad Request
+21:04:06 Art lookup: The Grand Budapest Hotel anilist HTTP Error 400: Bad Request
+21:04:06 Art lookup: Groundhog Day anilist HTTP Error 400: Bad Request
+21:04:07 Hub server 5.2.0 running. Control page: http://10.1.0.76:8765
+21:04:07 On the TV: Hub > Settings > Server address > 10.1.0.76
+21:04:07 Art lookup: Harry Potter and the Sorcerer's Stone anilist HTTP Error 400: Bad Request
+21:06:44 Art lookup: Barbie anilist HTTP Error 400: Bad Request
+21:06:44 Art lookup: The Princess Bride anilist HTTP Error 400: Bad Request
+21:06:44 Art lookup: The Lego Movie anilist HTTP Error 400: Bad Request
+21:06:44 Art lookup: 10 Things I Hate About You anilist HTTP Error 400: Bad Request
+21:06:44 Art lookup: Blade Runner 2049 anilist HTTP Error 400: Bad Request
+21:06:45 Art lookup: Barbarian anilist HTTP Error 400: Bad Request
