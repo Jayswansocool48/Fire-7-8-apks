@@ -56,7 +56,7 @@ try:
 except ImportError:  # Python < 3.9
     ZoneInfo = None
 
-VERSION = "5.2.0"
+VERSION = "5.2.1"
 # Where "Check for updates" looks for newer server files.
 UPDATE_BASE = "https://raw.githubusercontent.com/Jayswansocool48/Fire-7-8-apks/main/hub-server/"
 UPDATE_FILES = ["hub_server.py", "hub_control.html", "start.sh", "install.sh", "VERSION", "fonts/geist.woff", "fonts/LICENSE-Geist-OFL.txt"]
@@ -1682,7 +1682,7 @@ def find_art(kind, title, year=""):
         return bool(name) and re.sub(r"[^a-z0-9]", "", name.lower()) == want
 
     def anilist():
-        q = ("query($s:String,$t:MediaFormat){Page(perPage:5){media(search:$s,type:ANIME){title{romaji english}"
+        q = ("query($s:String){Page(perPage:5){media(search:$s,type:ANIME){title{romaji english}"
              " seasonYear format coverImage{extraLarge} bannerImage}}}")
         res = fetch_json("https://graphql.anilist.co", {"query": q, "variables": {"s": title}}, timeout=8)
         hits = ((res.get("data") or {}).get("Page") or {}).get("media") or []
@@ -1704,11 +1704,20 @@ def find_art(kind, title, year=""):
                 return {"poster": h["artworkUrl100"].replace("100x100bb", size), "backdrop": ""}
         return None
 
+    def tvmaze():
+        if kind == "movie":
+            return None
+        sh = fetch_json("https://api.tvmaze.com/singlesearch/shows?q=" + quote(title), timeout=6)
+        img = (sh or {}).get("image") or {}
+        if same(sh.get("name")) and (img.get("original") or img.get("medium")):
+            return {"poster": img.get("original") or img.get("medium"), "backdrop": ""}
+        return None
+
     def wikipedia():
         tries = [f"{title} ({y} film)", f"{title} (film)"] if kind == "movie" else [f"{title} (TV series)", f"{title} ({y} TV series)"]
         for t in tries + [title]:
             try:
-                d = fetch_json("https://en.wikipedia.org/api/rest_v1/page/summary/" + quote(t.replace(" ", "_")), timeout=6)
+                d = fetch_json("https://en.wikipedia.org/api/rest_v1/page/summary/" + quote(t.replace(" ", "_")), timeout=4)
             except Exception:  # noqa: BLE001  404 for most guesses
                 continue
             src = (d.get("originalimage") or d.get("thumbnail") or {}).get("source", "")
@@ -1716,7 +1725,7 @@ def find_art(kind, title, year=""):
                 return {"poster": src, "backdrop": ""}
         return None
 
-    for fn in (anilist, itunes, wikipedia):
+    for fn in (anilist, tvmaze, itunes, wikipedia):
         try:
             got = fn()
         except Exception as e:  # noqa: BLE001

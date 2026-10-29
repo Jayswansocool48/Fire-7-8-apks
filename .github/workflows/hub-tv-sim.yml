@@ -57,7 +57,7 @@ jobs:
           cd hub-server && python3 - <<'PY' | tee ../screens/art.log
           import time, hub_server as h
           for k, t, y in [("tv", "Frieren: Beyond Journey's End", "2023"), ("movie", "Hereditary", "2018"),
-                          ("tv", "Dandadan", "2024"), ("movie", "Your Name", "2016"), ("tv", "Severance", "2022")]:
+                          ("tv", "Dandadan", "2024"), ("movie", "Your Name", "2016"), ("tv", "Severance", "2022"), ("tv", "Jujutsu Kaisen", "2020")]:
               t0 = time.time(); a = h.find_art(k, t, y); print(t, "->", a.get("poster", "NONE")[:90], f"{time.time()-t0:.1f}s")
           big = h.fetch("https://static.tvmaze.com/uploads/images/original_untouched/0/1.jpg")
           small = h.shrink_image(big)
