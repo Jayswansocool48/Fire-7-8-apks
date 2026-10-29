@@ -39,6 +39,15 @@ from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, quote_plus, unquote, urlencode, urlparse
 
+try:  # Pillow shrinks posters for the TV; installed on first run if missing (start.sh does it too)
+    from PIL import Image as PILImage
+except ImportError:  # pragma: no cover
+    try:
+        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages", "pillow"],
+                       check=True, timeout=180, capture_output=True)
+        from PIL import Image as PILImage
+    except Exception:  # noqa: BLE001  no network or no pip: posters load full size
+        PILImage = None
 from playwright.sync_api import Error as PWError
 from playwright.sync_api import sync_playwright
 
@@ -47,7 +56,7 @@ try:
 except ImportError:  # Python < 3.9
     ZoneInfo = None
 
-VERSION = "5.1.0"
+VERSION = "5.2.0"
 # Where "Check for updates" looks for newer server files.
 UPDATE_BASE = "https://raw.githubusercontent.com/Jayswansocool48/Fire-7-8-apks/main/hub-server/"
 UPDATE_FILES = ["hub_server.py", "hub_control.html", "start.sh", "install.sh", "VERSION", "fonts/geist.woff", "fonts/LICENSE-Geist-OFL.txt"]
@@ -68,7 +77,7 @@ DEFAULT_HUB = {
     "name": "",
     "units": "F",
     "location": "",
-    # Home screen look: "hub" (rows of picks and apps) or "console" (game-console style).
+    # Home screen look. Only "hub" now; older configs that picked "console" move back to it.
     "theme": "hub",
     # Morning and night looks switch on by the clock: hours when each starts.
     "modes": {"auto": True, "morning": 5, "night": 21},
@@ -196,6 +205,28 @@ def fetch(url, data=None, headers=None, timeout=20):
         return r.read()
 
 
+def shrink_image(data):
+    """Downsizes a downloaded poster or backdrop to what a 720p TV shows: tall pictures to 600px high,
+    wide ones to 1280px wide. Full-size art (often 2000px+) is what made the TV slow to draw rows."""
+    if PILImage is None:
+        return None
+    try:
+        import io
+        with PILImage.open(io.BytesIO(data)) as im:
+            w, h = im.size
+            box = (1280, 720) if w >= h else (400, 600)
+            if w <= box[0] and h <= box[1] and len(data) < 250_000:
+                return None
+            im = im.convert("RGB")
+            im.thumbnail(box, PILImage.LANCZOS)
+            buf = io.BytesIO()
+            im.save(buf, "JPEG", quality=84, optimize=True, progressive=False)
+            return buf.getvalue()
+    except Exception as e:  # noqa: BLE001
+        log("Shrink image:", e)
+        return None
+
+
 def fetch_json(url, payload=None, timeout=20):
     data = json.dumps(payload).encode() if payload is not None else None
     hdr = {"Content-Type": "application/json", "Accept": "application/json"} if payload is not None else {}
@@ -253,7 +284,7 @@ class Config:
             hub["rows"] = [{"id": i, "on": True} for i in ("continue", "foryou", "apps")] + \
                 [r for r in hub["rows"] if r["id"] not in ("continue", "foryou", "apps")]
         hub["layout"] = 5
-        if hub.get("theme") not in ("hub", "console"):
+        if hub.get("theme") != "hub":
             hub["theme"] = "hub"
         m = hub.get("modes") if isinstance(hub.get("modes"), dict) else {}
         hub["modes"] = {"auto": m.get("auto", True) is not False,
@@ -1634,6 +1665,68 @@ def strip_html(text):
     return html.unescape(re.sub(r"<[^>]+>", "", text or "")).strip()
 
 
+ART_TRIES = {}  # (kind, title) -> time of the last fallback search, so misses aren't retried on every refresh
+
+
+def find_art(kind, title, year=""):
+    """Finds a poster (and a wide picture when there is one) for a title that the main lookup came back
+    without. Tries AniList, iTunes and Wikipedia in turn. Returns {"poster", "backdrop"} or {}."""
+    key = (kind, (title or "").lower())
+    if not title or time.time() - ART_TRIES.get(key, 0) < 6 * 3600:
+        return {}
+    ART_TRIES[key] = time.time()
+    y = str(year or "")[:4]
+    want = re.sub(r"[^a-z0-9]", "", title.lower())
+
+    def same(name):
+        return bool(name) and re.sub(r"[^a-z0-9]", "", name.lower()) == want
+
+    def anilist():
+        q = ("query($s:String,$t:MediaFormat){Page(perPage:5){media(search:$s,type:ANIME){title{romaji english}"
+             " seasonYear format coverImage{extraLarge} bannerImage}}}")
+        res = fetch_json("https://graphql.anilist.co", {"query": q, "variables": {"s": title}}, timeout=8)
+        hits = ((res.get("data") or {}).get("Page") or {}).get("media") or []
+        if kind == "movie":
+            hits = [h for h in hits if h.get("format") == "MOVIE"] or hits
+        h = next((h for h in hits if same((h.get("title") or {}).get("english")) or same((h.get("title") or {}).get("romaji"))), None)
+        if h and (h.get("coverImage") or {}).get("extraLarge"):
+            return {"poster": h["coverImage"]["extraLarge"], "backdrop": h.get("bannerImage") or ""}
+        return None
+
+    def itunes():
+        ent = "movie" if kind == "movie" else "tvSeason"
+        res = fetch_json(f"https://itunes.apple.com/search?media={'movie' if kind == 'movie' else 'tvShow'}&entity={ent}"
+                         "&limit=8&term=" + quote(title), timeout=8)
+        for h in res.get("results", []):
+            name = h.get("trackName") if kind == "movie" else h.get("artistName")
+            if same(name) and (not y or kind != "movie" or (h.get("releaseDate") or "").startswith(y)) and h.get("artworkUrl100"):
+                size = "600x900bb" if kind == "movie" else "600x600bb"
+                return {"poster": h["artworkUrl100"].replace("100x100bb", size), "backdrop": ""}
+        return None
+
+    def wikipedia():
+        tries = [f"{title} ({y} film)", f"{title} (film)"] if kind == "movie" else [f"{title} (TV series)", f"{title} ({y} TV series)"]
+        for t in tries + [title]:
+            try:
+                d = fetch_json("https://en.wikipedia.org/api/rest_v1/page/summary/" + quote(t.replace(" ", "_")), timeout=6)
+            except Exception:  # noqa: BLE001  404 for most guesses
+                continue
+            src = (d.get("originalimage") or d.get("thumbnail") or {}).get("source", "")
+            if src and d.get("type") == "standard" and not src.lower().endswith(".svg"):
+                return {"poster": src, "backdrop": ""}
+        return None
+
+    for fn in (anilist, itunes, wikipedia):
+        try:
+            got = fn()
+        except Exception as e:  # noqa: BLE001
+            log("Art lookup:", title, fn.__name__, e)
+            got = None
+        if got:
+            return got
+    return {}
+
+
 def short_summary(text, limit=230):
     text = re.sub(r"\s+", " ", strip_html(text))
     if len(text) <= limit:
@@ -1807,9 +1900,15 @@ class Recommender:
     def describe(self, item, reason):
         ck = title_key(item["kind"], item["title"], item.get("year"))
         info = self.titles.get(ck)
+        fresh = not info
         if not info:
             info = self._lookup(item) or {}
-        if info and ck not in self.titles:
+        if not info.get("poster"):
+            art = find_art(item["kind"], item["title"], item.get("year") or info.get("year", ""))
+            if art:
+                info = {**info, "poster": art["poster"], "backdrop": info.get("backdrop") or art["backdrop"]}
+                fresh = True
+        if info and (fresh or ck not in self.titles):
             with self.lock:
                 self.titles[ck] = info
                 try:
@@ -1996,6 +2095,10 @@ class Titles:
         step(self._tmdb)
         if not info["title"]:
             raise ValueError("Couldn't find that title")
+        if not info["poster"] or not info["backdrop"]:
+            art = find_art(kind, info["title"], info["year"] or year)
+            info["poster"] = info["poster"] or art.get("poster", "")
+            info["backdrop"] = info["backdrop"] or art.get("backdrop", "")
         info["genres"] = norm_genres(info["genres"]) or info["genres"][:4]
         if info["anime"] and "Anime" not in info["genres"]:
             info["genres"].insert(0, "Anime")
@@ -3174,6 +3277,8 @@ class App:
         self.cfg = cfg
         self.data_dir = data_dir
         self.cache = os.path.join(data_dir, "cache")
+        for old in ("thumbs", "tiny"):  # full-size art from before 5.2; the shrunk copies live in thumbs2/tiny2
+            shutil.rmtree(os.path.join(self.cache, old), ignore_errors=True)
         self.wall_dir = os.path.join(data_dir, "wallpapers")
         os.makedirs(self.cache, exist_ok=True)
         os.makedirs(self.wall_dir, exist_ok=True)
@@ -3357,9 +3462,10 @@ class App:
         """Caches a remote picture (posters, thumbnails) so the TV loads it fast over plain HTTP."""
         if not re.match(r"^https?://", url or ""):
             raise FileNotFoundError(url)
-        out = os.path.join(self.cache, "thumbs", hashlib.sha1(url.encode()).hexdigest() + ".img")
+        out = os.path.join(self.cache, "thumbs2", hashlib.sha1(url.encode()).hexdigest() + ".img")
         if not os.path.exists(out):
             data = fetch(url, timeout=20)
+            data = shrink_image(data) or data
             os.makedirs(os.path.dirname(out), exist_ok=True)
             with open(out + ".tmp", "wb") as f:
                 f.write(data)
@@ -3372,9 +3478,14 @@ class App:
     def tiny(self, url):
         """An 8x12 preview of a poster, shown blurred while the full picture loads."""
         full, _ = self.thumb(url)
-        out = os.path.join(self.cache, "tiny", os.path.basename(full)[:-4] + ".jpg")
+        out = os.path.join(self.cache, "tiny2", os.path.basename(full)[:-4] + ".jpg")
         if not os.path.exists(out):
-            self.proxy.call("render_image", self.local_url(full), 8, 12, out, "cover")
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+            if PILImage is not None:
+                with PILImage.open(full) as im:
+                    im.convert("RGB").resize((8, 12)).save(out, "JPEG", quality=80)
+            else:
+                self.proxy.call("render_image", self.local_url(full), 8, 12, out, "cover")
         return out
 
     def add_drawing(self, src):

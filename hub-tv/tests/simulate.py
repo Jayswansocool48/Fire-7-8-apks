@@ -65,12 +65,6 @@ for _ in range(6):
     key("Down", 0.6)
 key("Up", 1); key("Up", 1)
 snap("10-before-settings")
-os.system(f"curl -s -X POST -H 'content-type: application/json' -d '{{\"theme\": \"console\"}}' http://127.0.0.1:8765/api/hub/config > /dev/null")
-pump(12); snap("11-console")
-key("Right", 4); snap("12-console-right")
-key("Down", 3); snap("13-console-buttons")
-key("Down", 3); snap("14-console-cards")
-key("Up"); key("Up"); key("Up", 2); key("Right"); key("Right", 4); snap("15-console-apps")
 os.write(fd, b"\x04")
 pump(3)
 try:

@@ -60,7 +60,7 @@ install() {
     say "Setting up Python packages (one time, a few minutes)..."
     python3 -m venv "$APP_DIR/venv"
   fi
-  "$APP_DIR/venv/bin/pip" install --quiet --upgrade playwright
+  "$APP_DIR/venv/bin/pip" install --quiet --upgrade playwright pillow
   # Chromium for Hub's TV browser. The system libraries it needs come from apt, so this asks for your password once.
   if ! "$APP_DIR/venv/bin/python" -m playwright install --with-deps chromium; then
     say "Couldn't install Chromium's system libraries. Run this, then install.sh again:"

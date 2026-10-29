@@ -23,6 +23,11 @@ if ! python3 -c "import playwright" 2>/dev/null; then
   pip3 install --break-system-packages playwright || pip3 install playwright
 fi
 
+if ! python3 -c "import PIL" 2>/dev/null; then
+  echo "Installing Pillow (shrinks posters so the TV loads them fast)..."
+  pip3 install --break-system-packages pillow || pip3 install pillow || echo "WARNING: Pillow install failed; posters load full size"
+fi
+
 # Makes sure the Chromium build matches the installed Playwright (quick if it already does).
 python3 -m playwright install chromium || echo "WARNING: Chromium install failed - see above"
 

@@ -10,7 +10,6 @@ The TV gets everything through the server: channels, the browser, weather, recom
 
 What Hub does:
 
-- **Two looks:** Hub (a featured title, then rows of picks, apps and today's widgets) or Console (square tiles with the focused title's artwork filling the screen). Switch in TV Settings, Hub Remote or the control page.
 - **Details for every show and movie:** summary, seasons and episodes, cast, ratings, more like it, and which of your channels stream it.
 - **Opens the title itself:** Watch goes straight to the show or episode in Netflix, Crunchyroll, Hulu, Disney+, Max or Prime Video when Hub knows that service's ID for it, and searches your channels otherwise.
 - **Keep watching, profiles, music, morning and night looks, Ask the TV, drawn notes, a browser with ads blocked, a media library and a sleep timer.**

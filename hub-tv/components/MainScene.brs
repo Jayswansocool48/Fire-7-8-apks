@@ -1,5 +1,5 @@
 ' Hub's frame: loads everything from the Hub server, shows the home look you picked
-' (Hub or PlayStation), opens Hub's own screens on top, and handles settings and messages.
+' (HomeHub), opens Hub's own screens on top, and handles settings and messages.
 
 sub init()
     m.tools = [
@@ -122,17 +122,12 @@ end sub
 
 sub buildHome()
     theme = "hub"
-    if txt(m.hub.theme) = "console" then theme = "console"
     if m.home = invalid or theme <> m.homeTheme
         if m.home <> invalid
             m.home.unobserveField("action")
             m.homeLayer.removeChild(m.home)
         end if
-        if theme = "console"
-            m.home = CreateObject("roSGNode", "HomeConsole")
-        else
-            m.home = CreateObject("roSGNode", "HomeHub")
-        end if
+        m.home = CreateObject("roSGNode", "HomeHub")
         m.homeTheme = theme
         m.home.observeField("action", "onHomeAction")
         m.homeLayer.appendChild(m.home)
@@ -467,9 +462,7 @@ sub showSettings()
             "Change wallpapers, shows, profiles and widgets from Hub Remote or " + serverUrl(m.server) + "."
         ]
     end if
-    other = "PlayStation"
-    if m.homeTheme = "console" then other = "Hub"
-    dlg.buttons = ["Switch to the " + other + " look", "Who's watching", "Set server address", "Reload everything", "Privacy and terms", "Remove Hub from this TV", "Close"]
+    dlg.buttons = ["Who's watching", "Set server address", "Reload everything", "Privacy and terms", "Remove Hub from this TV", "Close"]
     openDialog(dlg, "settings")
 end sub
 
@@ -506,12 +499,6 @@ sub onSearch(msg as Object)
     m.search = data.results
     m.searchSeq = m.searchSeq + 1
     pushData()
-end sub
-
-sub setTheme(theme as String)
-    m.hub.theme = theme
-    buildHome()
-    startRequest(serverUrl(m.server) + "/api/hub/config", "POST", FormatJson({ "theme": theme }), "onLaunched")
 end sub
 
 sub showLegal()
@@ -589,21 +576,15 @@ sub onDialogButton()
     closeDialog()
     if kind = "settings"
         if idx = 0
-            if m.homeTheme = "console"
-                setTheme("hub")
-            else
-                setTheme("console")
-            end if
-        else if idx = 1
             openApp("ProfileApp", { profiles: m.state.profiles, accent: m.hub.accent })
-        else if idx = 2
+        else if idx = 1
             askServer()
-        else if idx = 3
+        else if idx = 2
             loadChannels()
             loadState()
-        else if idx = 4
+        else if idx = 3
             showLegal()
-        else if idx = 5
+        else if idx = 4
             askRemove()
         end if
     else if kind = "search" and idx = 0 and text <> ""

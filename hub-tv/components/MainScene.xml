@@ -16,7 +16,7 @@
     </Group>
     <Rectangle id="night" width="1280" height="720" color="0x080A0FFF" opacity="0" />
 
-    <!-- the home look (HomeHub or HomeConsole) goes here -->
+    <!-- the home look (HomeHub) goes here -->
     <Group id="homeLayer" />
     <Group id="appLayer" />
 

@@ -25,7 +25,7 @@ jobs:
       - name: Install the simulator and the server's browser
         run: |
           npm install -g brs-node@2
-          pip install -q playwright
+          pip install -q playwright pillow
           python -m playwright install --with-deps chromium > /dev/null
       - name: Start a fake TV and the Hub server with sample shows
         run: |
@@ -52,6 +52,17 @@ jobs:
         run: |
           (cd hub-tv && zip -qr ../Hub.zip manifest source components images fonts)
           python3 hub-tv/tests/simulate.py Hub.zip screens
+      - name: Check poster fallbacks and image shrinking
+        run: |
+          cd hub-server && python3 - <<'PY' | tee ../screens/art.log
+          import time, hub_server as h
+          for k, t, y in [("tv", "Frieren: Beyond Journey's End", "2023"), ("movie", "Hereditary", "2018"),
+                          ("tv", "Dandadan", "2024"), ("movie", "Your Name", "2016"), ("tv", "Severance", "2022")]:
+              t0 = time.time(); a = h.find_art(k, t, y); print(t, "->", a.get("poster", "NONE")[:90], f"{time.time()-t0:.1f}s")
+          big = h.fetch("https://static.tvmaze.com/uploads/images/original_untouched/0/1.jpg")
+          small = h.shrink_image(big)
+          print("shrink:", len(big), "->", len(small or big))
+          PY
       - name: Publish screenshots
         if: always()
         run: |

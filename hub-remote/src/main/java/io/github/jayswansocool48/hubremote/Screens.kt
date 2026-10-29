@@ -686,7 +686,6 @@ class HubScreen(act: MainActivity) : Screen(act) {
     private val showResults = ListBox(act)
     private val passedLine = act.label("", 13f, Theme.DIM)
     private val about = ListBox(act)
-    private val looks = Chips(act)
     private val modes = ListBox(act)
     private val people = ListBox(act)
     private val showList = ListBox(act)
@@ -699,11 +698,7 @@ class HubScreen(act: MainActivity) : Screen(act) {
         heading("Your Hub", "Changes show up on the TV within a second or two.")
         section("Wallpaper")
         add(HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false; addView(walls) }, 0f)
-        section("Home screen look")
-        looks.add("hub", "Hub: picks and rows")
-        looks.add("console", "PlayStation (PS4): tiles and waves")
-        looks.onPick = { k -> saveHub(json("theme" to k), if (k == "console") "The TV switches to the PlayStation look" else "The TV switches to the Hub look") }
-        add(looks, 0f)
+        section("Morning and night")
         add(modes, 10f)
         section("People", "Each profile keeps its own shows, Keep watching, picks and look.")
         add(people, 0f)
@@ -979,7 +974,6 @@ class HubScreen(act: MainActivity) : Screen(act) {
     private fun hourName(h: Int) = "${if (h % 12 == 0) 12 else h % 12} ${if (h < 12 || h == 24) "AM" else "PM"}"
 
     private fun renderLook(hub: JSONObject, s: JSONObject) {
-        looks.select(hub.optString("theme", "hub").ifEmpty { "hub" })
         val md = hub.optJSONObject("modes") ?: JSONObject()
         val morning = md.optInt("morning", 5)
         val night = md.optInt("night", 21)
