@@ -9,18 +9,31 @@ import { execSync } from 'node:child_process';
 const PKG = 'io.github.jayswansocool48.gamecodex.debug';
 const OUT = process.env.OUT || 'screens';
 const out = [];
-const step = async (name, fn) => { try { await fn(); out.push('ok   ' + name); } catch (e) { out.push('FAIL ' + name + ' — ' + String(e.message || e).split('\n')[0]); } };
+// The emulator's DevTools link to the WebView sometimes drops; reconnect and try the step once more.
+const step = async (name, fn) => {
+  for (let attempt = 0; ; attempt++) {
+    try { await fn(); out.push('ok   ' + name); return; } catch (e) {
+      const msg = String(e.message || e).split('\n')[0];
+      if (attempt === 0 && /Target page, context or browser has been closed/.test(msg)) { out.push('     reconnected during: ' + name); await attach(); continue; }
+      out.push('FAIL ' + name + ' — ' + msg); return;
+    }
+  }
+};
 const adb = (cmd) => execSync('adb ' + cmd, { encoding: 'utf8' });
 // fails when Back sent the app to the background instead of only closing what was open
 const inFront = (label) => { if (!adb('shell dumpsys activity activities').match(/topResumedActivity=.*gamecodex\.debug/)) throw new Error('the app went to the background after ' + label); };
 const shot = (name) => { try { execSync(`adb exec-out screencap -p > ${OUT}/${name}.png`); } catch (e) { /* keep going */ } };
 
 const [device] = await android.devices();
-const webview = await device.webView({ pkg: PKG }, { timeout: 60000 });
-const page = await webview.page();
 const errors = [];
-page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-page.on('pageerror', (e) => errors.push(e.message));
+let page;
+async function attach() {
+  const webview = await device.webView({ pkg: PKG }, { timeout: 60000 });
+  page = await webview.page();
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('pageerror', (e) => errors.push(e.message));
+}
+await attach();
 const wait = (ms) => page.waitForTimeout(ms);
 const nav = (label) => page.click(`nav[aria-label=Main] >> text=${label}`);
 
