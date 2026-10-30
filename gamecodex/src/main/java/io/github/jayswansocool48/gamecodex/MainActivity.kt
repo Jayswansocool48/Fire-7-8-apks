@@ -14,7 +14,6 @@ import android.os.Looper
 import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Base64
-import android.view.KeyEvent
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -99,16 +98,6 @@ class MainActivity : Activity() {
         web.destroy()
         work.shutdown()
         super.onDestroy()
-    }
-
-    /** The Back key goes straight to onBackPressed: if the WebView saw it, it would close a dialog
-     *  as an Escape key and then the page would see nothing open and send the app to the background. */
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode == KeyEvent.KEYCODE_BACK) {
-            if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) onBackPressed()
-            return true
-        }
-        return super.dispatchKeyEvent(event)
     }
 
     /** Back closes the open dialog, sketch or menu first, then steps back towards the library. */

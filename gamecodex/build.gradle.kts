@@ -12,8 +12,8 @@ android {
         minSdk = 21
         // 34 = Android 14, what LineageOS 21 is. Keeps the app out of Android 15's forced edge-to-edge.
         targetSdk = 34
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.4.1"
     }
 
     sourceSets {
