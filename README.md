@@ -216,11 +216,11 @@ The remote presses buttons over ADB on port 5555. Haven runs a small app-list se
 
 ## Game Codex notes
 - Needs the Fire HD 8 (8th gen) on LineageOS 21. Works in portrait and landscape.
-- **Sync:** sign in with GitHub (person icon, top right) to share games with the computer version.
+- **Sync:** tap **Sign in to sync** at the bottom of the menu to share games with the computer version.
 - **Updates:** the app tells you when there's a new version; tap **Update now**. The first time, allow Game Codex to install apps.
 - **Assistant:** Claude and ChatGPT work with an API key. For Ollama, start it on your computer with
   `OLLAMA_HOST=0.0.0.0 ollama serve` and enter the computer's address in Settings, like `http://192.168.1.20:11434`.
-- The web app is a copy of the `game-codex` repo's `web/` folder, in `gamecodex/web-src/web/`.
+- The page is the `game-codex` repo's build (`npm run build`, the `dist/` folder), copied to `gamecodex/web-src/web/`.
 
 ## Building locally
 Open this folder in Android Studio, or run `./gradlew assembleRelease`.

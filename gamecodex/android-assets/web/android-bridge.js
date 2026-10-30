@@ -1,6 +1,7 @@
 /* Connects Game Codex to the tablet. Loaded before the app's own scripts.
-   The app already talks to its desktop window through window.webkit.messageHandlers.codex;
-   this points that at the Android side (window.AndroidCodex) instead. */
+   The app talks to its host through window.webkit.messageHandlers.codex (src/lib/native.ts in the
+   game-codex repo); this points that at the Android side (window.AndroidCodex) and hands over the
+   saved games. The app itself handles the Back button (window.__gameCodexBack). */
 (function () {
   var A = window.AndroidCodex;
   if (!A) return;
@@ -12,49 +13,11 @@
   window.webkit = window.webkit || {};
   window.webkit.messageHandlers = { codex: { postMessage: function (s) { A.post(String(s)); } } };
 
-  // Tablet touch sizes, after the app's own stylesheet.
-  var css = document.createElement("link");
-  css.rel = "stylesheet";
-  css.href = "android.css";
-  document.addEventListener("DOMContentLoaded", function () {
-    document.head.appendChild(css);
-    document.documentElement.classList.add("android");
-    if (window.__gameCodexNative) window.__gameCodexNative({ type: "info", install: "android", version: boot.version || "dev" });
-  });
-
-  // Drawing with a finger: stop the browser treating strokes as scroll/fling gestures.
+  // Drawing with a finger: stop the browser treating strokes as scroll or fling gestures.
   // Without this, the first tap after a quick stroke (on a tool or Save) is swallowed.
   ["touchstart", "touchmove"].forEach(function (type) {
     document.addEventListener(type, function (e) {
       if (e.target && e.target.closest && e.target.closest(".sketch-paper")) e.preventDefault();
     }, { passive: false });
   });
-
-  function escape(target) {
-    target.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-  }
-  function visible(el) { return el && el.offsetParent !== null; }
-
-  // The tablet's Back button: close whatever is on top, then step back towards the library.
-  // Returns false on the library, and the app goes to the background.
-  window.__gameCodexBack = function () {
-    if (document.querySelector(".menu")) { escape(document.activeElement || document.body); return true; }
-    if (document.querySelector(".backdrop")) { escape(document.activeElement || document.body); return true; }
-    var sketch = document.querySelector(".sketch:not([hidden])");
-    if (sketch) { escape(sketch); return true; }
-    if (document.body.classList.contains("studio-open")) {
-      var closeStudio = document.querySelector('[aria-label="Close the 3D studio"]');
-      if (closeStudio) { closeStudio.click(); return true; }
-    }
-    if (window.Codex && Codex.Assistant && Codex.Assistant.isOpen()) { Codex.Assistant.close(); return true; }
-    var back = document.querySelector(".split.has-entry .back-btn");
-    if (visible(back)) { back.click(); return true; }
-    var tabs = document.querySelectorAll(".tabs .tab");
-    if (tabs.length) {
-      if (tabs[0].getAttribute("aria-current") !== "page") { tabs[0].click(); return true; }
-      var mark = document.querySelector(".topbar .mark");
-      if (mark) { mark.click(); return true; }
-    }
-    return false;
-  };
 })();

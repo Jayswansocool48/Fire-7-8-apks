@@ -12,14 +12,14 @@ android {
         minSdk = 21
         // 34 = Android 14, what LineageOS 21 is. Keeps the app out of Android 15's forced edge-to-edge.
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.3.1"
+        versionCode = 5
+        versionName = "0.4.1"
     }
 
     sourceSets {
         getByName("main") {
-            // web-src/web is a copy of the game-codex repo's web/ folder; android-assets adds the
-            // small script that connects it to the tablet's storage.
+            // web-src/web is the built page from the game-codex repo (npm run build, its dist/ folder);
+            // android-assets adds the small script that connects it to the tablet's storage.
             assets.setSrcDirs(listOf("web-src", "android-assets"))
         }
     }
