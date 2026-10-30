@@ -48,7 +48,9 @@ class MainActivity : Activity() {
     private var pendingExport: ((java.io.OutputStream) -> Unit)? = null
     private var pendingExportName = ""
     private var pendingPick: JSONObject? = null
-    private var pendingImportTarget: String? = null
+    private var pendingImportMsg: JSONObject? = null
+    private var pendingExportMsg: JSONObject? = null
+    private var pendingUninstallMsg: JSONObject? = null
     private var update: JSONObject? = null
     private val ai by lazy { Assistant(File(filesDir, "game-codex-config/assistant.json")) }
     private val aiStop = java.util.Collections.synchronizedSet(HashSet<String>())
@@ -139,7 +141,7 @@ class MainActivity : Activity() {
         fun boot(): String = store.boot(versionName(), "https://$HOST/media/")
             .put("platform", "android")
             .put("signedIn", token() != null)
-            .put("features", JSONArray().put("assistant"))
+            .put("features", JSONArray().put("assistant").put("updates"))
             .toString()
 
         @JavascriptInterface
@@ -175,26 +177,23 @@ class MainActivity : Activity() {
             "export" -> {
                 val project = msg.optJSONObject("project") ?: return
                 val markdown = msg.optString("markdown")
-                main.post { askWhereToSave(fileBase(msg) + ".gamecodex", "application/zip") { store.exportZip(project, markdown, it) } }
+                main.post { askWhereToSave(msg, fileBase(msg) + ".gamecodex", "application/zip") { store.exportZip(project, markdown, it) } }
             }
             "export-markdown" -> {
                 val bytes = msg.optString("markdown").toByteArray()
-                main.post { askWhereToSave(fileBase(msg) + ".md", "text/markdown") { it.write(bytes) } }
+                main.post { askWhereToSave(msg, fileBase(msg) + ".md", "text/markdown") { it.write(bytes) } }
             }
             "export-kit" -> {
                 val files = msg.optJSONArray("files")
                 val media = msg.optJSONArray("media")
-                main.post { askWhereToSave(fileBase(msg) + ".zip", "application/zip") { store.exportKit(files, media, it) } }
+                main.post { askWhereToSave(msg, fileBase(msg) + ".zip", "application/zip") { store.exportKit(files, media, it) } }
             }
-            "import" -> {
-                pendingImportTarget = msg.optString("target").takeIf { it.isNotEmpty() && it != "null" }
-                main.post { pickImport() }
-            }
+            "import" -> main.post { pickImport(msg) }
             "delete-data" -> {
                 store.deleteAll()
                 auth.edit().clear().apply()
                 ai.forget()
-                send(JSONObject().put("type", "data-deleted"))
+                reply(msg)
             }
             "http" -> background(msg) {
                 val url = msg.optString("url")
@@ -222,11 +221,14 @@ class MainActivity : Activity() {
             }
             "ai-chat" -> work.execute { aiChat(msg) }
             "ai-stop" -> aiStop.add(msg.optString("chat"))
-            "kiln-scan", "kiln-pick", "kiln-import" -> replyError(msg, "Importing from another app works in Game Codex on your computer.")
-            "check-update" -> work.execute { checkUpdate() }
-            "install-update" -> work.execute { downloadUpdate() }
+            "check-update" -> work.execute { reply(msg, checkUpdate()) }
+            "install-update" -> {
+                // progress arrives as "update" messages; the answer only says it started
+                reply(msg, JSONObject().put("status", "started"))
+                work.execute { downloadUpdate() }
+            }
             "restart" -> main.post { web.reload() }
-            "uninstall" -> main.post { uninstall() }
+            "uninstall" -> main.post { uninstall(msg) }
             "uninstall-finish" -> main.post { finish() }
         }
     }
@@ -266,19 +268,23 @@ class MainActivity : Activity() {
 
     // ---------- files ----------
 
-    private fun askWhereToSave(name: String, mime: String, write: (java.io.OutputStream) -> Unit) {
+    private fun askWhereToSave(msg: JSONObject, name: String, mime: String, write: (java.io.OutputStream) -> Unit) {
+        pendingExportMsg?.let { reply(it, JSONObject().put("cancelled", true)) }
+        pendingExportMsg = msg
         pendingExport = write
         pendingExportName = name
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
             .addCategory(Intent.CATEGORY_OPENABLE)
             .setType(mime)
             .putExtra(Intent.EXTRA_TITLE, name)
-        startForResult(intent, REQ_EXPORT) { send(JSONObject().put("type", "exported").put("error", "Couldn't open the file picker to save it.")) }
+        startForResult(intent, REQ_EXPORT) { pendingExportMsg = null; replyError(msg, "Couldn't open the file picker to save it.") }
     }
 
-    private fun pickImport() {
+    private fun pickImport(msg: JSONObject) {
+        pendingImportMsg?.let { reply(it, JSONObject().put("cancelled", true)) }
+        pendingImportMsg = msg
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
-        startForResult(intent, REQ_IMPORT) { send(JSONObject().put("type", "imported").put("error", "Couldn't open the file picker.")) }
+        startForResult(intent, REQ_IMPORT) { pendingImportMsg = null; replyError(msg, "Couldn't open the file picker.") }
     }
 
     private fun pickFiles(msg: JSONObject) {
@@ -318,13 +324,14 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun uninstall() {
+    private fun uninstall(msg: JSONObject) {
+        pendingUninstallMsg = msg
         @Suppress("DEPRECATION")
         val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE, Uri.parse("package:$packageName"))
             .putExtra(Intent.EXTRA_RETURN_RESULT, true)
         startForResult(intent, REQ_UNINSTALL) {
-            send(JSONObject().put("type", "uninstall").put("status", "error")
-                .put("text", "Couldn't open the uninstaller. Long-press Game Codex in your app list and choose Uninstall."))
+            pendingUninstallMsg = null
+            replyError(msg, "Couldn't open the uninstaller. Long-press Game Codex in your app list and choose Uninstall.")
         }
     }
 
@@ -359,48 +366,51 @@ class MainActivity : Activity() {
                 }
             }
             REQ_EXPORT -> {
+                val msg = pendingExportMsg ?: return
                 val write = pendingExport
                 val name = pendingExportName
                 pendingExport = null
+                pendingExportMsg = null
                 val uri = uris.firstOrNull()
-                if (write == null || uri == null) return
+                if (write == null || uri == null) { reply(msg, JSONObject().put("cancelled", true)); return }
                 work.execute {
                     try {
                         contentResolver.openOutputStream(uri, "wt")?.use { write(it) } ?: throw IOException("no stream")
-                        send(JSONObject().put("type", "exported").put("file", name))
+                        reply(msg, JSONObject().put("file", name))
                     } catch (e: Exception) {
-                        send(JSONObject().put("type", "exported").put("error", "Couldn't save the file there. Try another folder."))
+                        replyError(msg, "Couldn't save the file there. Try another folder.")
                     }
                 }
             }
             REQ_IMPORT -> {
-                val uri = uris.firstOrNull() ?: return
-                val target = pendingImportTarget
+                val msg = pendingImportMsg ?: return
+                pendingImportMsg = null
+                val uri = uris.firstOrNull()
+                if (uri == null) { reply(msg, JSONObject().put("cancelled", true)); return }
                 work.execute {
-                    val out = JSONObject().put("type", "imported").put("target", target ?: JSONObject.NULL)
                     try {
                         val project = contentResolver.openInputStream(uri)?.use { store.importStream(it) } ?: throw IOException("no stream")
-                        out.put("project", project)
+                        reply(msg, JSONObject().put("project", project))
                     } catch (e: IllegalArgumentException) {
-                        out.put("error", e.message)
+                        replyError(msg, e.message ?: "That file isn't a Game Codex export.")
                     } catch (e: Exception) {
-                        out.put("error", "Couldn't open that file.")
+                        replyError(msg, "Couldn't open that file.")
                     }
-                    send(out)
                 }
             }
             REQ_UNINSTALL -> {
                 // When the uninstall goes through, Android closes the app before this runs.
-                if (resultCode != RESULT_OK) {
-                    send(JSONObject().put("type", "uninstall").put("status", "error").put("text", "Uninstall was cancelled. Nothing was removed."))
-                }
+                val msg = pendingUninstallMsg ?: return
+                pendingUninstallMsg = null
+                if (resultCode != RESULT_OK) replyError(msg, "Uninstall was cancelled. Nothing was removed.")
             }
         }
     }
 
     // ---------- updates (from the Fire-7-8-apks repository) ----------
 
-    private fun checkUpdate() {
+    /** The update status for the page: current, available or error. */
+    private fun checkUpdate(): JSONObject {
         // raw.githubusercontent.com first; GitHub's API as a fallback (it serves the same file)
         var r = Net.request(UPDATE_INFO, headers = mapOf("Cache-Control" to "no-cache"), anyGithubHost = true, userAgent = "GameCodex/" + versionName())
         if (r.status != 200) r = Net.request(UPDATE_INFO_API, headers = mapOf("Accept" to "application/vnd.github.raw+json"), userAgent = "GameCodex/" + versionName())
@@ -411,20 +421,21 @@ class MainActivity : Activity() {
                 404 -> "There's no update information on GitHub yet. Try again in a few minutes."
                 else -> "GitHub didn't answer the update check (" + r.status + "). Try again later."
             }
-            send(JSONObject().put("type", "update").put("status", "error").put("text", text))
-            return
+            return JSONObject().put("type", "update").put("status", "error").put("text", text)
         }
         val latest = info.optString("versionName")
         if (info.optLong("versionCode") <= versionCode()) {
-            send(JSONObject().put("type", "update").put("status", "current").put("current", versionName()).put("latest", latest))
-            return
+            return JSONObject().put("type", "update").put("status", "current").put("current", versionName()).put("latest", latest)
         }
         update = info
-        send(JSONObject().put("type", "update").put("status", "available").put("current", versionName()).put("latest", latest).put("canInstall", true))
+        return JSONObject().put("type", "update").put("status", "available").put("current", versionName()).put("latest", latest).put("canInstall", true)
     }
 
     private fun downloadUpdate() {
-        val info = update ?: run { checkUpdate(); update } ?: return
+        val info = update ?: run { checkUpdate(); update } ?: run {
+            send(JSONObject().put("type", "update").put("status", "error").put("text", "Couldn't find the update. Check for updates again."))
+            return
+        }
         val latest = info.optString("versionName")
         if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
             send(JSONObject().put("type", "update").put("status", "error").put("text", "Allow Game Codex to install updates (Android opens that setting now), then tap Update again."))
