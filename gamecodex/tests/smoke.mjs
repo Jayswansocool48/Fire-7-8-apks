@@ -11,7 +11,8 @@ const OUT = process.env.OUT || 'screens';
 const out = [];
 const step = async (name, fn) => { try { await fn(); out.push('ok   ' + name); } catch (e) { out.push('FAIL ' + name + ' — ' + String(e.message || e).split('\n')[0]); } };
 const adb = (cmd) => execSync('adb ' + cmd, { encoding: 'utf8' });
-const top = (label) => { try { out.push('     after ' + label + ': ' + (adb('shell dumpsys activity activities').match(/topResumedActivity=.*?\{[^ ]+ [^ ]+ ([^ }]+)/) || [])[1]); } catch (e) { /* keep going */ } };
+// fails when Back sent the app to the background instead of only closing what was open
+const inFront = (label) => { if (!adb('shell dumpsys activity activities').match(/topResumedActivity=.*gamecodex\.debug/)) throw new Error('the app went to the background after ' + label); };
 const shot = (name) => { try { execSync(`adb exec-out screencap -p > ${OUT}/${name}.png`); } catch (e) { /* keep going */ } };
 
 const [device] = await android.devices();
@@ -83,7 +84,7 @@ await step('the 3D studio opens and Back closes it', async () => {
   shot('09-studio');
   if (!(await page.$('canvas.bl-canvas'))) throw new Error('studio did not open');
   adb('shell input keyevent KEYCODE_BACK'); await wait(1200);
-  top('Back in the studio');
+  inFront('Back in the studio');
   if (await page.$('[aria-label="Close the 3D studio"]')) throw new Error('Back did not close it');
 });
 
@@ -102,14 +103,12 @@ await step('Back closes a dialog first, then steps back', async () => {
   await page.click('button[aria-label=Settings]'); await wait(700);
   shot('06-settings');
   adb('shell input keyevent KEYCODE_BACK'); await wait(900);
-  top('Back in Settings');
+  inFront('Back in Settings');
   if (await page.$('[role=dialog]')) throw new Error('settings still open');
 });
 
 await step('portrait layout', async () => {
   adb('shell wm size 800x1280'); await wait(2500);
-  shot('07a-portrait-before');
-  out.push('     portrait page: ' + await page.evaluate(() => innerWidth + 'x' + innerHeight + ' ' + document.visibilityState + ' ' + (document.querySelector('main h1, main h2')?.textContent || '').slice(0, 40)));
   await page.click('[aria-label^="Open Lantern Keeper"] >> visible=true'); await wait(1000);
   shot('07-portrait-overview');
   await page.click('[aria-label="Open the menu"] >> visible=true'); await wait(700);
