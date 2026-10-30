@@ -1,5 +1,5 @@
-10-29 21:13:46.037  4880  4880 D AndroidRuntime: Shutting down VM
-10-29 21:13:48.219  4895  4895 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
-10-29 21:13:48.220  4895  4895 D AndroidRuntime: CheckJNI is OFF
-10-29 21:13:48.252  4895  4895 D AndroidRuntime: Calling main entry com.android.commands.am.Am
-10-29 21:13:48.257  4895  4895 D AndroidRuntime: Shutting down VM
+10-30 02:38:44.247  4893  4893 D AndroidRuntime: Shutting down VM
+10-30 02:38:46.399  4927  4927 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-30 02:38:46.400  4927  4927 D AndroidRuntime: CheckJNI is OFF
+10-30 02:38:46.429  4927  4927 D AndroidRuntime: Calling main entry com.android.commands.am.Am
+10-30 02:38:46.438  4927  4927 D AndroidRuntime: Shutting down VM
