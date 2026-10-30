@@ -122,6 +122,8 @@ await step('Back closes a dialog first, then steps back', async () => {
 
 await step('portrait layout', async () => {
   adb('shell wm size 800x1280'); await wait(2500);
+  shot('07a-portrait-library');
+  out.push('     portrait page: ' + await page.evaluate(() => innerWidth + 'x' + innerHeight + ' ' + [...document.querySelectorAll('[aria-label^="Open Lantern Keeper"]')].map((e) => Math.round(e.getBoundingClientRect().width) + ':' + e.getBoundingClientRect().top).join(',')));
   await page.click('[aria-label^="Open Lantern Keeper"] >> visible=true'); await wait(1000);
   shot('07-portrait-overview');
   await page.click('[aria-label="Open the menu"] >> visible=true'); await wait(700);
