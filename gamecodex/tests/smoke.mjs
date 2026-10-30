@@ -11,6 +11,7 @@ const OUT = process.env.OUT || 'screens';
 const out = [];
 const step = async (name, fn) => { try { await fn(); out.push('ok   ' + name); } catch (e) { out.push('FAIL ' + name + ' — ' + String(e.message || e).split('\n')[0]); } };
 const adb = (cmd) => execSync('adb ' + cmd, { encoding: 'utf8' });
+const top = (label) => { try { out.push('     after ' + label + ': ' + (adb('shell dumpsys activity activities').match(/topResumedActivity=.*?\{[^ ]+ [^ ]+ ([^ }]+)/) || [])[1]); } catch (e) { /* keep going */ } };
 const shot = (name) => { try { execSync(`adb exec-out screencap -p > ${OUT}/${name}.png`); } catch (e) { /* keep going */ } };
 
 const [device] = await android.devices();
@@ -82,6 +83,7 @@ await step('the 3D studio opens and Back closes it', async () => {
   shot('09-studio');
   if (!(await page.$('canvas.bl-canvas'))) throw new Error('studio did not open');
   adb('shell input keyevent KEYCODE_BACK'); await wait(1200);
+  top('Back in the studio');
   if (await page.$('[aria-label="Close the 3D studio"]')) throw new Error('Back did not close it');
 });
 
@@ -100,6 +102,7 @@ await step('Back closes a dialog first, then steps back', async () => {
   await page.click('button[aria-label=Settings]'); await wait(700);
   shot('06-settings');
   adb('shell input keyevent KEYCODE_BACK'); await wait(900);
+  top('Back in Settings');
   if (await page.$('[role=dialog]')) throw new Error('settings still open');
 });
 
