@@ -1,0 +1,17 @@
+ok   the page loads with the Android bridge
+ok   a sample game opens and is saved to the tablet
+ok   a file is saved and served back with byte ranges
+ok   the network bridge reaches GitHub and nothing else
+ok   the assistant settings are saved on the tablet
+     reconnected during: the 3D studio opens and Back closes it
+FAIL the 3D studio opens and Back closes it — page.click: Target page, context or browser has been closed
+     reconnected during: character sheet, media and library screens
+FAIL character sheet, media and library screens — page.click: Target page, context or browser has been closed
+     reconnected during: Back closes a dialog first, then steps back
+FAIL Back closes a dialog first, then steps back — page.click: Target page, context or browser has been closed
+     reconnected during: portrait layout
+FAIL portrait layout — page.waitForTimeout: Target page, context or browser has been closed
+     reconnected during: the update check reads the APK repository
+FAIL the update check reads the APK repository — page.evaluate: Target page, context or browser has been closed
+ok   no errors in the console
+6/11 passed
