@@ -92,7 +92,7 @@ await step('character sheet, media and library screens', async () => {
   await nav('Media'); await wait(500);
   await page.click('[data-card]'); await wait(700);
   shot('04-media');
-  await nav('Library'); await wait(900);
+  await nav('Library'); await wait(1600);
   shot('05-library');
 });
 
@@ -105,9 +105,9 @@ await step('Back closes a dialog first, then steps back', async () => {
 
 await step('portrait layout', async () => {
   adb('shell wm size 800x1280'); await wait(2500);
-  await page.click('[aria-label^="Open Lantern Keeper"]'); await wait(1000);
+  await page.click('[aria-label^="Open Lantern Keeper"] >> visible=true'); await wait(1000);
   shot('07-portrait-overview');
-  await page.click('[aria-label="Open the menu"]'); await wait(700);
+  await page.click('[aria-label="Open the menu"] >> visible=true'); await wait(700);
   await nav('Characters'); await wait(600);
   await page.click('[data-card]:has-text("Wren")'); await wait(800);
   shot('08-portrait-character');
