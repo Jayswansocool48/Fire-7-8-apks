@@ -52,6 +52,10 @@ jobs:
         run: |
           (cd hub-tv && zip -qr ../Hub.zip manifest source components images fonts)
           python3 hub-tv/tests/simulate.py Hub.zip screens
+      - name: Check the control page script
+        run: |
+          python3 -c "import re;s=open('hub-server/hub_control.html').read();open('cp.js','w').write(chr(10).join(re.findall(r'<script[^>]*>(.*?)</script>',s,re.S)))"
+          node --check cp.js
       - name: Check poster fallbacks and image shrinking
         run: |
           cd hub-server && python3 - <<'PY' | tee ../screens/art.log

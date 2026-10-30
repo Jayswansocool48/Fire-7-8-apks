@@ -907,7 +907,7 @@ function renderHubFrom(s) { hub = s.hub; if (s.accents) ACCENTS = s.accents;
   $("#place").value = hub.location || ""; $("#placeinfo").textContent = s.place ? "Showing weather for " + s.place.name + (s.place.region ? ", " + s.place.region : "") : "";
   $("#ssmin").value = String(hub.screensaver?.minutes ?? 5); $("#sssrc").value = hub.screensaver?.source || "gallery";
   $("#cal").value = s.settings.calendar_url || ""; renderYT(s.youtube); renderAnime(s.anime); renderEvents(s.events); renderNotes(s.notes);
-  renderShows(s.shows); renderPassed(s.passed || 0); renderQuotes(s.quotes); renderAI(s.ai); }
+  renderShows(s.shows); renderPassed(s.passed || 0); renderQuotes(s.quotes); renderAI(s.ai); renderModes(); }
 async function loadHub() { const cached = window.__status || store.get("status");
   if (cached) { renderHubFrom(cached); $("#updating").classList.add("show"); }
   await status(); if (window.__status) renderHubFrom(window.__status); }
@@ -1164,6 +1164,7 @@ async function openTitle(it) { openSheet("titlesheet"); const body = $("#titlebo
 
 /* ---------------- look and modes ---------------- */
 for (const [id, from, to] of [["#modemorning", 3, 12], ["#modenight", 17, 24]]) for (let i = from; i <= to; i++) $(id).append(h("option", { value: i }, (i % 12 || 12) + (i < 12 || i === 24 ? " AM" : " PM")));
+function renderModes() {
   const md = hub.modes || {}; $("#modeauto").checked = md.auto !== false; syncSwitch($("#modeauto")); $("#modemorning").value = md.morning || 5; $("#modenight").value = md.night || 21; }
 const saveModes = () => saveHub({ modes: { auto: $("#modeauto").checked, morning: +$("#modemorning").value, night: +$("#modenight").value } }, "Saved");
 $("#modeauto").onchange = () => { syncSwitch($("#modeauto")); saveModes(); }; $("#modemorning").onchange = saveModes; $("#modenight").onchange = saveModes;

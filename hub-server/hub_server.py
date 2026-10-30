@@ -56,7 +56,7 @@ try:
 except ImportError:  # Python < 3.9
     ZoneInfo = None
 
-VERSION = "5.2.1"
+VERSION = "5.2.2"
 # Where "Check for updates" looks for newer server files.
 UPDATE_BASE = "https://raw.githubusercontent.com/Jayswansocool48/Fire-7-8-apks/main/hub-server/"
 UPDATE_FILES = ["hub_server.py", "hub_control.html", "start.sh", "install.sh", "VERSION", "fonts/geist.woff", "fonts/LICENSE-Geist-OFL.txt"]
