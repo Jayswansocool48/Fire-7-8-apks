@@ -35,7 +35,8 @@ async function attach() {
 }
 await attach();
 const wait = (ms) => page.waitForTimeout(ms);
-const nav = (label) => page.click(`nav[aria-label=Main] >> text=${label}`);
+// the desktop sidebar stays in the page (hidden) when the slide-out menu is open, so pick the visible one
+const nav = (label) => page.click(`nav[aria-label=Main] >> text=${label} >> visible=true`);
 
 // Sends a message the way the page does and waits for the tablet's answer.
 const ask = (msg, timeout = 30000) => page.evaluate(({ msg, timeout }) => new Promise((resolve) => {
@@ -122,8 +123,6 @@ await step('Back closes a dialog first, then steps back', async () => {
 
 await step('portrait layout', async () => {
   adb('shell wm size 800x1280'); await wait(2500);
-  shot('07a-portrait-library');
-  out.push('     portrait page: ' + await page.evaluate(() => innerWidth + 'x' + innerHeight + ' ' + [...document.querySelectorAll('[aria-label^="Open Lantern Keeper"]')].map((e) => Math.round(e.getBoundingClientRect().width) + ':' + e.getBoundingClientRect().top).join(',')));
   await page.click('[aria-label^="Open Lantern Keeper"] >> visible=true'); await wait(1000);
   shot('07-portrait-overview');
   await page.click('[aria-label="Open the menu"] >> visible=true'); await wait(700);
